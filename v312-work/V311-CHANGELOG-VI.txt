@@ -1,0 +1,7 @@
+LÝ LÂM LAM V311 — SỬA BÁO CÁO CHẨN ĐOÁN CHẾ ĐỘ THREE.JS
+================================================================
+- Sửa một thông tin sai trong báo cáo chẩn đoán trình duyệt: khi không có tham số ?three=, ứng dụng dùng Three.js đóng gói nội bộ, không phải CDN.
+- Báo cáo phân biệt rõ chế độ mặc định/nội bộ, CDN jsDelivr và CDN unpkg; giá trị tham số không hợp lệ được ghi rõ thay vì báo sai.
+- Thêm kiểm thử hồi quy để ngăn báo cáo chẩn đoán mô tả sai chế độ thư viện mặc định.
+- Không thay đổi mô hình GLB, thư viện runtime hoặc giao diện avatar.
+- Giới hạn: chưa xác minh render avatar trên Chrome Windows/Safari iPhone thật; vẫn cần kiểm tra trực tiếp trên thiết bị của người dùng.

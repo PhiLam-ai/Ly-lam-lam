@@ -1,0 +1,7 @@
+LÝ LÂM LAM V309 — MẶC ĐỊNH DÙNG THREE.JS ĐÓNG GÓI NỘI BỘ
+================================================================
+- Sửa điểm phụ thuộc quan trọng: khi URL không có tham số `three`, import map trước đây mặc định gọi CDN jsDelivr dù gói đã chứa Three.js. V309 mặc định dùng `./vendor/three/` để khởi chạy cục bộ và trên host tĩnh không cần tải thư viện 3D từ CDN.
+- Giữ hai lựa chọn CDN có ghim phiên bản qua `?three=cdn` và `?three=unpkg` để chẩn đoán khi cần.
+- Cập nhật báo cáo chẩn đoán và nút chuyển chế độ để mô tả đúng chế độ mặc định mới.
+- Thêm kiểm thử hồi quy xác nhận default local, CDN overrides và các tệp mô-đun cần thiết có trong gói.
+- Giới hạn: kiểm thử tự động không thay thế xác minh avatar render trên Chrome Windows hoặc Safari/iPhone thật.

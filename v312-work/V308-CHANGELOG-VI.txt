@@ -1,0 +1,7 @@
+LÝ LÂM LAM V308 — BÁO CÁO CHẨN ĐOÁN TRÌNH DUYỆT CÓ THỂ SAO CHÉP
+================================================================
+- Thêm nút tạo báo cáo chẩn đoán khi khởi chạy gặp lỗi hoặc bị treo.
+- Báo cáo thu thập trạng thái WebGL, trình duyệt, URL, cờ khởi chạy, thông báo lỗi và mã HTTP HEAD của GLB/Three.js nội bộ.
+- Thêm sao chép báo cáo; nếu Clipboard API bị chặn, nội dung được chọn để người dùng nhấn Ctrl+C.
+- Không tự tải lên dữ liệu; báo cáo chỉ được tạo trong trình duyệt.
+- Giữ nguyên launcher và bản xem thử V307; không tuyên bố đã xác minh render avatar thật.

@@ -1,0 +1,7 @@
+LÝ LÂM LAM V307 — TỰ MỞ TRÌNH DUYỆT SAU KHI MÁY CHỦ SẴN SÀNG
+================================================================
+- START-LAM-LAM-WINDOWS.bat nay yêu cầu launcher tự mở URL xem thử bằng trình duyệt mặc định sau khi máy chủ in URL sẵn sàng.
+- Thêm tùy chọn --open-browser cho launcher; URL được lấy từ dòng sẵn sàng thực tế, không đoán cổng.
+- Nếu hệ điều hành không mở được trình duyệt, máy chủ vẫn chạy và URL được giữ lại để mở thủ công.
+- Giữ kiểm tra startup gate trước khi khởi động máy chủ.
+- Giới hạn: môi trường tạo gói không xác minh được cửa sổ Chrome/WebGL thực tế; V307 không được xem là bằng chứng avatar đã hiển thị trên máy Windows của người dùng.

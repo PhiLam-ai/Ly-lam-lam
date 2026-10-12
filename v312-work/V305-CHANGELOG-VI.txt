@@ -1,0 +1,7 @@
+LÝ LÂM LAM V305 — KHỞI CHẠY WINDOWS BẰNG MỘT TỆP
+================================================
+- Thêm START-LAM-LAM-WINDOWS.bat để người dùng Windows không cần tự gõ lần lượt các lệnh kiểm tra và khởi động.
+- Tệp này chạy cổng xác minh V304 trước; nếu bất kỳ bước nào thất bại, nó dừng và không mở máy chủ.
+- Khi toàn bộ kiểm tra đạt, nó khởi chạy bản xem trước bằng Three.js nội bộ (`--local-three`) và in URL để mở trong Chrome.
+- Không cần Git, GitHub, npm install hoặc thư viện bổ sung. Máy vẫn cần Node.js đã cài và có lệnh `node` hoạt động.
+- Kiểm thử mã/HTTP không thay thế kiểm tra render WebGL thật. Avatar trên Chrome Windows và Safari/iPhone vẫn cần được xác nhận trực tiếp.

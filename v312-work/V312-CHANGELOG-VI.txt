@@ -1,0 +1,7 @@
+LÝ LÂM LAM V312 — PHÂN LOẠI LỖI KHỞI TẠO WEBGL ĐÚNG ƯU TIÊN
+================================================================
+- Sửa thứ tự phân loại lỗi trong hai bộ xử lý `error` và `unhandledrejection`.
+- Khi WebGLRenderer không tạo được context, thông báo nay ưu tiên hướng dẫn WebGL/GPU thay vì phân loại nhầm thành lỗi mã ứng dụng cục bộ chỉ vì nguồn phát sinh là index.html.
+- Thêm kiểm thử hồi quy xác nhận cả hai bộ xử lý ưu tiên thông báo WebGL.
+- Không thay đổi GLB, thư viện Three.js hoặc hành vi avatar khi khởi chạy thành công.
+- Giới hạn: chưa thể xác nhận render trên Chrome Windows/Safari iPhone thật trong môi trường hiện tại; cần kiểm tra trên thiết bị thực tế.

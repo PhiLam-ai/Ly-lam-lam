@@ -1,0 +1,34 @@
+LÝ LÂM LAM — KIỂM TRA CẤU TRÚC MÔ HÌNH GLB
+============================================
+Tệp được kiểm tra: lam-default.glb
+Dung lượng: 390.580 byte
+Nguồn ghi trong metadata: Lý Lâm Lam v1.94
+Định dạng: glTF Binary (GLB) 2.0
+
+KẾT QUẢ KIỂM TRA TĨNH
+- 103 node, 85 mesh, 85 primitive; mỗi primitive dùng chế độ tam giác.
+- 8.036 đỉnh POSITION và 33.804 chỉ số đỉnh, tương đương 11.268 tam giác được lập chỉ mục.
+- 1 skin với 17 khớp (joints).
+- 4 material: skin, hair, dress, shoes.
+- Không có texture ảnh nhúng: 0 texture, 0 image, 0 sampler.
+- 6 animation clip, tên đều có hậu tố Deform_Test: vai, khuỷu tay, hông, gối, cổ chân và cổ tay.
+- 12 tên morph được khai báo: smile, blink_left, blink_right, mouth_open, brow_raise, jaw_open, jaw_hinge, cheek_raise, lip_press, lip_fv, lip_round, tongue_tip.
+- Morph chỉ xuất hiện trên 6 mesh: left_eye, right_eye, left_brow, right_brow, mouth và chin; các mesh còn lại không có morph target.
+- 79/85 mesh không có morph target; đây là số liệu cấu trúc, không tự nó chứng minh mô hình sai.
+
+ĐÁNH GIÁ VÀ GIỚI HẠN
+1. Tệp GLB và cấu trúc cơ bản hợp lệ theo các kiểm tra tự động hiện có.
+2. Dung lượng và số lượng đỉnh tương đối gọn cho một bản xem thử web; hiệu năng thực tế vẫn phụ thuộc thiết bị, trình duyệt, ánh sáng và tải Three.js từ CDN.
+3. Sáu animation hiện có được đặt tên là các bài thử biến dạng khớp. Metadata chưa cho thấy bộ animation hoàn chỉnh như Idle, Walk hoặc Talk.
+4. Không có texture ảnh nhúng. Chất liệu có thể đang dựa vào màu/thuộc tính material; không thể suy ra chất lượng da, tóc hoặc quần áo chỉ từ tên material.
+5. Tên morph được lặp trên sáu mesh không chứng minh rằng mỗi morph tác động đúng vùng giải phẫu. Cần xem trực quan từng morph để xác nhận mắt, lông mày, miệng và cằm không biến dạng sai.
+6. Báo cáo này không chứng minh độ chân thực khuôn mặt, tỷ lệ cơ thể, chất lượng skinning, bóng đổ, độ mượt animation hay hiển thị trên Safari/iPhone.
+
+ƯU TIÊN KIỂM TRA TIẾP THEO
+- Mở bản xem thử qua HTTPS và kiểm tra góc chính diện, nghiêng, toàn thân.
+- Kiểm tra từng morph ở mức 0, 0.5 và 1; đặc biệt blink_left/right, smile, mouth_open, jaw_open và jaw_hinge.
+- Chạy các animation Deform_Test và ghi lại điểm gãy ở vai, khuỷu tay, hông, gối, cổ chân, cổ tay.
+- Nếu có lỗi hình học, chỉnh sửa từ nguồn mô hình gốc và tạo phiên bản GLB mới; không sửa nhị phân GLB bằng cách phỏng đoán.
+- Sau đó mới đánh giá có cần bổ sung texture, animation Idle/Talk và biểu cảm khuôn mặt chi tiết hơn hay không.
+
+Chưa thể kết luận chất lượng hình ảnh chỉ từ metadata và cấu trúc nhị phân. Báo cáo này không phải chứng nhận chất lượng nghệ thuật hay kiểm thử trực quan.

@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Lý Lâm Lam — Avatar 3D</title>
+<style>
+*{box-sizing:border-box}html,body,#stage{margin:0;width:100%;height:100%;height:100dvh;overflow:hidden;background:#101827;color:#fff;font:14px system-ui,sans-serif}#status{position:absolute;left:12px;right:12px;bottom:10px;padding:7px 10px;border-radius:10px;background:#172235cc;color:#e5e7eb;pointer-events:none}#diagnostics{display:none;position:absolute;top:calc(max(10px, env(safe-area-inset-top)) + 100px);left:10px;right:10px;max-height:calc(100vh - 140px);max-height:calc(100dvh - 140px);overflow:auto;padding:10px;border-radius:12px;background:#172235ee;color:#fff;z-index:2}#diagnostics button{margin:3px;padding:7px 9px;border:1px solid #718096;border-radius:8px;background:#26364d;color:#fff}#diagnostics button:active{background:#49658c}#preset-buttons button[aria-pressed="true"]{background:#355c7d;border-color:#a7d8ff;box-shadow:0 0 0 1px #a7d8ff inset}#preset-buttons{padding:4px 0 8px}#morph-buttons{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:7px;margin:8px 0}#morph-buttons label{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;align-items:center;padding:8px;border:1px solid #46566d;border-radius:8px;font-size:12px}#morph-buttons input[type=range]{grid-column:1 / -1;width:100%;min-height:28px;accent-color:#a7d8ff;touch-action:pan-y}#morph-buttons output{font-variant-numeric:tabular-nums;color:#c8e7ff}#baseline-tools{display:grid;grid-template-columns:1fr;gap:6px;margin:8px 0;padding:8px;border:1px solid #46566d;border-radius:8px}#baseline-case{width:100%;min-height:40px;background:#0d1522;color:#fff;border:1px solid #718096;border-radius:8px;padding:8px}#evaluation-compare-tools{display:grid;grid-template-columns:1fr;gap:6px;margin:8px 0;padding:8px;border:1px solid #46566d;border-radius:8px}#evaluation-tools{display:grid;grid-template-columns:1fr;gap:6px;margin:8px 0;padding:8px;border:1px solid #46566d;border-radius:8px}#evaluation-tools input,#evaluation-tools select{width:100%;min-height:38px;background:#0d1522;color:#fff;border:1px solid #718096;border-radius:8px;padding:8px}#evaluation-tools textarea,#evaluation-compare-tools textarea,#evaluation-report-tools textarea{width:100%;min-height:100px;resize:vertical;background:#0d1522;color:#e5e7eb;border:1px solid #718096;border-radius:8px;padding:8px;font:12px ui-monospace,monospace}#evaluation-scores{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:6px}#evaluation-scores label{display:grid;gap:4px;font-size:12px}#snapshot-tools{display:grid;grid-template-columns:1fr;gap:6px;margin:8px 0;padding:8px;border:1px solid #46566d;border-radius:8px}#snapshot-json,#compare-json-a,#compare-json-b,#evaluation-compare-a,#evaluation-compare-b{width:100%;min-height:120px;resize:vertical;background:#0d1522;color:#e5e7eb;border:1px solid #718096;border-radius:8px;padding:8px;font:12px ui-monospace,monospace}#mesh-buttons{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:4px;margin:6px 0}#mesh-buttons label{display:flex;gap:6px;align-items:center;overflow-wrap:anywhere;padding:4px;border:1px solid #46566d;border-radius:6px;font-size:12px}#mesh-buttons input{flex-shrink:0}#diag-result{margin-top:6px;font-size:12px;line-height:1.4}#vertex-manifest{display:block;margin:7px 0;max-width:100%;font-size:12px}#trace-controls{display:grid;grid-template-columns:1fr;gap:5px;margin:8px 0;padding:8px;border:1px solid #46566d;border-radius:8px}#trace-time{width:100%}canvas{display:block}#quick-controls{position:absolute;top:max(10px,env(safe-area-inset-top));left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));width:calc(100% - 20px);max-width:520px;margin-inline:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;z-index:3;pointer-events:none}#quick-controls button{pointer-events:auto;min-height:44px;min-width:0;padding:8px 5px;border:1px solid #718096;border-radius:12px;background:#172235e8;color:#fff;font:inherit;box-shadow:0 2px 10px #0003;touch-action:manipulation}#quick-controls button:focus-visible{outline:3px solid #a7d8ff;outline-offset:2px}#quick-controls button:active{background:#385273}#help{position:absolute;top:calc(max(10px, env(safe-area-inset-top)) + 100px);left:12px;right:12px;max-width:520px;margin:auto;padding:10px 12px;border-radius:12px;background:#172235ed;color:#e5e7eb;line-height:1.45;z-index:1}#help[hidden]{display:none}#status{bottom:max(10px,env(safe-area-inset-bottom));padding:10px 12px;pointer-events:auto}#retry-startup{display:block;margin-top:8px;min-height:40px;padding:8px 12px;border:1px solid #a7d8ff;border-radius:9px;background:#26364d;color:#fff;font:inherit}#retry-startup[hidden],#switch-three-mode[hidden],#startup-report-button[hidden],#startup-report-panel[hidden]{display:none}#startup-report-button,#startup-report-copy{display:inline-block;margin:6px 4px 0 0;min-height:38px;padding:7px 10px;border:1px solid #a7d8ff;border-radius:9px;background:#26364d;color:#fff;font:inherit}#startup-report-panel{position:absolute;left:10px;right:10px;bottom:78px;z-index:5;max-height:48dvh;overflow:auto;padding:12px;border:1px solid #718096;border-radius:12px;background:#101827f5;box-shadow:0 4px 20px #0008}#startup-report-panel textarea{display:block;width:100%;min-height:160px;resize:vertical;margin-top:8px;padding:8px;border:1px solid #718096;border-radius:8px;background:#0b1220;color:#e5e7eb;font:12px ui-monospace,monospace;white-space:pre-wrap}
+</style>
+<script>
+// Import map is selected before the app module is parsed. Add the official Three.js
+// package with tools/vendor-three.cjs to enable ?three=local for offline/self-hosted use.
+(()=>{const mode=new URLSearchParams(location.search).get('three');const local=new URLSearchParams(location.search).get('three')==='local'||mode===null;const base=local?'./vendor/three/':mode==='unpkg'?'https://unpkg.com/three@0.160.0/':'https://cdn.jsdelivr.net/npm/three@0.160.0/';const imports={three:base+'build/three.module.js','three/addons/':base+'examples/jsm/'};document.write('<script type="importmap">'+JSON.stringify({imports})+'<\/script>');})();
+</script>
+</head><body><div id="stage"></div><nav id="quick-controls" aria-label="Điều khiển avatar"><button type="button" id="view-face" aria-label="Xem gần khuôn mặt">Khuôn mặt</button><button type="button" id="view-full" aria-label="Xem toàn thân">Toàn thân</button><button type="button" id="zoom-out" aria-label="Thu nhỏ avatar">−</button><button type="button" id="zoom-in" aria-label="Phóng to avatar">+</button><button type="button" id="view-reset" aria-label="Đặt lại góc nhìn">Đặt lại</button><button type="button" id="help-toggle" aria-expanded="false" aria-controls="help">Hướng dẫn</button></nav><aside id="help" hidden>Vuốt để xoay góc nhìn, kéo hai ngón tay để phóng to/thu nhỏ. Dùng “Khuôn mặt” hoặc “Toàn thân” để chuyển nhanh góc nhìn. Bản này là avatar 3D xem thử cục bộ; chưa kết nối hội thoại AI hay giọng nói.</aside><div id="diagnostics"><strong>Kiểm tra biểu cảm trực tiếp</strong><p>Chọn từng morph để kiểm tra biến dạng trên mô hình đang hiển thị. Chế độ này chỉ bật với ?diagnostics=1.</p><div id="preset-buttons"><strong>Thử tổ hợp</strong><br><button data-preset="smile">Nụ cười</button><button data-preset="blink">Chớp mắt</button><button data-preset="talk">Mở miệng nói</button><button data-preset="fv">Âm F/V</button><button data-preset="round">Môi tròn</button><button data-preset="smile-blink" aria-pressed="false">Cười + chớp mắt</button><button data-preset="smile-talk" aria-pressed="false">Cười khi nói</button><button data-preset="round-talk" aria-pressed="false">Môi tròn khi nói</button></div><section id="baseline-tools" aria-label="Bộ ca thử biểu cảm chuẩn hóa"><strong>Bộ ca thử chuẩn hóa (V228)</strong><p>Chọn một ca để áp dụng đủ 12 trọng số. Đây là preset tạm thời, chưa được xác nhận trực quan.</p><label for="baseline-case">Ca biểu cảm</label><select id="baseline-case" disabled><option value="">Đang tải bộ ca thử…</option></select><button id="baseline-apply" type="button" disabled>Áp dụng ca thử</button><p id="baseline-description" aria-live="polite">Các ca thử được tải từ tệp JSON đi kèm gói.</p></section><strong>Điều chỉnh từng morph (0–1)</strong><p>Kéo thanh trượt để xem mức biến dạng trực tiếp. Các giá trị chỉ tác động lên bản xem thử hiện tại.</p><div id="morph-buttons"></div><section id="snapshot-tools" aria-label="Lưu và khôi phục tổ hợp biểu cảm"><strong>Lưu / khôi phục tổ hợp</strong><p>Tạo JSON để lưu hoặc gửi lại tổ hợp đang thử. Dán một JSON hợp lệ rồi áp dụng để tái tạo chính xác các trọng số trên bản xem thử.</p><div><button id="snapshot-create" type="button">Tạo bản ghi hiện tại</button><button id="snapshot-apply" type="button">Áp dụng bản ghi</button></div><label for="snapshot-json">JSON tổ hợp biểu cảm</label><textarea id="snapshot-json" spellcheck="false" aria-describedby="snapshot-note" placeholder="Bấm ‘Tạo bản ghi hiện tại’ để sinh JSON…"></textarea><small id="snapshot-note">Chỉ xử lý tại trình duyệt hiện tại; không gửi dữ liệu lên máy chủ.</small></section><section id="evaluation-tools" aria-label="Phiếu đánh giá biểu cảm"><strong>Phiếu đánh giá trực quan (V229)</strong><p>Ghi lại điểm và bằng chứng của ca thử đang chọn. Đây là phiếu thủ công; chưa có chấm điểm tự động. Dữ liệu chỉ được tạo trong trình duyệt.</p><label for="evaluation-version">Phiên bản dự án</label><input id="evaluation-version" value="V231" maxlength="40"><label for="evaluation-device">Thiết bị / trình duyệt</label><input id="evaluation-device" placeholder="Ví dụ: iPhone · Safari · viewport 390×844" maxlength="160"><label for="evaluation-reviewer">Người đánh giá (không bắt buộc)</label><input id="evaluation-reviewer" placeholder="Tên viết tắt hoặc mã người đánh giá" maxlength="120"><div id="evaluation-scores"><label>Nhận diện<select data-score="recognition"><option value="N/A">N/A</option><option value="0">0 · lỗi nghiêm trọng</option><option value="1">1 · yếu</option><option value="2">2 · dùng được</option><option value="3">3 · tốt</option><option value="4">4 · tốt, ổn định</option></select></label><label>Cân đối<select data-score="symmetry"><option value="N/A">N/A</option><option value="0">0 · lỗi nghiêm trọng</option><option value="1">1 · yếu</option><option value="2">2 · dùng được</option><option value="3">3 · tốt</option><option value="4">4 · tốt, ổn định</option></select></label><label>Biến dạng<select data-score="deformation"><option value="N/A">N/A</option><option value="0">0 · lỗi nghiêm trọng</option><option value="1">1 · yếu</option><option value="2">2 · dùng được</option><option value="3">3 · tốt</option><option value="4">4 · tốt, ổn định</option></select></label><label>Chuyển tiếp<select data-score="transition"><option value="N/A">N/A</option><option value="0">0 · lỗi nghiêm trọng</option><option value="1">1 · yếu</option><option value="2">2 · dùng được</option><option value="3">3 · tốt</option><option value="4">4 · tốt, ổn định</option></select></label><label>Khả năng lặp lại<select data-score="repeatability"><option value="N/A">N/A</option><option value="0">0 · lỗi nghiêm trọng</option><option value="1">1 · yếu</option><option value="2">2 · dùng được</option><option value="3">3 · tốt</option><option value="4">4 · tốt, ổn định</option></select></label></div><label for="evaluation-observations">Lỗi / quan sát cụ thể</label><textarea id="evaluation-observations" maxlength="2000" placeholder="Mô tả điều nhìn thấy, không suy diễn từ delta số học…"></textarea><label for="evaluation-evidence">Tên tệp ảnh bằng chứng (nếu có)</label><input id="evaluation-evidence" maxlength="240" placeholder="Ví dụ: V229-smile-soft-iphone.png"><button id="evaluation-create" type="button">Tạo phiếu JSON</button><label for="evaluation-json">Phiếu đánh giá đã tạo</label><textarea id="evaluation-json" spellcheck="false" placeholder="Phiếu JSON sẽ xuất hiện ở đây…"></textarea><button id="evaluation-validate" type="button">Kiểm tra phiếu JSON</button><p id="evaluation-result" aria-live="polite">Chọn ca thử trước để gắn đúng ID vào phiếu.</p></section><section id="evaluation-compare-tools" aria-label="So sánh hai phiếu đánh giá"><strong>So sánh phiếu đánh giá giữa phiên bản</strong><p>Dán hai phiếu đánh giá JSON của cùng một ca thử. Bảng sẽ so sánh điểm từng tiêu chí, trung bình các điểm có chấm, ghi chú và snapshot nếu có. Điểm là đánh giá thủ công; chênh lệch morph không chứng minh chất lượng hình ảnh tốt hơn.</p><label for="evaluation-compare-a">Phiếu A · phiên bản trước</label><textarea id="evaluation-compare-a" spellcheck="false" placeholder="Dán phiếu đánh giá A…"></textarea><label for="evaluation-compare-b">Phiếu B · phiên bản sau</label><textarea id="evaluation-compare-b" spellcheck="false" placeholder="Dán phiếu đánh giá B…"></textarea><button id="evaluation-compare-run" type="button">So sánh hai phiếu</button><pre id="evaluation-compare-result" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre><button id="evaluation-report-create" type="button">Tạo báo cáo JSON</button><section id="evaluation-report-tools" aria-label="Xuất báo cáo so sánh"><label for="evaluation-report-json">Báo cáo so sánh JSON</label><textarea id="evaluation-report-json" spellcheck="false" placeholder="Chạy so sánh thành công rồi bấm ‘Tạo báo cáo JSON’…"></textarea><button id="evaluation-report-validate" type="button">Kiểm tra báo cáo JSON</button><p id="evaluation-report-result" aria-live="polite">Báo cáo chỉ được tạo cục bộ; hãy sao chép JSON để lưu riêng.</p></section><section id="evaluation-aggregate-tools" aria-label="Tổng hợp nhiều báo cáo"><strong>Tổng hợp nhiều báo cáo đánh giá</strong><p>Dán một mảng JSON gồm các báo cáo V231 đã kiểm tra. Kết quả nhóm theo ca thử, thống kê số lần điểm tăng/giữ nguyên/giảm và delta trung bình; đây vẫn là tổng hợp điểm thủ công, không tự kết luận chất lượng hình ảnh.</p><label for="evaluation-aggregate-input">Danh sách báo cáo JSON (mảng)</label><textarea id="evaluation-aggregate-input" spellcheck="false" placeholder="[ { báo cáo 1 }, { báo cáo 2 } ]"></textarea><button id="evaluation-aggregate-run" type="button">Tổng hợp báo cáo</button><label for="evaluation-aggregate-output">Kết quả tổng hợp JSON</label><textarea id="evaluation-aggregate-output" spellcheck="false" placeholder="Kết quả tổng hợp sẽ xuất hiện ở đây…"></textarea><p id="evaluation-aggregate-result" aria-live="polite">Tổng hợp cục bộ; không gửi dữ liệu lên máy chủ.</p></section><section id="evaluation-evidence-audit-tools" aria-label="Kiểm tra tham chiếu tệp bằng chứng"><strong>Kiểm tra hồ sơ bằng chứng + SHA-256 (V234)</strong><p>Dán mảng báo cáo JSON và chọn các ảnh bằng chứng tương ứng. Công cụ đối chiếu tên tệp và tính SHA-256 cho từng tệp ảnh đã chọn để nhận diện chính xác byte của tệp. Không tải ảnh lên; hash không chứng minh ảnh đúng biểu cảm và không xác nhận ảnh đúng phiên bản.</p><label for="evaluation-evidence-audit-input">Danh sách báo cáo JSON (mảng)</label><textarea id="evaluation-evidence-audit-input" spellcheck="false" placeholder="Dán mảng báo cáo so sánh…"></textarea><label for="evaluation-evidence-files">Chọn các tệp ảnh bằng chứng cần đối chiếu</label><input id="evaluation-evidence-files" type="file" accept="image/*" multiple><button id="evaluation-evidence-audit-run" type="button">Kiểm tra tên tệp + SHA-256</button><label for="evaluation-evidence-audit-output">Kết quả kiểm tra JSON</label><textarea id="evaluation-evidence-audit-output" spellcheck="false" placeholder="Kết quả đối chiếu sẽ xuất hiện ở đây…"></textarea><p id="evaluation-evidence-audit-result" aria-live="polite">Đối chiếu tên tệp và tạo dấu vân tay SHA-256 cục bộ; không gửi tệp lên máy chủ.</p></section></section><section id="compare-tools" aria-label="So sánh hai bản ghi biểu cảm"><strong>So sánh hai bản ghi</strong><p>Dán hai JSON đã lưu để xem trọng số nào thay đổi nhiều nhất. Chỉ số là so sánh số học, không phải điểm đánh giá vẻ đẹp.</p><label for="compare-json-a">Bản ghi A · trước</label><textarea id="compare-json-a" spellcheck="false" placeholder="Dán JSON A…"></textarea><label for="compare-json-b">Bản ghi B · sau</label><textarea id="compare-json-b" spellcheck="false" placeholder="Dán JSON B…"></textarea><button id="compare-run" type="button">So sánh A và B</button><pre id="compare-result" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></section><hr><strong>Kiểm tra hình học (ẩn/hiện mesh)</strong><p>Các nút camera là góc nhìn theo trục tọa độ của mô hình, không khẳng định hướng giải phẫu trước/sau.</p><div id="camera-buttons"><button data-camera="front">Camera +Z</button><button data-camera="back">Camera −Z</button><button data-camera="left">Camera −X</button><button data-camera="right">Camera +X</button></div><div id="mesh-buttons"></div><hr><strong>Tô sáng vertex cần kiểm tra</strong><p>Chọn tệp V206-vertex-inspection-manifest.json cùng phiên bản GLB. Màu cam đánh dấu vertex được gắn cờ; các vertex còn lại giữ màu trung tính. Đây là dấu hiệu sàng lọc, không phải kết luận lỗi.</p><input id="vertex-manifest" type="file" accept="application/json,.json"><div id="trace-controls"><label for="trace-animation">Animation GLTF cần phát và kiểm tra</label><select id="trace-animation" disabled><option value="">Chọn animation</option></select><label for="trace-time">Thời điểm (giây): <output id="trace-time-label">0.00</output></label><input id="trace-time" type="range" min="0" max="1" step="0.01" value="0" disabled><button id="apply-time-trace" disabled>Chuyển animation đến thời điểm và tô sáng</button><p>Thanh thời gian điều khiển animation GLTF đang chọn. Chọn “Tất cả animation” chỉ dùng khi lọc dấu vết; không thể phát đồng thời nhiều clip.</p></div><button id="clear-vertex-highlights">Xóa tô sáng vertex</button><button id="api-mode">Trở lại điều khiển API</button><button id="neutral-mode">Đưa về trung tính</button><div id="diag-result" aria-live="polite"></div></div><div id="status" role="status" aria-live="polite"><span id="status-message">Đang tải avatar…</span><button id="retry-startup" type="button" hidden>Thử tải lại</button><button id="switch-three-mode" type="button" hidden>Thử chế độ thư viện Three.js khác</button><button id="startup-report-button" type="button" hidden>Tạo báo cáo lỗi</button></div><section id="startup-report-panel" hidden aria-label="Báo cáo chẩn đoán khởi chạy"><strong>Báo cáo chẩn đoán khởi chạy</strong><p>Sao chép phần báo cáo bên dưới và gửi cho Lam. Báo cáo chỉ chứa thông tin kỹ thuật của trình duyệt, không chứa dữ liệu cá nhân hay tệp avatar.</p><button id="startup-report-copy" type="button">Sao chép báo cáo</button><textarea id="startup-report-text" readonly spellcheck="false" aria-label="Nội dung báo cáo chẩn đoán"></textarea></section>
+<script>
+const startupReportButton = document.querySelector('#startup-report-button');
+const startupReportPanel = document.querySelector('#startup-report-panel');
+const startupReportText = document.querySelector('#startup-report-text');
+const startupReportCopy = document.querySelector('#startup-report-copy');
+window.__lyLamRecentErrors = [];
+function rememberStartupError(kind, message) {
+  const entry = `${kind}: ${String(message || 'không có chi tiết').slice(0, 500)}`;
+  window.__lyLamRecentErrors.push(entry);
+  if (window.__lyLamRecentErrors.length > 8) window.__lyLamRecentErrors.shift();
+}
+async function collectStartupReport() {
+  const lines = [
+    'LÝ LÂM LAM — BÁO CÁO CHẨN ĐOÁN KHỞI CHẠY',
+    `Thời điểm: ${new Date().toISOString()}`,
+    `URL: ${location.href}`,
+    `Trình duyệt: ${navigator.userAgent}`,
+    `Online: ${navigator.onLine}`,
+    `Viewport: ${innerWidth}x${innerHeight}; DPR=${window.devicePixelRatio || 1}`,
+    `Three.js mode: ${(() => { const mode = new URLSearchParams(location.search).get('three'); return mode === 'local' || mode === null ? 'thư viện nội bộ (mặc định/local)' : mode === 'unpkg' ? 'CDN unpkg' : mode === 'cdn' ? 'CDN jsDelivr' : `tham số không hợp lệ (${mode})`; })()}`,
+    `Renderer ready: ${Boolean(window.__lyLamRendererReady)}`,
+    `App booted: ${Boolean(window.__lyLamAppBooted)}`,
+    `Boot failed: ${Boolean(window.__lyLamBootFailed)}`,
+    `Thông báo hiện tại: ${document.querySelector('#status-message')?.textContent || '(không có)'}`
+  ];
+  let webgl = 'không xác định';
+  try {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    webgl = context ? `có context (${context.getParameter(context.VERSION)})` : 'KHÔNG tạo được context';
+    const lose = context && context.getExtension('WEBGL_lose_context');
+    if (lose) lose.loseContext();
+  } catch (error) { webgl = `ngoại lệ: ${error?.message || error}`; }
+  lines.push(`WebGL probe: ${webgl}`);
+  const assets = ['./lam-default.glb', './vendor/three/build/three.module.js', './vendor/three/examples/jsm/loaders/GLTFLoader.js', './vendor/three/examples/jsm/controls/OrbitControls.js'];
+  lines.push('Kiểm tra HEAD tài nguyên:');
+  for (const asset of assets) {
+    try {
+      const response = await fetch(new URL(asset, location.href), { method: 'HEAD', cache: 'no-store' });
+      const length = response.headers.get('content-length');
+      lines.push(`- ${asset}: HTTP ${response.status}${length ? `; length=${length}` : ''}`);
+    } catch (error) { lines.push(`- ${asset}: FETCH ERROR ${error?.message || error}`); }
+  }
+  lines.push('Lỗi gần nhất:', ...(window.__lyLamRecentErrors.length ? window.__lyLamRecentErrors.map((entry, i) => `${i + 1}. ${entry}`) : ['(chưa ghi nhận lỗi JavaScript)']));
+  lines.push('Lưu ý: báo cáo không chụp màn hình và không gửi dữ liệu tự động.');
+  return lines.join('\n');
+}
+startupReportButton?.addEventListener('click', async () => {
+  startupReportButton.disabled = true;
+  startupReportButton.textContent = 'Đang kiểm tra…';
+  startupReportPanel.hidden = false;
+  startupReportText.value = 'Đang kiểm tra WebGL và tài nguyên…';
+  try { startupReportText.value = await collectStartupReport(); }
+  catch (error) { startupReportText.value = `Không tạo được báo cáo: ${error?.message || error}`; }
+  finally { startupReportButton.disabled = false; startupReportButton.textContent = 'Tạo lại báo cáo lỗi'; }
+});
+startupReportCopy?.addEventListener('click', async () => {
+  startupReportText.focus(); startupReportText.select();
+  try {
+    await navigator.clipboard.writeText(startupReportText.value);
+    startupReportCopy.textContent = 'Đã sao chép';
+  } catch (_) {
+    startupReportCopy.textContent = 'Đã chọn nội dung — nhấn Ctrl+C';
+  }
+});
+window.addEventListener('error', event => rememberStartupError('JavaScript error', `${event.message || 'unknown'} | ${event.filename || ''}:${event.lineno || 0}:${event.colno || 0}`));
+window.addEventListener('unhandledrejection', event => rememberStartupError('Unhandled rejection', event.reason?.stack || event.reason?.message || event.reason));
+window.addEventListener('webglcontextlost', () => rememberStartupError('WebGL', 'context lost'));
+document.querySelector('#retry-startup')?.addEventListener('click', () => location.reload());
+const threeModeSwitch = document.querySelector('#switch-three-mode');
+threeModeSwitch?.addEventListener('click', async () => { const url = new URL(location.href); const currentParam = url.searchParams.get('three'); const current = currentParam === 'unpkg' ? 'unpkg' : currentParam === 'cdn' ? 'cdn' : 'local'; const next = current === 'local' ? 'cdn' : current === 'cdn' ? 'unpkg' : 'local'; if (next === 'local') { const statusMessage = document.querySelector('#status-message'); const originalLabel = threeModeSwitch.textContent; threeModeSwitch.disabled = true; threeModeSwitch.textContent = 'Đang kiểm tra thư viện nội bộ…'; try { const requiredAssets = ['./vendor/three/build/three.module.js', './vendor/three/examples/jsm/loaders/GLTFLoader.js', './vendor/three/examples/jsm/controls/OrbitControls.js', './lam-default.glb']; const probes = await Promise.all(requiredAssets.map(async asset => { const response = await fetch(new URL(asset, location.href), { method: 'HEAD', cache: 'no-store' }); return { asset, status: response.status, ok: response.ok }; })); const missing = probes.filter(result => !result.ok); if (missing.length) { const detail = missing.map(result => `${result.asset} (HTTP ${result.status})`).join('; '); if (statusMessage) statusMessage.textContent = `Chưa thể chuyển sang chế độ nội bộ; thiếu hoặc không truy cập được: ${detail}. Hãy đóng gói đúng Three.js 0.160.0 và mô hình GLB rồi triển khai lại.`; return; } } catch (error) { if (statusMessage) statusMessage.textContent = `Không kiểm tra được các tài nguyên nội bộ: ${error && error.message ? error.message : 'lỗi truy cập'}. Giữ nguyên chế độ hiện tại; hãy kiểm tra máy chủ và thư mục vendor/three.`; return; } finally { threeModeSwitch.disabled = false; threeModeSwitch.textContent = originalLabel; } } url.searchParams.set('three', next); location.assign(url.href); });
+window.__lyLamShowRetry = () => { const button = document.querySelector('#retry-startup'); if (button) button.hidden = false; if (startupReportButton) startupReportButton.hidden = false; if (threeModeSwitch) { const mode = new URLSearchParams(location.search).get('three'); threeModeSwitch.textContent = mode === 'local' ? 'Thử CDN jsDelivr' : mode === 'unpkg' ? 'Thử thư viện nội bộ (cần vendor/three)' : 'Thử CDN thay thế (unpkg)'; threeModeSwitch.hidden = false; } };
+window.__lyLamStartupDiagnostics = () => {
+  let webgl = 'không xác định';
+  try { const canvas = document.createElement('canvas'); const context = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl'); webgl = context ? 'có thể tạo context' : 'không tạo được context'; const lose = context && context.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext(); } catch (_) { webgl = 'kiểm tra context phát sinh ngoại lệ'; }
+  const selectedMode = new URLSearchParams(location.search).get('three');
+  const mode = selectedMode === 'local' ? 'thư viện nội bộ (three=local)' : selectedMode === null ? 'thư viện nội bộ (mặc định)' : selectedMode === 'unpkg' ? 'CDN unpkg (three=unpkg)' : 'CDN jsDelivr (three=cdn)';
+  return `Mạng trình duyệt: ${navigator.onLine ? 'đang báo online' : 'đang báo offline'}; Three.js: ${mode}; WebGL: ${webgl}; URL: ${location.href}`;
+};
+window.__lyLamIsLocalStartupFailure = (event, message = '') => {
+  // A local application-module exception cannot be repaired by changing the Three.js CDN.
+  // Preserve its original URL and report it instead of silently reloading into another mode.
+  let candidate = typeof event?.filename === 'string' ? event.filename : '';
+  if (!candidate) {
+    const stack = typeof message === 'string' ? message : '';
+    const match = stack.match(/(?:https?:\/\/[^\s)]+?\.(?:m?js|html)(?:\?[^\s):]*)?|\.\.?\/[^\s):]+?\.(?:m?js|html)(?:\?[^\s):]*)?)/i);
+    if (match) candidate = match[0];
+  }
+  if (!candidate) return false;
+  try {
+    const url = new URL(candidate, location.href);
+    return url.origin === location.origin && /\.(?:m?js|html)$/i.test(url.pathname);
+  } catch (_) { return false; }
+};
+window.__lyLamTryAutomaticUnpkgFallback = () => {
+  if (window.__lyLamRendererReady) return false;
+  const params = new URLSearchParams(location.search);
+  const mode = params.get('three');
+  if (mode === 'local' || mode === 'unpkg') return false;
+  // Keep the one-shot marker in the URL as well as sessionStorage: private browsing
+  // or restrictive storage policies may throw, but must not disable CDN fallback.
+  if (params.get('threeFallbackAttempted') === '1') return false;
+  const key = `ly-lam-lam-three-unpkg-fallback:${location.pathname}`;
+  try {
+    if (sessionStorage.getItem(key) === '1') return false;
+  } catch (_) { /* URL marker below remains the loop guard. */ }
+  params.set('threeFallbackAttempted', '1');
+  try { sessionStorage.setItem(key, '1'); } catch (_) { /* Storage is optional. */ }
+  params.set('three', 'unpkg');
+  location.replace(`${location.pathname}?${params.toString()}${location.hash}`);
+  return true;
+};
+window.__lyLamBootTimer = window.setTimeout(() => {
+  if (!window.__lyLamAppBooted && !window.__lyLamBootFailed) {
+    const status = document.querySelector('#status');
+    // Once the renderer exists, Three.js modules loaded successfully; retrying the entire page via another CDN won't fix a stalled GLB request.
+    if (window.__lyLamRendererReady) {
+      window.__lyLamBootFailed = true;
+      if (status) { status.firstChild.textContent = `Mô hình GLB chưa tải xong sau 15 giây. Kiểm tra lam-default.glb, phản hồi máy chủ và kết nối mạng; có thể thử tải lại khi kết nối ổn định. ${window.__lyLamStartupDiagnostics()}`; window.__lyLamShowRetry(); }
+      return;
+    }
+    // A stalled module fetch may not raise a useful window error; give the pinned alternate CDN one chance.
+    if (window.__lyLamTryAutomaticUnpkgFallback()) return;
+    if (status) { status.firstChild.textContent = `Ứng dụng chưa tải xong mô hình sau 15 giây (khởi chạy chưa hoàn tất). ${window.__lyLamStartupDiagnostics()} Kiểm tra kết nối CDN, tệp lam-default.glb hoặc thư mục vendor/three, và HTTPS; sau khi khắc phục, hãy thử tải lại.`; window.__lyLamShowRetry(); }
+  }
+}, 15000);
+window.addEventListener('error', (event) => {
+  if (window.__lyLamAppBooted) return;
+  const status = document.querySelector('#status');
+  if (!status) return;
+  const message = event.message || 'Không tải được mô-đun hoặc tài nguyên khởi chạy.';
+  window.__lyLamBootFailed = true; window.clearTimeout(window.__lyLamBootTimer);
+  // WebGL renderer creation can throw from index.html itself. Classify the
+  // graphics failure before the generic same-origin source check so users get
+  // actionable GPU/WebGL guidance rather than a misleading application-code error.
+  if (/webgl|creating.*context|renderer/i.test(message)) {
+    status.firstChild.textContent = `Không khởi tạo được đồ họa 3D: ${message}. Hãy bật WebGL, cập nhật trình duyệt và thử lại trên thiết bị hỗ trợ.`; window.__lyLamShowRetry();
+    return;
+  }
+  if (window.__lyLamIsLocalStartupFailure(event, message)) {
+    status.firstChild.textContent = `Lỗi trong mã ứng dụng cục bộ: ${message}. Tệp: ${event.filename || 'xem thông tin lỗi trong console'}. Không tự đổi CDN vì việc đó không sửa lỗi mã ứng dụng.`; window.__lyLamShowRetry(); return;
+  }
+  if (window.__lyLamTryAutomaticUnpkgFallback()) return;
+  status.firstChild.textContent = `Lỗi khởi chạy: ${message}. Đã thử hoặc không thể tự chuyển sang CDN thay thế; kiểm tra kết nối CDN, đường dẫn tệp và HTTPS.`; window.__lyLamShowRetry();
+});
+window.addEventListener('unhandledrejection', (event) => {
+  if (window.__lyLamAppBooted) return;
+  const status = document.querySelector('#status');
+  if (!status) return;
+  const reason = event.reason;
+  const message = reason && typeof reason.message === 'string' ? reason.message : String(reason || 'Lỗi tải mô-đun không xác định');
+  window.__lyLamBootFailed = true; window.clearTimeout(window.__lyLamBootTimer);
+  if (/webgl|creating.*context|renderer/i.test(message)) {
+    status.firstChild.textContent = `Không khởi tạo được đồ họa 3D: ${message}. Hãy bật WebGL, cập nhật trình duyệt và thử lại trên thiết bị hỗ trợ.`; window.__lyLamShowRetry();
+    return;
+  }
+  if (window.__lyLamIsLocalStartupFailure({ filename: '' }, reason && typeof reason.stack === 'string' ? reason.stack : message)) {
+    status.firstChild.textContent = `Lỗi trong mô-đun ứng dụng cục bộ: ${message}. Không tự đổi CDN vì việc đó không sửa lỗi mã ứng dụng.`; window.__lyLamShowRetry(); return;
+  }
+  if (window.__lyLamTryAutomaticUnpkgFallback()) return;
+  status.firstChild.textContent = `Không khởi chạy được: ${message}. Đã thử hoặc không thể tự chuyển sang CDN thay thế; kiểm tra CDN Three.js và các tệp trong gói.`; window.__lyLamShowRetry();
+});
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import './avatar_expression_motion.js';
+import './avatar_api_recovery.js';
+import './avatar_expression_composer.js';
+import './avatar_morph_transition.js';
+const diagnosticsRequested=new URLSearchParams(location.search).get('diagnostics')==='1';
+if(diagnosticsRequested){
+  await Promise.all([
+    import('./avatar_mesh_inspector.js'),
+    import('./avatar_expression_snapshot.js'),
+    import('./avatar_expression_compare.js'),
+    import('./avatar_expression_evaluation_log.js'),
+    import('./avatar_expression_evaluation_compare.js'),
+    import('./avatar_expression_evaluation_report.js'),
+    import('./avatar_expression_evaluation_aggregate.js'),
+    import('./avatar_expression_evidence_audit.js')
+  ]);
+}
+const stage=document.querySelector('#stage'), status=document.querySelector('#status'), statusMessage=document.querySelector('#status-message');
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x101827);
+const camera=new THREE.PerspectiveCamera(32,innerWidth/innerHeight,.1,100); camera.position.set(0,1.45,3.2);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false}); renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2)); renderer.setSize(Math.max(1,stage.clientWidth||innerWidth),Math.max(1,stage.clientHeight||innerHeight)); renderer.outputColorSpace=THREE.SRGBColorSpace; stage.appendChild(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xdce8ff,0x252c3a,2.0)); const key=new THREE.DirectionalLight(0xffe5cf,2.2); key.position.set(2,4,3);scene.add(key);
+const controls=new OrbitControls(camera,renderer.domElement); controls.target.set(0,1.25,0); controls.enableDamping=true; controls.minDistance=1.8;controls.maxDistance=5;
+window.__lyLamRendererReady=true;
+let bindings=new Map(), targets={}, last=performance.now(), targetUrl='./lam-default.glb';
+const morphTransition=globalThis.AvatarMorphTransition.createMorphTransition({timeConstantSeconds:.12});
+let pollTimer=null, pollInFlight=false, viewerReady=false, disposed=false, debugWeights=null, apiFailureCount=0;
+const retryPolicy=globalThis.AvatarApiRecovery.createRetryPolicy({baseDelayMs:1200,maxDelayMs:12000,factor:2});
+const blinkController=globalThis.AvatarExpressionMotion.createBlinkController();
+const quickControls=document.querySelector('#quick-controls');
+const diagnosticsEnabled=diagnosticsRequested;
+const diagnostics=document.querySelector('#diagnostics'), morphButtons=document.querySelector('#morph-buttons'), diagResult=document.querySelector('#diag-result'), meshButtons=document.querySelector('#mesh-buttons');
+let avatarScene=null, meshEntries=[], cameraDistance=3, vertexHighlightRecords=[], loadedVertexManifest=null, animationMixer=null, loadedAnimations=[];
+if(diagnosticsEnabled){diagnostics.style.display='block';quickControls.style.top='calc(max(10px, env(safe-area-inset-top)) + 6px)';}
+const expectedMorphs=['smile','blink_left','blink_right','mouth_open','jaw_open','jaw_hinge','brow_raise','cheek_raise','lip_press','lip_fv','lip_round','tongue_tip'];
+function clamp(v){v=Number(v);return Number.isFinite(v)?Math.max(0,Math.min(1,v)):0}
+function collect(root){const m=new Map();root.traverse(n=>{if(!n.morphTargetDictionary||!n.morphTargetInfluences)return;for(const [name,raw] of Object.entries(n.morphTargetDictionary)){const i=Number(raw);if(Number.isInteger(i)&&i>=0&&i<n.morphTargetInfluences.length){if(!m.has(name))m.set(name,[]);m.get(name).push({node:n,index:i})}}});return m}
+function apply(weights){for(const [name,list] of bindings){const goal=clamp(weights?.[name]);for(const {node,index} of list)node.morphTargetInfluences[index]=goal;}}
+async function getState(){
+  // Standalone preview: no backend/API dependency. Use the local diagnostic controls.
+  targets={};
+  statusMessage.textContent=`Bản xem thử cục bộ · ${bindings.size} morph · API chưa kết nối`;
+}
+
+if(diagnosticsEnabled){
+  const presets={smile:{smile:.82,cheek_raise:.25},blink:{blink_left:1,blink_right:1},talk:{mouth_open:.62,jaw_open:.5,jaw_hinge:.35},fv:{lip_fv:.9,lip_press:.12},round:{lip_round:.9,mouth_open:.12},'smile-blink':{smile:.7,cheek_raise:.2,blink_left:1,blink_right:1},'smile-talk':{smile:.5,cheek_raise:.2,mouth_open:.35,jaw_open:.25,jaw_hinge:.18},'round-talk':{lip_round:.75,mouth_open:.28,jaw_open:.22}};
+  function clearActivePreset(){document.querySelectorAll('[data-preset]').forEach(button=>button.setAttribute('aria-pressed','false'));}
+  const morphControls=new Map();
+  const snapshotJson=document.querySelector('#snapshot-json');
+  const snapshotApi=globalThis.AvatarExpressionSnapshot;
+  const baselineSelect=document.querySelector('#baseline-case'),baselineApply=document.querySelector('#baseline-apply'),baselineDescription=document.querySelector('#baseline-description');
+  let baselineManifest=null,lastAppliedBaselineCaseId='';
+  fetch('./expression-baseline-cases-v1.json').then(response=>{if(!response.ok)throw new Error(`HTTP ${response.status}`);return response.json();}).then(manifest=>{
+    if(manifest.schema!=='ly-lam-lam-expression-baseline-cases'||manifest.version!==1||manifest.asset!==targetUrl||!Array.isArray(manifest.cases))throw new Error('Schema hoặc mô hình không khớp.');
+    const names=expectedMorphs.slice().sort();
+    for(const item of manifest.cases){if(!item||typeof item.id!=='string'||!item.weights||JSON.stringify(Object.keys(item.weights).sort())!==JSON.stringify(names)||Object.values(item.weights).some(value=>!Number.isFinite(value)||value<0||value>1))throw new Error(`Ca thử không hợp lệ: ${item?.id||'không rõ'}.`);}
+    baselineManifest=manifest;baselineSelect.replaceChildren(new Option('Chọn ca thử…',''));
+    for(const item of manifest.cases){const option=new Option(`${item.label_vi} · ${item.id}`,item.id);baselineSelect.add(option);}
+    baselineSelect.disabled=false;baselineApply.disabled=false;baselineDescription.textContent=`Đã nạp ${manifest.cases.length} ca thử. Các trọng số là preset tạm thời, không phải chuẩn chất lượng đã xác minh.`;
+  }).catch(error=>{baselineSelect.replaceChildren(new Option('Không tải được bộ ca thử',''));baselineDescription.textContent=`Không thể nạp bộ ca thử: ${error.message}. Hãy xác minh tệp JSON cùng thư mục với trang.`;});
+  baselineApply.addEventListener('click',()=>{const item=baselineManifest?.cases.find(entry=>entry.id===baselineSelect.value);if(!item){baselineDescription.textContent='Hãy chọn một ca thử hợp lệ trước.';return;}setDebugWeights(item.weights);clearActivePreset();lastAppliedBaselineCaseId=item.id;baselineDescription.textContent=`${item.label_vi} (${item.id}) — kiểm tra trực quan: ${item.visual_check} Trọng số được áp dụng cục bộ.`;diagResult.textContent=`Đã áp dụng ca thử ${item.id}; hãy quan sát mô hình và lưu ảnh/snapshot nếu cần.`;});
+  function syncMorphControls(weights){for(const [name,control] of morphControls){const value=clamp(weights?.[name]);control.input.value=String(value);control.output.value=value.toFixed(2);}}
+  function setDebugWeights(weights){debugWeights=Object.fromEntries(expectedMorphs.map(key=>[key,clamp(weights?.[key])]));syncMorphControls(debugWeights);}
+  document.querySelectorAll('[data-preset]').forEach(button=>{if(!button.hasAttribute('aria-pressed'))button.setAttribute('aria-pressed','false');button.addEventListener('click',()=>{const preset=presets[button.dataset.preset]||{};setDebugWeights(preset);lastAppliedBaselineCaseId='';baselineSelect.value='';clearActivePreset();button.setAttribute('aria-pressed','true');const active=Object.keys(preset).filter(key=>bindings.has(key));diagResult.textContent=`Tổ hợp ${button.textContent}: ${active.length}/${Object.keys(preset).length} morph có liên kết. Trọng số thử chỉ dùng cục bộ, không gửi lên API.`;});});
+  for(const name of expectedMorphs){const label=document.createElement('label'),caption=document.createElement('span'),output=document.createElement('output'),input=document.createElement('input');caption.textContent=name;output.value='0.00';output.setAttribute('aria-label',`${name} — giá trị`);input.type='range';input.min='0';input.max='1';input.step='0.05';input.value='0';input.dataset.morph=name;input.setAttribute('aria-label',`Mức morph ${name}`);input.addEventListener('input',()=>{lastAppliedBaselineCaseId='';baselineSelect.value='';clearActivePreset();if(debugWeights===null)debugWeights=Object.fromEntries(expectedMorphs.map(key=>[key,0]));debugWeights[name]=clamp(input.value);output.value=debugWeights[name].toFixed(2);diagResult.textContent=bindings.has(name)?`Đang thử ${name} ở mức ${output.value}; có ${bindings.get(name).length} mesh liên kết.`:`Không tìm thấy morph ${name} trong mô hình.`;});label.append(caption,output,input);morphButtons.appendChild(label);morphControls.set(name,{input,output});}
+  document.querySelector('#snapshot-create').addEventListener('click',()=>{snapshotJson.value=JSON.stringify(snapshotApi.createSnapshot(debugWeights||{},expectedMorphs,targetUrl),null,2);diagResult.textContent='Đã tạo bản ghi JSON cho tổ hợp hiện tại. Hãy sao chép và lưu lại nếu cần.';});
+  document.querySelector('#snapshot-apply').addEventListener('click',()=>{const parsed=snapshotApi.parseSnapshot(snapshotJson.value,expectedMorphs,targetUrl);if(!parsed.ok){const reasons={'invalid-json':'JSON không hợp lệ.','invalid-schema':'Sai định dạng hoặc phiên bản bản ghi.','asset-mismatch':'Bản ghi thuộc mô hình khác.','unknown-morphs':`Có morph không được hỗ trợ: ${(parsed.unknown||[]).join(', ')}.`,'invalid-weight':`Giá trị morph ${parsed.morph} không hợp lệ.`};diagResult.textContent=reasons[parsed.reason]||'Không thể áp dụng bản ghi.';return;}setDebugWeights(parsed.weights);lastAppliedBaselineCaseId='';baselineSelect.value='';clearActivePreset();diagResult.textContent='Đã áp dụng bản ghi hợp lệ cho đúng mô hình. Trọng số chỉ dùng cục bộ.';});
+  const evaluationApi=globalThis.AvatarExpressionEvaluationLog;
+  const evaluationJson=document.querySelector('#evaluation-json'),evaluationResult=document.querySelector('#evaluation-result');
+  function currentSnapshot(){return snapshotApi.createSnapshot(debugWeights||{},expectedMorphs,targetUrl);}
+  document.querySelector('#evaluation-create').addEventListener('click',()=>{
+    const caseId=lastAppliedBaselineCaseId;
+    if(!caseId){evaluationResult.textContent='Hãy chọn và áp dụng một ca thử trước khi tạo phiếu.';return;}
+    try{const scores={};document.querySelectorAll('[data-score]').forEach(el=>scores[el.dataset.score]=el.value==='N/A'?'N/A':Number(el.value));
+      const record=evaluationApi.createRecord({created_at:new Date().toISOString(),project_version:document.querySelector('#evaluation-version').value,case_id:caseId,device_browser:document.querySelector('#evaluation-device').value,reviewer:document.querySelector('#evaluation-reviewer').value,scores,observations:document.querySelector('#evaluation-observations').value,evidence_file:document.querySelector('#evaluation-evidence').value,snapshot:currentSnapshot()});
+      evaluationJson.value=JSON.stringify(record,null,2);evaluationResult.textContent='Đã tạo phiếu hợp lệ. Lưu JSON cùng ảnh chụp để so sánh ở phiên bản sau.';
+    }catch(error){evaluationResult.textContent=`Chưa tạo được phiếu: ${error.message}`;}
+  });
+  document.querySelector('#evaluation-validate').addEventListener('click',()=>{const parsed=evaluationApi.parseRecord(evaluationJson.value);evaluationResult.textContent=parsed.ok?`Phiếu hợp lệ · ca ${parsed.record.case_id} · phiên bản ${parsed.record.project_version}.`:`Phiếu không hợp lệ: ${parsed.reason}${parsed.message?` — ${parsed.message}`:''}`;});
+  let lastEvaluationComparison=null;
+  document.querySelector('#evaluation-compare-run').addEventListener('click',()=>{const api=globalThis.AvatarExpressionEvaluationCompare;const result=api.compareRecords(document.querySelector('#evaluation-compare-a').value,document.querySelector('#evaluation-compare-b').value);const output=document.querySelector('#evaluation-compare-result');lastEvaluationComparison=null;document.querySelector('#evaluation-report-json').value='';document.querySelector('#evaluation-report-result').textContent='Chạy so sánh thành công trước khi tạo báo cáo.';if(!result.ok){output.textContent=`Không thể so sánh: ${result.reason}${result.side?` (phiếu ${result.side})`:''}.`;return;}lastEvaluationComparison=result;const fmt=value=>value===null?'N/A':value.toFixed(2);const names={recognition:'Nhận diện',symmetry:'Cân đối',deformation:'Biến dạng',transition:'Chuyển tiếp',repeatability:'Lặp lại'};const lines=[`Ca thử: ${result.case_id}`,`Phiên bản: ${result.project_version_a} → ${result.project_version_b}`,`Trung bình điểm: ${fmt(result.average_a)} → ${fmt(result.average_b)} (${result.average_delta===null?'N/A':`${result.average_delta>0?'+':''}${fmt(result.average_delta)}`})`,`Số tiêu chí được chấm: ${result.scored_count_a}/5 → ${result.scored_count_b}/5`,'','Tiêu chí · A → B · Δ',...result.criteria.map(row=>`${names[row.key]}: ${row.a} → ${row.b} · ${row.delta===null?'N/A':`${row.delta>0?'+':''}${row.delta}`}`),'',`Ghi chú A: ${result.observations_a||'(trống)'}`,`Ghi chú B: ${result.observations_b||'(trống)'}`,`Bằng chứng A: ${result.evidence_a||'(không ghi)'}`,`Bằng chứng B: ${result.evidence_b||'(không ghi)'}`];if(result.snapshot_comparison){lines.push('','Snapshot (số học, không phải chất lượng hình ảnh):',`Morph thay đổi: ${result.snapshot_comparison.changedCount}/${result.snapshot_comparison.morphCount}`,`Độ lệch tuyệt đối lớn nhất: ${result.snapshot_comparison.maxAbsDelta.toFixed(3)}`,...result.snapshot_comparison.differences.slice(0,8).map(row=>`${row.name}: ${row.a.toFixed(3)} → ${row.b.toFixed(3)} (${row.delta>0?'+':''}${row.delta.toFixed(3)})`));}output.textContent=lines.join('\n');});
+  const evaluationReportApi=globalThis.AvatarExpressionEvaluationReport;
+  document.querySelector('#evaluation-report-create').addEventListener('click',()=>{const output=document.querySelector('#evaluation-report-result');if(!lastEvaluationComparison){output.textContent='Chưa có kết quả so sánh hợp lệ. Hãy chạy so sánh hai phiếu trước.';return;}try{const report=evaluationReportApi.createReport(lastEvaluationComparison,new Date().toISOString());const parsed=evaluationReportApi.parseReport(report);if(!parsed.ok)throw new Error(parsed.reason);document.querySelector('#evaluation-report-json').value=JSON.stringify(parsed.report,null,2);output.textContent=`Báo cáo hợp lệ · ca ${report.case_id}. Có ${report.limitations.length} lưu ý về giới hạn và bằng chứng.`;}catch(error){output.textContent=`Không thể tạo báo cáo: ${error.message}`;}});
+  document.querySelector('#evaluation-report-validate').addEventListener('click',()=>{const parsed=evaluationReportApi.parseReport(document.querySelector('#evaluation-report-json').value);document.querySelector('#evaluation-report-result').textContent=parsed.ok?`Báo cáo hợp lệ · ca ${parsed.report.case_id} · ${parsed.report.project_versions.a} → ${parsed.report.project_versions.b}.`:`Báo cáo không hợp lệ: ${parsed.reason}.`;});
+  const evaluationAggregateApi=globalThis.AvatarExpressionEvaluationAggregate;
+  document.querySelector('#evaluation-aggregate-run').addEventListener('click',()=>{const result=evaluationAggregateApi.aggregateReports(document.querySelector('#evaluation-aggregate-input').value);const output=document.querySelector('#evaluation-aggregate-result');if(!result.ok){output.textContent=`Không thể tổng hợp: ${result.reason}${Number.isInteger(result.index)?` (báo cáo ${result.index+1})`:''}.`;document.querySelector('#evaluation-aggregate-output').value='';return;}document.querySelector('#evaluation-aggregate-output').value=JSON.stringify(result.summary,null,2);output.textContent=`Đã tổng hợp ${result.summary.report_count} báo cáo thuộc ${result.summary.case_count} ca thử. Kiểm tra điều kiện chụp và ghi chú trước khi diễn giải.`;});
+  const evidenceAuditApi=globalThis.AvatarExpressionEvidenceAudit;
+  document.querySelector('#evaluation-evidence-audit-run').addEventListener('click',async()=>{const files=Array.from(document.querySelector('#evaluation-evidence-files').files||[]);const button=document.querySelector('#evaluation-evidence-audit-run'),output=document.querySelector('#evaluation-evidence-audit-result'),jsonOutput=document.querySelector('#evaluation-evidence-audit-output');button.disabled=true;output.textContent='Đang đọc tệp cục bộ và tính SHA-256…';try{const result=await evidenceAuditApi.auditReportsWithManifest(document.querySelector('#evaluation-evidence-audit-input').value,files);if(!result.ok){output.textContent=`Không thể kiểm tra: ${result.reason}${Number.isInteger(result.index)?` (báo cáo ${result.index+1})`:''}.`;jsonOutput.value='';return;}jsonOutput.value=JSON.stringify(result.audit,null,2);const t=result.audit.evidence_reference_totals;output.textContent=`Đã đối chiếu ${result.audit.report_count} báo cáo và tạo SHA-256 cho ${result.audit.file_manifest.file_count} tệp (${result.audit.file_manifest.unique_content_count} nội dung byte khác nhau): ${t.matched} tên tệp khớp duy nhất, ${t.missing} thiếu, ${t.not_recorded} chưa ghi tên, ${t.ambiguous} trùng tên. Hash không xác minh nội dung hình ảnh.`;}catch(_){output.textContent='Không thể hoàn tất kiểm tra tệp.';jsonOutput.value='';}finally{button.disabled=false;}});
+  document.querySelector('#compare-run').addEventListener('click',()=>{const result=globalThis.AvatarExpressionCompare.compareSnapshots(document.querySelector('#compare-json-a').value,document.querySelector('#compare-json-b').value,expectedMorphs,targetUrl);const output=document.querySelector('#compare-result');if(!result.ok){output.textContent=`Không thể so sánh bản ghi ${result.side||''}: ${result.reason}.`;return;}const lines=[`Tài sản: ${result.asset}`,`Số morph: ${result.morphCount}`,`Morph thay đổi: ${result.changedCount}`,`Độ lệch tuyệt đối lớn nhất: ${result.maxAbsDelta.toFixed(4)}`,`Độ lệch tuyệt đối trung bình: ${result.meanAbsDelta.toFixed(4)}`,'','Chênh lệch (B − A), sắp theo độ lớn:',...result.differences.filter(item=>item.delta!==0).map(item=>`${item.name}: ${item.a.toFixed(3)} → ${item.b.toFixed(3)} (${item.delta>0?'+':''}${item.delta.toFixed(3)})`)];output.textContent=lines.join('\n');});
+  document.querySelector('#api-mode').addEventListener('click',()=>{lastAppliedBaselineCaseId='';baselineSelect.value='';clearActivePreset();debugWeights=null;syncMorphControls({});diagResult.textContent='Đã trở về trọng số do API cung cấp.';});
+  document.querySelector('#neutral-mode').addEventListener('click',()=>{lastAppliedBaselineCaseId='';baselineSelect.value='';clearActivePreset();setDebugWeights({});diagResult.textContent='Đang đưa tất cả morph về trung tính.';});
+  const traceAnimation=document.querySelector('#trace-animation'), traceTime=document.querySelector('#trace-time'), traceTimeLabel=document.querySelector('#trace-time-label'), applyTimeTrace=document.querySelector('#apply-time-trace');
+  function refreshTimeTrace(){if(!loadedVertexManifest||!loadedGltf)return;const selected=traceAnimation.value;const time=Number(traceTime.value);let playbackMessage='';if(selected){const seek=globalThis.AvatarMeshInspector.resolveAnimationSeek(loadedAnimations,selected,time);if(!seek.ok){diagResult.textContent=`Không thể phát animation: ${seek.reason}`;return;}if(animationMixer){animationMixer.stopAllAction();animationMixer.setTime(0);const action=animationMixer.clipAction(seek.clip);action.reset();action.play();animationMixer.setTime(seek.time);playbackMessage=` · GLTF ${seek.clip.name} @ ${seek.time.toFixed(2)}/${seek.duration.toFixed(2)} giây`;}}else if(animationMixer){animationMixer.stopAllAction();animationMixer.setTime(0);}const filtered=globalThis.AvatarMeshInspector.filterManifestAtTime(loadedVertexManifest,selected,time);globalThis.AvatarMeshInspector.clearVertexHighlights(vertexHighlightRecords);const result=globalThis.AvatarMeshInspector.applyVertexHighlights(THREE,loadedGltf,filtered.manifest);vertexHighlightRecords=result.records;diagResult.textContent=result.error?`Lỗi tô sáng: ${result.error}`:`Tại ${time.toFixed(2)} giây · ${selected||'mọi animation (chỉ lọc dấu vết)'}: ${result.matchedVertices} vertex tô sáng, ${result.unmatchedGroups} nhóm không khớp, ${filtered.matchedIntervals} khoảng thời gian phù hợp${playbackMessage}.`;}
+  function updateTraceDuration(){const seek=globalThis.AvatarMeshInspector.resolveAnimationSeek(loadedAnimations,traceAnimation.value,Number(traceTime.value));if(seek.ok){traceTime.min='0';traceTime.max=String(Math.max(seek.duration,0.01));traceTime.value=String(Math.min(Number(traceTime.value),seek.duration));}else{const intervals=(loadedVertexManifest?.vertices||[]).flatMap(v=>v.flagged_intervals||[]).filter(i=>!traceAnimation.value||i.animation===traceAnimation.value);traceTime.min='0';traceTime.max=String(Math.max(0.01,...intervals.map(i=>Number(i.time_end)||0)));traceTime.value=String(Math.min(Number(traceTime.value),Number(traceTime.max)));}traceTimeLabel.value=Number(traceTime.value).toFixed(2);}
+  document.querySelector('#vertex-manifest').addEventListener('change',async event=>{const file=event.target.files&&event.target.files[0];if(!file||!avatarScene)return;try{const manifest=JSON.parse(await file.text());const compatibility=globalThis.AvatarMeshInspector.validateManifestCompatibility(manifest,targetUrl,loadedAnimations);if(!compatibility.ok)throw new Error(`Manifest không tương thích (${compatibility.reason})${compatibility.missingAnimations?.length?`: thiếu animation: ${compatibility.missingAnimations.join(', ')}`:''}. Hãy dùng manifest được tạo từ đúng GLB.`);loadedVertexManifest=manifest;const flaggedNames=new Set(manifest.vertices.flatMap(v=>(v.flagged_intervals||[]).map(i=>i.animation)).filter(Boolean));traceAnimation.replaceChildren(new Option('Tất cả animation (chỉ lọc dấu vết)',''));for(const clip of loadedAnimations){const option=new Option(clip.name,clip.name);option.textContent=flaggedNames.has(clip.name)?`${clip.name} · có cảnh báo`:`${clip.name} · chưa có cảnh báo`;traceAnimation.add(option);}traceAnimation.disabled=traceTime.disabled=applyTimeTrace.disabled=false;updateTraceDuration();refreshTimeTrace();}catch(error){loadedVertexManifest=null;diagResult.textContent=`Không đọc được manifest: ${error.message}`;}});
+  traceAnimation.addEventListener('change',()=>{updateTraceDuration();refreshTimeTrace();});traceTime.addEventListener('input',()=>{traceTimeLabel.value=Number(traceTime.value).toFixed(2);});applyTimeTrace.addEventListener('click',refreshTimeTrace);
+  document.querySelector('#clear-vertex-highlights').addEventListener('click',()=>{globalThis.AvatarMeshInspector.clearVertexHighlights(vertexHighlightRecords);vertexHighlightRecords=[];diagResult.textContent='Đã xóa tô sáng vertex; hình học gốc được khôi phục.';});
+  document.querySelectorAll('[data-camera]').forEach(button=>button.addEventListener('click',()=>{const p=globalThis.AvatarMeshInspector.getCameraPreset(button.dataset.camera,cameraDistance,0);if(!p)return;camera.position.set(p.x,p.y,p.z);controls.target.set(0,0,0);controls.update();diagResult.textContent=`Đã chuyển camera theo trục ${button.dataset.camera}. Có thể cần xoay thủ công để xác nhận hướng mặt thực tế.`;}));
+}
+// Mobile-first camera controls: no backend required; controls operate on the local preview.
+const helpToggle=document.querySelector('#help-toggle'), helpPanel=document.querySelector('#help');
+helpToggle.addEventListener('click',()=>{const opening=helpPanel.hidden;helpPanel.hidden=!opening;helpToggle.setAttribute('aria-expanded',String(opening));});
+function setQuickView(mode){
+  if(!avatarScene)return;
+  const box=new THREE.Box3().setFromObject(avatarScene), size=box.getSize(new THREE.Vector3());
+  const target=new THREE.Vector3(0,0,0); let distance=cameraDistance, y=0;
+  if(mode==='face'){target.y=size.y*.28;distance=Math.max(size.y*.48, cameraDistance*.32);y=target.y+size.y*.025;}
+  else if(mode==='full'){distance=cameraDistance*1.12;y=size.y*.15;}
+  else {distance=cameraDistance;y=size.y*.15;}
+  controls.target.copy(target);camera.position.set(0,y,target.z+distance);camera.lookAt(target);controls.minDistance=Math.max(size.y*.12,.15);controls.maxDistance=Math.max(cameraDistance*3,5);controls.update();
+}
+function zoomBy(factor){const offset=camera.position.clone().sub(controls.target);offset.multiplyScalar(factor);const distance=THREE.MathUtils.clamp(offset.length(),controls.minDistance,controls.maxDistance);offset.setLength(distance);camera.position.copy(controls.target).add(offset);controls.update();}
+document.querySelector('#view-face').addEventListener('click',()=>setQuickView('face'));
+document.querySelector('#view-full').addEventListener('click',()=>setQuickView('full'));
+document.querySelector('#view-reset').addEventListener('click',()=>setQuickView('reset'));
+document.querySelector('#zoom-in').addEventListener('click',()=>zoomBy(.82));
+document.querySelector('#zoom-out').addEventListener('click',()=>zoomBy(1.22));
+const loader=new GLTFLoader();let loadedGltf=null;
+loader.load(targetUrl,gltf=>{
+  loadedGltf=gltf;
+  if(disposed) return;
+  loadedAnimations=Array.isArray(gltf.animations)?gltf.animations:[];
+  animationMixer=new THREE.AnimationMixer(gltf.scene);
+  scene.add(gltf.scene);avatarScene=gltf.scene;
+  const box=new THREE.Box3().setFromObject(gltf.scene), size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
+  gltf.scene.position.sub(center);
+  const largest=Math.max(size.x,size.y,size.z,0.5);cameraDistance=Math.max(largest*2.3,2.2);
+  camera.position.set(0,Math.max(size.y*.15,.2),cameraDistance);
+  controls.target.set(0,0,0);controls.update();
+  bindings=collect(gltf.scene);viewerReady=true;setQuickView('reset');
+  if(diagnosticsEnabled){
+    meshEntries=globalThis.AvatarMeshInspector.collectMeshEntries(avatarScene);meshButtons.replaceChildren();
+    for(const [index,entry] of meshEntries.entries()){const label=document.createElement('label'),input=document.createElement('input'),caption=document.createElement('span');input.type='checkbox';input.checked=entry.visible;input.addEventListener('change',()=>{globalThis.AvatarMeshInspector.setMeshVisibility(entry.node,input.checked);diagResult.textContent=`${input.checked?'Đang hiện':'Đã ẩn'} mesh ${entry.name}. Đây chỉ là công cụ kiểm tra, không sửa file GLB.`;});caption.textContent=`${index+1}. ${entry.name}`;label.append(input,caption);meshButtons.appendChild(label);}
+    const missing=expectedMorphs.filter(name=>!bindings.has(name));diagResult.textContent=`Đã tải mô hình: ${bindings.size} tên morph; ${missing.length} tên chuẩn còn thiếu${missing.length?': '+missing.join(', '):'.'} Có ${meshEntries.length} mesh để kiểm tra.`;}
+  statusMessage.textContent=`Mô hình đã tải · ${bindings.size} morph · chế độ xem thử cục bộ`;
+  window.__lyLamAppBooted=true; window.__lyLamBootFailed=false; window.clearTimeout(window.__lyLamBootTimer);
+  const retryButton=document.querySelector('#retry-startup'), modeButton=document.querySelector('#switch-three-mode'); if(retryButton)retryButton.hidden=true; if(modeButton)modeButton.hidden=true; try { sessionStorage.removeItem(`ly-lam-lam-three-unpkg-fallback:${location.pathname}`); } catch (_) {} try { const cleanUrl = new URL(location.href); if (cleanUrl.searchParams.has('threeFallbackAttempted')) { cleanUrl.searchParams.delete('threeFallbackAttempted'); history.replaceState(null, '', cleanUrl.href); } } catch (_) {}
+  getState();
+},progress=>{if(progress.total>0){const percent=Math.round(progress.loaded/progress.total*100);statusMessage.textContent=`Đang tải mô hình 3D… ${percent}%`;}else{statusMessage.textContent='Đang tải mô hình 3D…';}},e=>{window.__lyLamBootFailed=true;window.clearTimeout(window.__lyLamBootTimer);const xhr=e&&e.target&&typeof e.target.status==='number'?e.target:null;const httpStatus=xhr&&xhr.status>0?xhr.status:0;const detail=(e&&typeof e.message==='string'&&e.message.trim())||(xhr&&typeof xhr.statusText==='string'&&xhr.statusText.trim())||(httpStatus?`HTTP ${httpStatus}`:'trình tải không cung cấp chi tiết');const kind=httpStatus>=400?`Máy chủ từ chối hoặc không tìm thấy GLB (HTTP ${httpStatus})`:httpStatus===0||e instanceof TypeError?'Lỗi mạng, CORS hoặc quyền truy cập tài nguyên':'Lỗi đọc hoặc phân tích GLB';statusMessage.textContent=`${kind}: không tải được ${targetUrl}. Chi tiết: ${detail}. Kiểm tra URL/tệp GLB, phản hồi máy chủ, HTTPS và quyền truy cập; nếu dùng three=local, xác nhận thư mục vendor/three tồn tại. ${window.__lyLamStartupDiagnostics()}`;window.__lyLamShowRetry();console.error('GLTF load failed',e)});
+function frame(now){if(disposed)return;requestAnimationFrame(frame);const dt=Math.min(Math.max((now-last)/1000,0),0.05);last=now;const base=debugWeights===null?targets:debugWeights;const blink=blinkController.update(now, !document.hidden && debugWeights===null);// Centralized coordination replaces direct weights.blink_left / weights.blink_right writes and the legacy AvatarExpressionComposer.composeExpressionWeights(weights) call.
+const composed=globalThis.AvatarExpressionComposer.composeAvatarFrame(base,blink);const transitioned=morphTransition.update(composed,dt);apply(transitioned);controls.update();renderer.render(scene,camera)}requestAnimationFrame(frame);
+function resizeRenderer(){const width=Math.max(1,stage.clientWidth||innerWidth),height=Math.max(1,stage.clientHeight||innerHeight);renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));camera.aspect=width/height;camera.updateProjectionMatrix();renderer.setSize(width,height)}
+addEventListener('resize',resizeRenderer);window.visualViewport?.addEventListener('resize',resizeRenderer);
+renderer.domElement.addEventListener('webglcontextlost',event=>{event.preventDefault();statusMessage.textContent='Đồ họa 3D tạm ngắt (WebGL). Trình duyệt đang thử khôi phục; nếu không tự hồi phục, hãy tải lại trang.';window.__lyLamShowRetry();});
+renderer.domElement.addEventListener('webglcontextrestored',()=>{resizeRenderer();statusMessage.textContent=viewerReady?'Đồ họa 3D đã được khôi phục; bản xem thử sẵn sàng.':'Đồ họa 3D đã được khôi phục; đang chờ mô hình tải xong.';if(viewerReady){const retry=document.querySelector('#retry-startup'), modeButton=document.querySelector('#switch-three-mode');if(retry)retry.hidden=true;if(modeButton)modeButton.hidden=true;}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){blinkController.reset();targets={};apiFailureCount=0;morphTransition.reset();if(pollTimer){clearTimeout(pollTimer);pollTimer=null;}}else if(viewerReady&&!pollTimer){retryPolicy.reset();getState();}});
+window.addEventListener('pagehide',()=>{disposed=true;if(pollTimer)clearTimeout(pollTimer);if(diagnosticsEnabled)globalThis.AvatarMeshInspector.clearVertexHighlights(vertexHighlightRecords);if(animationMixer)animationMixer.stopAllAction();renderer.dispose();});
+</script></body></html>

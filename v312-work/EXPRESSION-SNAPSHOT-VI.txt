@@ -1,0 +1,26 @@
+LÝ LÂM LAM — BẢN GHI TỔ HỢP BIỂU CẢM
+====================================
+
+MỤC ĐÍCH
+- Cho phép lưu một tổ hợp trọng số morph dưới dạng JSON và áp dụng lại sau này.
+- Hỗ trợ tái lập các bài kiểm tra trước/sau khi chỉnh sửa mô hình hoặc quy tắc phối hợp.
+- Không lưu hình ảnh, dữ liệu người dùng hay trạng thái camera; chỉ lưu tên mô hình và trọng số morph.
+
+CÁCH DÙNG
+1. Mở trang xem thử với tham số ?diagnostics=1.
+2. Chọn preset hoặc chỉnh thanh trượt.
+3. Bấm “Tạo bản ghi hiện tại”; sao chép JSON trong ô văn bản để lưu vào tệp ghi chú.
+4. Khi cần tái lập, dán JSON đã lưu vào ô và bấm “Áp dụng bản ghi”.
+
+AN TOÀN VÀ KIỂM TRA
+- Schema: ly-lam-lam-expression-snapshot, version 1.
+- Chỉ chấp nhận asset đúng là ./lam-default.glb.
+- Từ chối JSON sai định dạng, schema sai, tên morph lạ và giá trị không hữu hạn.
+- Giá trị số hữu hạn được giới hạn trong khoảng 0–1.
+- Morph không có trong bản ghi được đặt về 0 để tái lập đủ bộ morph chuẩn.
+- Tất cả xử lý tại trình duyệt; không tải lên máy chủ.
+
+GIỚI HẠN
+- Bản ghi chứa trọng số mục tiêu, không chứa ảnh chụp render hay kết quả đánh giá nghệ thuật.
+- Kết quả nhìn thấy vẫn phụ thuộc đúng phiên bản GLB, trình duyệt, renderer và các quy tắc composer.
+- Chưa xác minh trực quan trên trình duyệt hoặc iPhone/Safari thật.

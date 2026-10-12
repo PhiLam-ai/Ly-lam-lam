@@ -1,0 +1,40 @@
+LÝ LÂM LAM — BÁO CÁO KIỂM TRA DELTA MORPH V223
+================================================
+
+MỤC TIÊU
+- Đọc trực tiếp dữ liệu POSITION delta trong GLB, không chỉ dựa vào tên morph.
+- Xác định morph nào thực sự làm thay đổi vị trí đỉnh và mesh nào nhận biến dạng.
+- Đây là kiểm tra cấu trúc số học; không chứng minh hình dạng biến dạng đẹp hoặc đúng giải phẫu.
+
+KẾT QUẢ
+- Có 12 tên morph chuẩn.
+- Mỗi tên được khai báo trong 6 mesh khuôn mặt (72 slot target tổng cộng).
+- 12/12 tên có ít nhất một delta POSITION khác 0 trong dữ liệu GLB.
+- Việc lặp tên trên nhiều mesh là cấu trúc target theo mesh; các slot bằng 0 ở mesh không liên quan không tự động là lỗi.
+
+ÁNH XẠ MORPH CÓ DELTA POSITION
+Tên morph       Mesh tác động              Số đỉnh có delta khác 0     Delta lớn nhất (đơn vị GLB)
+smile           mouth                     72/72                      0.051478
+blink_left      left_eye                  84/84                      0.062274
+blink_right     right_eye                 84/84                      0.062274
+mouth_open      mouth                     72/72                      0.093408
+brow_raise      left_brow, right_brow     100/100                    0.075954
+jaw_open        mouth, chin               184/184                    0.077130
+jaw_hinge       mouth, chin               184/184                    0.053367
+cheek_raise     mouth, chin               184/184                    0.020591
+lip_press       mouth                     72/72                      0.021633
+lip_fv          mouth                     72/72                      0.029120
+lip_round       mouth                     72/72                      0.010770
+tongue_tip      mouth                     72/72                      0.022361
+
+CÁCH ĐỌC KẾT QUẢ
+- “Có delta khác 0” nghĩa là dữ liệu hình học của target thay đổi ít nhất một vị trí đỉnh vượt ngưỡng số học 1e-8.
+- “Delta lớn nhất” là độ dài vector delta lớn nhất của một đỉnh trong target; không phải phần trăm biểu cảm, đơn vị centimet hay thang điểm chất lượng.
+- Tên mesh “mouth”/“chin” phản ánh tên node/mesh trong tài sản hiện tại; cần kiểm tra trực quan để đánh giá vùng tác động thật.
+- Các morph như smile hoặc lip_round có thể cần phối hợp nhiều morph và chỉnh lại sculpt để trông tự nhiên. Báo cáo này không xác nhận chất lượng nghệ thuật.
+- Bản audit không sửa tệp GLB; chỉ đọc và báo cáo dữ liệu.
+
+KẾT LUẬN KỸ THUẬT
+- Không phát hiện morph chuẩn nào hoàn toàn rỗng trong dữ liệu POSITION.
+- Ưu tiên bước tiếp theo: kiểm tra trực quan ở mức 0, 0.5, 1 và thử tổ hợp smile + cheek_raise, mouth_open + jaw_open, blink_left/right.
+- Chưa xác minh render bằng trình duyệt, chưa kiểm tra trên iPhone/Safari vật lý, chưa triển khai công khai.

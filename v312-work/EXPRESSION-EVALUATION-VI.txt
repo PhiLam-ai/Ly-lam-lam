@@ -1,0 +1,52 @@
+LÝ LÂM LAM V227 — QUY TRÌNH ĐÁNH GIÁ BIỂU CẢM
+================================================
+
+MỤC TIÊU
+- Chuẩn hóa các ca thử lặp lại để so sánh trước/sau khi chỉnh mô hình hoặc trọng số.
+- Tách bằng chứng số học (snapshot/morph delta) khỏi đánh giá hình ảnh của người kiểm tra.
+- Không gọi bộ ca này là “đáp án hình ảnh chuẩn”: các trọng số hiện là preset khởi đầu, chưa được xác nhận trực quan.
+
+BỘ CA THỬ
+- expression-baseline-cases-v1.json có 12 morph được khai báo tường minh và 12 ca: trung tính, cười nhẹ/rõ, chớp mắt trái/phải, cười + chớp mắt, mở miệng nói, F/V, môi tròn, mím môi, nâng chân mày, đầu lưỡi.
+- Mỗi ca ghi trọng số, mục tiêu quan sát và giao thức chụp. Asset phải khớp ./lam-default.glb.
+- Dùng các trọng số như điểm khởi đầu có thể lặp lại, không phải khẳng định rằng giá trị đó tối ưu.
+
+QUY TRÌNH ĐỀ XUẤT
+1. Mở ?diagnostics=1 và chờ avatar tải hoàn tất.
+2. Đặt morph về 0, áp dụng từng ca theo JSON; chụp ảnh cùng góc camera, ánh sáng, viewport và môi trường render.
+3. Tạo snapshot JSON ở mỗi phiên bản; ghi rõ mã phiên bản, thiết bị/trình duyệt và ID ca thử.
+4. Dùng V226 để xem khác biệt số học. Đừng coi delta lớn hơn là tốt hơn.
+5. Chấm từng tiêu chí trực quan từ 0 đến 4: 0 = lỗi nghiêm trọng/không đọc được; 1 = yếu; 2 = dùng được nhưng lỗi rõ; 3 = tốt, lỗi nhỏ; 4 = tốt và ổn định. Dùng N/A nếu không thể quan sát.
+6. Ghi nhận bằng chứng và lý do cho mọi điểm; nếu có thể, nhờ người đánh giá thứ hai để giảm thiên lệch. Không tự động lấy trung bình N/A như 0.
+
+TIÊU CHÍ TRỰC QUAN
+- Nhận diện: biểu cảm có dễ nhận ra đúng ý đồ không?
+- Cân đối: trái/phải có hợp lý trừ khi ca thử yêu cầu bất đối xứng không?
+- Biến dạng: có xuyên hình, kéo giãn, nếp gấp hoặc hình dạng bất thường không?
+- Chuyển tiếp: khi thử chuyển động, có giật, rung hoặc bật trọng số không?
+- Ổn định: kết quả có lặp lại được sau khi đặt trung tính và áp dụng lại không?
+- Riêng ca F/V và đầu lưỡi: chỉ chấm đặc điểm thật sự nhìn thấy; không suy ra chất lượng phát âm hay đồng bộ tiếng nói chỉ từ hình tĩnh.
+
+MẪU GHI NHẬN
+ID ca | phiên bản | thiết bị/trình duyệt | điểm từng tiêu chí | lỗi quan sát được | ảnh bằng chứng | snapshot A/B | người đánh giá.
+
+GIỚI HẠN
+- Bộ JSON không tự render, chụp ảnh hoặc chấm điểm. Cần thao tác trong trình duyệt và ghi nhận thủ công.
+- Chưa thực hiện kiểm chứng trực quan bằng trình duyệt hoặc iPhone thật ở V227.
+- So sánh chỉ đáng tin khi giữ điều kiện chụp tương đương. Thay đổi camera/ánh sáng/render có thể làm kết luận sai lệch.
+
+
+DÙNG BỘ CA TRÊN GIAO DIỆN (V228)
+1. Mở trang với tham số ?diagnostics=1.
+2. Trong “Bộ ca thử chuẩn hóa”, chọn ca và bấm “Áp dụng ca thử”.
+3. Đọc ghi chú trực quan hiển thị; quan sát avatar ở góc camera đã chuẩn hóa.
+4. Tạo snapshot và lưu ảnh chụp cùng mã phiên bản để đối chiếu sau này.
+5. Nếu JSON không tải được, kiểm tra tệp expression-baseline-cases-v1.json được đặt cạnh index.html trên máy chủ HTTPS.
+
+
+PHIẾU GHI NHẬN CÓ CẤU TRÚC (V229)
+- Trong bảng chẩn đoán, chọn và áp dụng ca thử trước; sau đó điền phiên bản dự án và thiết bị/trình duyệt.
+- Chấm nhận diện, cân đối, biến dạng, chuyển tiếp và khả năng lặp lại theo thang 0–4; chọn N/A khi không quan sát được.
+- Ghi quan sát cụ thể và tên tệp ảnh bằng chứng; phiếu JSON sẽ kèm snapshot morph hiện tại để giữ dấu vết số học.
+- Chỉnh morph bằng tay sẽ xóa liên kết với ca đã áp dụng. Hãy áp dụng lại ca chuẩn nếu muốn đánh giá đúng ID ca đó.
+- Phiếu không lưu ảnh và không được tự lưu lâu dài; hãy sao chép JSON, lưu thủ công và ghép với ảnh. Không đưa dữ liệu riêng tư vào trường ghi chú.

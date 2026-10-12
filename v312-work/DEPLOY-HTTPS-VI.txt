@@ -1,0 +1,10 @@
+CHECKLIST ĐƯA LÊN HOST HTTPS
+
+1. Giải nén ZIP này.
+2. Tạo một site web tĩnh mới trên dịch vụ lưu trữ có HTTPS (ví dụ Netlify Drop, Cloudflare Pages hoặc GitHub Pages).
+3. Tải toàn bộ nội dung thư mục này lên, không chỉ index.html. index.html phải nằm ở thư mục gốc của site.
+4. Mở URL HTTPS được cấp trong Safari iPhone.
+5. Xác nhận: dòng trạng thái “Mô hình đã tải”, thấy avatar, xoay/zoom được; sau đó thêm ?diagnostics=1 để thử các nút.
+6. Nếu thất bại, ghi lại thông báo trạng thái và URL (không gửi mật khẩu/token).
+
+Chưa triển khai công khai từ gói này: môi trường hiện tại không có tài khoản/ủy quyền dịch vụ lưu trữ được kết nối.

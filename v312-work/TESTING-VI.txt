@@ -1,0 +1,219 @@
+LÝ LÂM LAM V303 — KIỂM THỬ BẢO TOÀN GÓI THREE.JS
+=============================================================
+- Sửa kiểm thử staging để không xóa vendor/three thật khi chạy trên gói phát hành.
+- Node.js test suite: 120/120 PASS; gói vendor/three/build/three.module.js vẫn còn sau test.
+- Startup preflight: PASS; vendor-module-integrity: PASS; static HTTP smoke: PASS.
+- Chưa xác minh avatar render trong trình duyệt thật hoặc Safari/iPhone.
+
+LÝ LÂM LAM V300 — KIỂM THỬ PHÂN LOẠI LỖI TẢI GLB
+=============================================================
+- Kiểm thử mới xác nhận phân biệt phản hồi HTTP 4xx/5xx, lỗi mạng/CORS và lỗi đọc/phân tích GLB.
+- Chạy toàn bộ kiểm thử Node.js, kiểm tra cú pháp, preflight, HTTP smoke, gói Pages, checksum và ZIP sạch trước khi phát hành.
+- Đây là kiểm thử mã nguồn; chưa xác minh lỗi HTTP thực trên host, WebGL/render hoặc Safari/iPhone.
+
+LÝ LÂM LAM V299 — KIỂM THỬ PHÂN LOẠI LỖI KHỞI ĐỘNG
+=============================================================
+- Kiểm thử mới xác nhận lỗi từ module ứng dụng cùng origin được phân loại riêng và không kích hoạt chuyển CDN tự động.
+- Tổng kiểm thử tự động hiện tại: 119/119 đạt trên mã nguồn.
+- Đây là kiểm tra hồi quy tĩnh; chưa chứng minh Three.js tải được, GLB render được hoặc Safari/iPhone hoạt động.
+
+LÝ LÂM LAM V298 — KIỂM THỬ PHỤC HỒI WEBGL
+==========================================
+- Kiểm thử xác nhận listener `webglcontextrestored` ẩn cả nút tải lại và nút đổi chế độ khi avatar đã sẵn sàng.
+- Đây là kiểm tra hồi quy tĩnh; chưa mô phỏng GPU/WebGL thật hoặc kiểm tra Safari/iPhone.
+
+LÝ LÂM LAM V297 — KIỂM THỬ SỬA CẤU TRÚC HTML
+============================================================
+- Kiểm thử mới: xác nhận `<style>` có thẻ đóng và kết thúc trước import map; xác nhận thứ tự script/head/body.
+- Mục tiêu: chặn hồi quy gây trình duyệt đọc sai phần còn lại của tài liệu như CSS.
+- Phạm vi: kiểm thử cấu trúc HTML và các kiểm tra tự động của dự án; chưa phải bằng chứng browser/WebGL thực.
+
+LÝ LÂM LAM V227 — KIỂM THỬ TỰ ĐỘNG
+===================================
+
+MỤC TIÊU
+- Thêm bộ kiểm thử hồi quy không cần cài thư viện ngoài cho các mô-đun avatar.
+- Kiểm tra tính toàn vẹn cấu trúc GLB, các morph bắt buộc, tệp triển khai và liên kết tài nguyên.
+- Chạy bộ kiểm thử trước khi GitHub Actions xuất bản trang xem thử.
+
+YÊU CẦU
+- Node.js 20 trở lên.
+- Không cần npm install và không gửi dữ liệu ra mạng.
+
+CHẠY TẠI MÁY
+  node --test tests/*.test.cjs
+
+PHẠM VI
+- Bộ điều khiển chớp mắt; phối hợp biểu cảm; làm mượt morph; chính sách retry.
+- Công cụ kiểm tra mesh, camera, manifest vertex và thời gian animation.
+- Header/chunk GLB, danh sách morph, các tệp gốc và đường dẫn tài nguyên.
+
+GIỚI HẠN
+- Kiểm thử tự động không chứng minh chất lượng hình ảnh hoặc độ mượt trên iPhone thật.
+- Không thay thế kiểm thử trình duyệt, Safari, hiệu năng GPU hoặc xác minh deploy công khai.
+- Chưa kết nối backend hội thoại, giọng nói hay Emotional Engine.
+
+V218 bổ sung kiểm tra tự động sự hiện diện của các nút điều khiển di động, thuộc tính trợ năng và hàm điều khiển camera/zoom.
+
+
+V219 — KIỂM TRA BỐ CỤC IPHONE
+- Kiểm tra viewport-fit=cover, dynamic viewport 100dvh và safe-area CSS.
+- Kiểm tra lưới nút điều khiển, vị trí bảng hướng dẫn/chẩn đoán và giới hạn chiều cao bảng.
+- Đây là kiểm tra cấu trúc/CSS; không thay thế kiểm tra trực quan trên Safari hoặc thiết bị thật.
+
+
+V220 — KIỂM TRA ĐỘ ỔN ĐỊNH RENDERER
+- Kiểm tra cập nhật kích thước theo visual viewport và camera aspect.
+- Kiểm tra giới hạn pixel ratio và bước thời gian animation.
+- Kiểm tra có xử lý sự kiện WebGL context lost/restored.
+- Các kiểm thử tự động không thay thế việc chạy thử trực quan trên iPhone/Safari thật.
+
+
+V221 — KIỂM TRA TÀI SẢN GLB
+- Kiểm tra số lượng mesh, đỉnh, chỉ số tam giác, skin/joints, material, texture và animation khớp với báo cáo MODEL-AUDIT-VI.txt.
+- Báo cáo chỉ phản ánh metadata/ cấu trúc; không thay thế việc kiểm tra hình ảnh, từng morph và từng animation trên trình duyệt.
+
+
+V222 — KIỂM TRA ĐIỀU KHIỂN MORPH
+- Kiểm tra thanh công cụ được khởi tạo trước khi nhánh diagnostics truy cập nó.
+- Kiểm tra có thanh trượt 0–1, nhãn trợ năng, giá trị số và hàm đồng bộ preset.
+- Bộ kiểm thử tĩnh không xác minh trực quan từng biến dạng; cần mở URL HTTPS có ?diagnostics=1 để kiểm tra trên trình duyệt.
+
+
+V223 — KIỂM TRA DELTA MORPH
+- Đọc các accessor POSITION của từng target trong GLB và đếm đỉnh có delta khác 0 (ngưỡng 1e-8).
+- Xác minh ánh xạ morph chuẩn sang mesh có biến dạng và đối chiếu báo cáo MORPH-DELTA-AUDIT-VI.txt.
+- Giá trị delta là độ dài vector trong đơn vị mô hình, không phải phần trăm biểu cảm hoặc điểm chất lượng.
+- Kiểm tra dữ liệu không thay thế quan sát trực quan, thử tổ hợp morph hay kiểm thử Safari/iPhone thật.
+
+
+V224 — KIỂM TRA TỔ HỢP BIỂU CẢM
+- Kiểm tra sự hiện diện của ba preset kết hợp và nhãn tiếng Việt.
+- Kiểm tra nút preset có trạng thái aria-pressed và trạng thái được xóa khi người dùng chỉnh tay hoặc thoát chế độ thử.
+- Đây là kiểm tra hồi quy cấu trúc/logic; chưa xác minh trực quan trên trình duyệt hoặc iPhone/Safari thật.
+
+
+V225 — KIỂM TRA BẢN GHI BIỂU CẢM
+- Kiểm tra round-trip JSON, giới hạn trọng số trong 0–1 và nhận diện đúng asset.
+- Kiểm tra từ chối JSON sai, schema sai, tên morph không hỗ trợ và giá trị không hữu hạn.
+- Kiểm tra giao diện tạo/áp dụng bản ghi trong chế độ diagnostics.
+- Chưa xác minh trực quan trên trình duyệt hoặc iPhone/Safari thật.
+
+
+V226 — SO SÁNH SNAPSHOT
+- So sánh hai snapshot hợp lệ cùng asset, tính số morph thay đổi, độ lệch tuyệt đối lớn nhất và trung bình, danh sách delta B − A.
+- Kiểm thử snapshot không hợp lệ, sai asset, snapshot giống nhau và kết quả delta có thể tái lập.
+- Các số liệu không thay thế đánh giá chất lượng hình ảnh.
+
+
+V227 — BỘ CA THỬ VÀ RUBRIC ĐÁNH GIÁ
+- Kiểm tra JSON manifest có schema/asset đúng, 12 ID ca duy nhất và đủ 12 morph trong mỗi ca.
+- Xác minh trọng số đều hữu hạn và nằm trong 0–1; tài liệu nhấn mạnh các ca là preset tạm thời và cần bằng chứng trực quan.
+- Kiểm tra tự động không chạy render, chụp ảnh hay tự chấm điểm; vẫn cần xác minh thủ công trên trình duyệt/Safari.
+
+
+V228 — TÍCH HỢP BỘ CA THỬ VÀO CHẨN ĐOÁN
+- Kiểm tra giao diện chọn/áp dụng ca thử, nạp manifest cùng thư mục, kiểm tra schema/asset, tập morph và trọng số hữu hạn 0–1.
+- Kiểm thử hồi quy không chạy render hay tự chấm chất lượng hình ảnh; vẫn cần xác minh trực quan trên trình duyệt/Safari.
+
+
+V229 — PHIẾU ĐÁNH GIÁ BIỂU CẢM
+- Kiểm tra tạo/đọc lại phiếu đánh giá có schema/version, ca thử, phiên bản dự án, thiết bị/trình duyệt, năm điểm 0–4 hoặc N/A, ghi chú, tệp bằng chứng và snapshot.
+- Từ chối thiếu trường bắt buộc, điểm ngoài miền, snapshot sai schema và JSON sai cú pháp.
+- Kiểm tra giao diện yêu cầu ca thử đã áp dụng và xóa liên kết ca khi chỉnh morph bằng tay, chọn preset, áp snapshot, về trung tính hoặc trở lại API.
+- Phiếu chỉ được tạo trong trình duyệt; kiểm thử tự động không xác minh hiển thị, thao tác thực tế hay ảnh biểu cảm.
+
+
+V230 — SO SÁNH PHIẾU ĐÁNH GIÁ
+- Kiểm tra điểm từng tiêu chí, trung bình chỉ tính điểm số và bỏ qua N/A, xử lý trường hợp không có điểm.
+- Từ chối phiếu sai, case ID khác nhau, asset khác nhau hoặc tập morph không tương thích.
+- Kiểm tra snapshot delta chỉ là dữ liệu số; không tự suy ra chất lượng hình ảnh.
+- Chưa xác minh trực quan trên trình duyệt hoặc iPhone/Safari thật.
+
+
+V231 — XUẤT BÁO CÁO ĐÁNH GIÁ
+- Kiểm tra báo cáo JSON có schema/version, metadata, năm tiêu chí, ghi chú, bằng chứng và các cảnh báo giới hạn.
+- Từ chối tạo báo cáo từ so sánh thất bại; từ chối JSON sai, schema sai, thiếu tiêu chí hoặc điểm ngoài miền.
+- Kiểm tra giao diện tạo/kiểm tra báo cáo và việc đưa metadata thiết bị/người đánh giá vào kết quả so sánh.
+- Báo cáo là bản ghi thủ công cục bộ; không tự lưu lâu dài, không tự lưu ảnh và không chứng minh chất lượng hình ảnh.
+- Chưa xác minh trực quan trên trình duyệt hoặc iPhone/Safari thật.
+
+
+V232 — TỔNG HỢP BÁO CÁO ĐÁNH GIÁ
+- Kiểm tra nhóm theo case ID, số lượng báo cáo, delta trung bình và số lần tăng/không đổi/giảm cho từng tiêu chí.
+- Từ chối JSON lỗi, mảng rỗng và báo cáo thành viên không hợp lệ; kiểm tra giao diện nhập/xuất cục bộ.
+- Không tự kết luận chất lượng hình ảnh; chưa xác minh trực quan trên trình duyệt hoặc iPhone/Safari thật.
+
+V233 — KIỂM TRA THAM CHIẾU BẰNG CHỨNG
+- Kiểm tra đối chiếu basename chính xác, đường dẫn có dấu gạch chéo, tệp thiếu, chưa ghi tên và basename trùng lặp.
+- Kiểm tra từ chối JSON sai, mảng rỗng và báo cáo không hợp lệ; xác minh giao diện chọn nhiều tệp và xuất kết quả JSON.
+- Không mở/đọc nội dung ảnh và không xác minh ảnh đúng ca/phiên bản. Chưa xác minh trực quan trên trình duyệt hoặc iPhone/Safari thật.
+
+V234 — MANIFEST SHA-256 CỤC BỘ CHO BẰNG CHỨNG
+- Kiểm tra manifest phiên bản 1, metadata cơ bản, định dạng SHA-256 và số lượng nội dung byte duy nhất.
+- Kiểm tra gắn hash/kích thước vào tham chiếu tên tệp khớp duy nhất; không gắn hash khi basename trùng hoặc tệp thiếu.
+- Kiểm tra xử lý danh sách rỗng, hash sai định dạng, lỗi đọc tệp và UI bất đồng bộ có thông báo giới hạn.
+- Hash chỉ nhận diện byte; không xác thực ảnh đúng ca thử/phiên bản. Chưa xác minh trực quan trên trình duyệt hoặc iPhone/Safari thật.
+
+
+V235 — ĐƯỜNG KHỞI CHẠY VÀ THÔNG BÁO LỖI
+- Kiểm tra mô-đun chẩn đoán chỉ được nạp khi có ?diagnostics=1, không nằm trong đường khởi chạy thông thường.
+- Kiểm tra watchdog thông báo nếu ứng dụng chưa khởi chạy sau 15 giây và cờ được xóa sau khi renderer khởi tạo.
+- Kiểm tra xử lý dọn dẹp không tham chiếu AvatarMeshInspector khi chế độ chẩn đoán chưa được nạp.
+- Kiểm thử tĩnh không thay thế việc tải CDN, dựng WebGL, tải GLB và thao tác trực quan trên Safari/iPhone thật.
+
+
+V237 — KIỂM TRA TRƯỚC KHI KHỞI CHẠY / TRIỂN KHAI
+- Chạy `node tools/startup-preflight.cjs` để kiểm tra đường dẫn module tương đối trong HTML và các tệp JS, tệp GLB 2.0, JSON ca thử và cấu trúc import map.
+- Công cụ cảnh báo rõ Three.js còn phụ thuộc CDN ngoài. Nó không kiểm tra kết nối mạng, không render trình duyệt và không thay thế thử nghiệm HTTPS/Safari/iPhone.
+- Kiểm thử hồi quy bao gồm việc chạy preflight để tránh tạo gói khi tài nguyên cục bộ bắt buộc bị thiếu.
+
+## V238 — kiểm thử HTTP khởi chạy tĩnh
+- Chạy `node tools/static-http-smoke.cjs` để dựng máy chủ loopback tạm thời và kiểm tra HTTP 200, MIME type, phản hồi GLB 2.0, module entrypoint và HTTP 404.
+- Chạy `node tools/startup-preflight.cjs` để kiểm tra tài nguyên cục bộ trước khi triển khai.
+- Hai kiểm tra này không xác nhận CDN truy cập được, WebGL render thành công, trang HTTPS công khai hoặc Safari/iPhone.
+
+V240 — kiểm tra CDN tùy chọn
+- Chạy `node tools/cdn-connectivity-check.cjs` khi cần chẩn đoán kết nối tới Three.js core, GLTFLoader và OrbitControls.
+- Công cụ có timeout và mã thoát khác 0 khi có URL không truy cập được. Không chạy như một phần bắt buộc của bộ test offline.
+- Thành công chỉ chứng minh môi trường Node hiện tại truy cập được các URL; không xác minh render WebGL hoặc trình duyệt iPhone.
+
+V248 — PHÂN LOẠI LỖI MẠNG CHO DỰ PHÒNG CDN
+- Mô phỏng npm trả EAI_AGAIN và xác nhận công cụ chỉ khi đó mới ghi `fallback=true` vào GITHUB_OUTPUT.
+- Mô phỏng lỗi cấu hình không phải mạng và xác nhận không có marker dự phòng; workflow phải dừng triển khai ở nhánh lỗi không phải mạng.
+- Bộ kiểm thử tự động sau giải nén: 73/73 đạt. Startup preflight, HTTP smoke, cú pháp JS và SHA-256 đạt.
+- Chưa chạy GitHub Actions trên máy chủ từ xa; chưa xác minh tải npm thật, WebGL render, Safari/iPhone.
+
+
+V264 — KIỂM THỬ THỰC THI CHỐT SHA-512 TARBall
+- Dùng tệp giả lập và npm giả để xác nhận SHA-512 không khớp khiến quy trình dừng trước khi gọi npm.
+- Xác nhận tarball bị từ chối không tạo vendor/three.
+- Đây là kiểm thử hành vi thực thi của cổng từ chối; không thay thế việc xác minh một tarball Three.js chính thức.
+- V264: 89/89 kiểm thử tự động đạt; startup preflight và HTTP smoke đạt; 22 tệp JavaScript và 1 module nội tuyến qua kiểm tra cú pháp. Chưa kiểm chứng CDN/render/Safari/iPhone.
+
+V265 — KIỂM THỬ NHÁNH CHẤP NHẬN SHA-512
+- Bổ sung kiểm thử thực thi cho cả mã SHA-512 dạng hex và SRI `sha512-BASE64` khớp với tarball đầu vào.
+- Xác nhận cổng integrity báo PASS và chỉ sau đó mới gọi npm; npm giả chủ động dừng trước bước staging để không biến tệp fixture thành thư viện thật.
+- Kiểm thử này bổ sung cho V264 (nhánh từ chối pin sai), không chứng minh đã tải/cài gói Three.js chính thức.
+
+
+V292 — CDN FALLBACK KHÔNG PHỤ THUỘC SESSIONSTORAGE
+- Kiểm thử thực thi với `sessionStorage.getItem/setItem` đều ném lỗi: lần fallback đầu vẫn tạo URL unpkg, giữ query/hash, và tham số URL ngăn vòng lặp lần hai.
+- Kiểm tra mã xóa dấu `threeFallbackAttempted` sau khi app khởi chạy thành công.
+- Bộ kiểm thử tự động V292: 113/113 đạt. Chưa xác nhận tải CDN thật hoặc render avatar trên trình duyệt thật.
+
+V294 — KIỂM THỬ XUẤT GÓI NGOẠI TUYẾN LẶP LẠI
+- Kiểm thử giả lập npm registry xác nhận exporter chạy hai lần liên tiếp vào cùng thư mục đích mà vẫn cập nhật tarball + manifest sau khi xác minh SHA-512.
+- Chạy: node --test tests/*.test.cjs
+- Kết quả hiện tại: 114/114 đạt. Kiểm thử fixture không chứng minh tarball chính thức đã được tải; môi trường này vẫn gặp EAI_AGAIN khi truy cập registry npm.
+
+
+V295 — PHỤC HỒI UI KHI GLB LỖI
+- Kiểm tra callback lỗi GLTFLoader cập nhật đúng vùng thông báo, đánh dấu boot lỗi, hủy timer và bật nút thử lại/chuyển chế độ.
+- Ngăn lỗi hồi quy ghi đè phần tử `#status` và làm mất các nút phục hồi.
+- Kiểm tra cấu trúc/callback; không thay thế thử tải GLB thực tế trong trình duyệt.
+
+V296 — PHÂN BIỆT TIMEOUT GLB VÀ MODULE
+- Kiểm thử xác nhận watchdog chọn nhánh lỗi GLB khi renderer đã sẵn sàng, vẫn giữ nhánh fallback CDN cho lỗi tải module, và xóa trạng thái lỗi nếu GLB tải thành công muộn.
+- Chạy `node --test tests/*.test.cjs`: 116/116 đạt.
+- Kiểm thử tĩnh không xác nhận phản hồi CDN, WebGL render hoặc Safari/iPhone thật. `vendor/three` chính thức vẫn chưa có trong môi trường đóng gói.

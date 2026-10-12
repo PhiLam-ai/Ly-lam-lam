@@ -1,0 +1,1 @@
+{"name":"three","version":"0.160.0","description":"JavaScript 3D library","type":"module","main":"./build/three.cjs","module":"./build/three.module.js","exports":{".":{"import":"./build/three.module.js","require":"./build/three.cjs"},"./examples/jsm/*":"./examples/jsm/*","./addons/*":"./examples/jsm/*","./src/*":"./src/*"},"license":"MIT"}

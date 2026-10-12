@@ -1,0 +1,15 @@
+LÝ LÂM LAM V304 — CỔNG KIỂM TRA KHỞI CHẠY MỘT LỆNH
+
+Xuất phát từ ZIP V303 đã xác minh:
+- Giữ nguyên index.html, lam-default.glb, Three.js 0.160.0 tự lưu trữ và các tính năng avatar hiện có.
+- Thêm tools/verify-startup.cjs để chạy tuần tự, dừng ngay khi lỗi: startup preflight, kiểm tra đồ thị module Three.js, toàn bộ bài kiểm thử hồi quy và HTTP smoke.
+- Lệnh chạy giống nhau trên Windows PowerShell, macOS và Linux, không cần Git/GitHub hoặc thư viện npm bổ sung.
+- Bổ sung kiểm thử bảo đảm cổng xác minh có đủ bốn bước và nêu rõ giới hạn kiểm thử.
+
+Lệnh chạy từ thư mục lylamlam_work:
+  node tools/verify-startup.cjs
+
+Giới hạn:
+- PASS chỉ xác nhận kiểm tra mã nguồn, tài nguyên, module và máy chủ HTTP mô phỏng.
+- Chưa xác nhận WebGL/GPU, render avatar trong trình duyệt thật, triển khai hosting HTTPS hoặc Safari/iPhone.
+- Không tự sửa hoặc ghi đè mã ứng dụng khi kiểm tra thất bại; báo lỗi để khoanh vùng an toàn.

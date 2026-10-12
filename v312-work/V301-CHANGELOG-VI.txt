@@ -1,0 +1,16 @@
+LÝ LÂM LAM V301 — GHI CHÚ PHIÊN BẢN
+
+- Giữ nguyên ứng dụng, mô hình GLB và thư viện Three.js 0.160.0 từ gói V300 đã nhận.
+- Sửa công cụ kiểm tra vendor module: chỉ dò khai báo import/export ES module thực, tránh báo lỗi giả khi chuỗi văn bản trong template literal chứa từ 'from'.
+- Không thay đổi nội dung GLTFLoader.js hoặc mã thư viện chỉ để làm xanh kiểm tra.
+
+Kết quả kiểm chứng:
+- Bộ kiểm thử: 120/120 đạt.
+- Startup preflight: PASS; đủ tệp bắt buộc, 14 tệp nguồn, 17 tham chiếu module cục bộ.
+- Kiểm tra tính toàn vẹn vendor: PASS; 5 mô-đun được quét.
+- Giới hạn: chưa xác minh render trực tiếp trong trình duyệt, WebGL, CDN/HTTPS hay Safari/iPhone.
+- Mặc định vẫn dùng CDN; chế độ ?three=local cần được xác minh trong trình duyệt trước khi kết luận avatar hiển thị thành công.
+
+Bảo toàn phiên bản:
+- Không ghi đè ZIP nguồn hoặc bản sửa trước đó.
+- V301 là bản phát triển đã qua kiểm thử tự động, chưa phải bản phát hành được xác minh trực quan.

@@ -1,0 +1,257 @@
+{
+  "schema": "ly-lam-lam-expression-baseline-cases",
+  "version": 1,
+  "asset": "./lam-default.glb",
+  "status": "provisional-test-presets-not-validated-visual-gold-standards",
+  "capture_protocol": {
+    "camera": "Giữ nguyên vị trí, tiêu cự/FOV và góc nhìn giữa các lần so sánh.",
+    "lighting": "Giữ nguyên ánh sáng, phơi sáng và nền.",
+    "render": "Giữ nguyên trình duyệt, kích thước viewport, pixel ratio và chất lượng render khi có thể.",
+    "state": "Chờ tải mô hình; đặt tất cả morph về 0 trước khi áp dụng từng ca.",
+    "evidence": "Lưu ảnh chụp màn hình và snapshot JSON cùng mã phiên bản; không suy ra chất lượng hình ảnh từ delta số học."
+  },
+  "morph_names": [
+    "smile",
+    "blink_left",
+    "blink_right",
+    "mouth_open",
+    "jaw_open",
+    "jaw_hinge",
+    "brow_raise",
+    "cheek_raise",
+    "lip_press",
+    "lip_fv",
+    "lip_round",
+    "tongue_tip"
+  ],
+  "cases": [
+    {
+      "id": "neutral",
+      "label_vi": "Trung tính",
+      "weights": {
+        "smile": 0.0,
+        "blink_left": 0.0,
+        "blink_right": 0.0,
+        "mouth_open": 0.0,
+        "jaw_open": 0.0,
+        "jaw_hinge": 0.0,
+        "brow_raise": 0.0,
+        "cheek_raise": 0.0,
+        "lip_press": 0.0,
+        "lip_fv": 0.0,
+        "lip_round": 0.0,
+        "tongue_tip": 0.0
+      },
+      "visual_check": "Không nhíu môi, không mở hàm ngoài trạng thái nghỉ; mắt cân đối."
+    },
+    {
+      "id": "smile-soft",
+      "label_vi": "Cười nhẹ",
+      "weights": {
+        "smile": 0.35,
+        "blink_left": 0.0,
+        "blink_right": 0.0,
+        "mouth_open": 0.0,
+        "jaw_open": 0.0,
+        "jaw_hinge": 0.0,
+        "brow_raise": 0.0,
+        "cheek_raise": 0.15,
+        "lip_press": 0.0,
+        "lip_fv": 0.0,
+        "lip_round": 0.0,
+        "tongue_tip": 0.0
+      },
+      "visual_check": "Khóe miệng nâng nhẹ; hai bên cân đối; không méo môi."
+    },
+    {
+      "id": "smile-wide",
+      "label_vi": "Cười rõ",
+      "weights": {
+        "smile": 0.75,
+        "blink_left": 0.0,
+        "blink_right": 0.0,
+        "mouth_open": 0.0,
+        "jaw_open": 0.0,
+        "jaw_hinge": 0.0,
+        "brow_raise": 0.0,
+        "cheek_raise": 0.4,
+        "lip_press": 0.0,
+        "lip_fv": 0.0,
+        "lip_round": 0.0,
+        "tongue_tip": 0.0
+      },
+      "visual_check": "Nụ cười tăng rõ nhưng không kéo biến dạng bất thường vùng má/miệng."
+    },
+    {
+      "id": "blink-left",
+      "label_vi": "Chớp mắt trái",
+      "weights": {
+        "smile": 0.0,
+        "blink_left": 1.0,
+        "blink_right": 0.0,
+        "mouth_open": 0.0,
+        "jaw_open": 0.0,
+        "jaw_hinge": 0.0,
+        "brow_raise": 0.0,
+        "cheek_raise": 0.0,
+        "lip_press": 0.0,
+        "lip_fv": 0.0,
+        "lip_round": 0.0,
+        "tongue_tip": 0.0
+      },
+      "visual_check": "Mắt trái nhắm; mắt phải vẫn mở. Dùng để phát hiện đảo bên."
+    },
+    {
+      "id": "blink-right",
+      "label_vi": "Chớp mắt phải",
+      "weights": {
+        "smile": 0.0,
+        "blink_left": 0.0,
+        "blink_right": 1.0,
+        "mouth_open": 0.0,
+        "jaw_open": 0.0,
+        "jaw_hinge": 0.0,
+        "brow_raise": 0.0,
+        "cheek_raise": 0.0,
+        "lip_press": 0.0,
+        "lip_fv": 0.0,
+        "lip_round": 0.0,
+        "tongue_tip": 0.0
+      },
+      "visual_check": "Mắt phải nhắm; mắt trái vẫn mở. Dùng để phát hiện đảo bên."
+    },
+    {
+      "id": "smile-blink",
+      "label_vi": "Cười + chớp mắt",
+      "weights": {
+        "smile": 0.45,
+        "blink_left": 1.0,
+        "blink_right": 1.0,
+        "mouth_open": 0.0,
+        "jaw_open": 0.0,
+        "jaw_hinge": 0.0,
+        "brow_raise": 0.0,
+        "cheek_raise": 0.2,
+        "lip_press": 0.0,
+        "lip_fv": 0.0,
+        "lip_round": 0.0,
+        "tongue_tip": 0.0
+      },
+      "visual_check": "Nụ cười vẫn đọc được khi cả hai mắt nhắm; không có giật/nhảy hình."
+    },
+    {
+      "id": "talk-open",
+      "label_vi": "Mở miệng nói",
+      "weights": {
+        "smile": 0.0,
+        "blink_left": 0.0,
+        "blink_right": 0.0,
+        "mouth_open": 0.45,
+        "jaw_open": 0.35,
+        "jaw_hinge": 0.25,
+        "brow_raise": 0.0,
+        "cheek_raise": 0.0,
+        "lip_press": 0.0,
+        "lip_fv": 0.0,
+        "lip_round": 0.0,
+        "tongue_tip": 0.0
+      },
+      "visual_check": "Miệng mở vừa; hàm di chuyển liền mạch, không xuyên hình rõ rệt."
+    },
+    {
+      "id": "speech-fv",
+      "label_vi": "Âm F/V",
+      "weights": {
+        "smile": 0.0,
+        "blink_left": 0.0,
+        "blink_right": 0.0,
+        "mouth_open": 0.08,
+        "jaw_open": 0.0,
+        "jaw_hinge": 0.0,
+        "brow_raise": 0.0,
+        "cheek_raise": 0.0,
+        "lip_press": 0.0,
+        "lip_fv": 0.7,
+        "lip_round": 0.0,
+        "tongue_tip": 0.0
+      },
+      "visual_check": "Môi dưới tiến gần/tiếp xúc răng trên theo ý đồ tạo hình; không thể xác minh phát âm chỉ bằng morph."
+    },
+    {
+      "id": "round-talk",
+      "label_vi": "Môi tròn khi nói",
+      "weights": {
+        "smile": 0.0,
+        "blink_left": 0.0,
+        "blink_right": 0.0,
+        "mouth_open": 0.15,
+        "jaw_open": 0.0,
+        "jaw_hinge": 0.0,
+        "brow_raise": 0.0,
+        "cheek_raise": 0.0,
+        "lip_press": 0.0,
+        "lip_fv": 0.0,
+        "lip_round": 0.7,
+        "tongue_tip": 0.0
+      },
+      "visual_check": "Môi tròn rõ, vẫn giữ được hình dạng miệng ổn định."
+    },
+    {
+      "id": "lip-press",
+      "label_vi": "Mím môi",
+      "weights": {
+        "smile": 0.0,
+        "blink_left": 0.0,
+        "blink_right": 0.0,
+        "mouth_open": 0.0,
+        "jaw_open": 0.0,
+        "jaw_hinge": 0.0,
+        "brow_raise": 0.0,
+        "cheek_raise": 0.0,
+        "lip_press": 0.65,
+        "lip_fv": 0.0,
+        "lip_round": 0.0,
+        "tongue_tip": 0.0
+      },
+      "visual_check": "Hai môi ép lại tương đối cân đối; không co kéo bất thường."
+    },
+    {
+      "id": "brow-raise",
+      "label_vi": "Nâng chân mày",
+      "weights": {
+        "smile": 0.0,
+        "blink_left": 0.0,
+        "blink_right": 0.0,
+        "mouth_open": 0.0,
+        "jaw_open": 0.0,
+        "jaw_hinge": 0.0,
+        "brow_raise": 0.55,
+        "cheek_raise": 0.0,
+        "lip_press": 0.0,
+        "lip_fv": 0.0,
+        "lip_round": 0.0,
+        "tongue_tip": 0.0
+      },
+      "visual_check": "Hai chân mày nâng rõ, không lệch ngoài chủ ý."
+    },
+    {
+      "id": "tongue-tip",
+      "label_vi": "Đầu lưỡi",
+      "weights": {
+        "smile": 0.0,
+        "blink_left": 0.0,
+        "blink_right": 0.0,
+        "mouth_open": 0.3,
+        "jaw_open": 0.0,
+        "jaw_hinge": 0.0,
+        "brow_raise": 0.0,
+        "cheek_raise": 0.0,
+        "lip_press": 0.0,
+        "lip_fv": 0.0,
+        "lip_round": 0.0,
+        "tongue_tip": 0.45
+      },
+      "visual_check": "Chỉ đánh giá nếu lưỡi thực sự nhìn thấy ở góc camera đã chuẩn hóa."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+HƯỚNG DẪN TRIỂN KHAI GITHUB PAGES — V216
+
+GÓI NÀY ĐÃ CÓ WORKFLOW TỰ ĐỘNG
+Thư mục .github/workflows chứa cấu hình deploy trang tĩnh lên GitHub Pages.
+
+CẦN LÀM MỘT LẦN (cần tài khoản GitHub)
+1. Trên GitHub, tạo một repository mới, ví dụ ly-lam-lam-preview.
+2. Tải TOÀN BỘ nội dung đã giải nén của gói này lên repository, giữ nguyên cấu trúc thư mục và thư mục ẩn .github.
+3. Vào Settings → Pages. Ở phần Build and deployment, chọn Source: GitHub Actions.
+4. Vào tab Actions, chờ workflow “Deploy static avatar preview to GitHub Pages” chạy xong màu xanh.
+5. Mở URL Pages mà GitHub hiển thị bằng Safari trên iPhone. Có thể cần chờ vài phút lần đầu.
+6. Để bật công cụ thử morph, thêm ?diagnostics=1 vào cuối URL.
+
+KIỂM TRA SAU KHI DEPLOY
+- Trang tải được, không hiện lỗi mạng.
+- Trạng thái báo mô hình đã tải.
+- Avatar thấy được, kéo để xoay và chụm hai ngón để zoom.
+- Thêm ?diagnostics=1 rồi thử các nút biểu cảm.
+
+GIỚI HẠN
+- Cần Internet để tải Three.js từ jsDelivr.
+- Đây là bản xem thử web, không phải ứng dụng iOS cài đặt. Chưa có AI hội thoại, backend cảm xúc hay giọng nói.
+- Chưa tuyên bố đã deploy công khai hoặc đã xác minh trên iPhone vật lý.
+- Không tải token, mật khẩu hoặc dữ liệu riêng tư lên repository công khai.

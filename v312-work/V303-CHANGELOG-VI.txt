@@ -1,0 +1,17 @@
+LÝ LÂM LAM V303 — SỬA CÔ LẬP KIỂM THỬ, BẢO TOÀN THREE.JS NỘI BỘ
+
+Xuất phát từ V302:
+- Giữ nguyên mã ứng dụng, mô hình lam-default.glb và gói Three.js 0.160.0 đã đóng gói.
+- Sửa bộ kiểm thử để các bài test mô phỏng trường hợp thiếu vendor/three chỉ tạm ẩn gói thật trong phạm vi bài test và luôn khôi phục sau đó.
+- Sửa lỗi dọn dẹp khiến bài test staging xóa thư mục vendor/three của bản phát hành sau khi kiểm tra; lỗi này từng khiến lần kiểm tra tiếp theo báo thiếu build/three.module.js dù tệp có trong ZIP gốc.
+
+Kết quả kiểm tra trên bản làm việc V303:
+- Node.js test suite: 120/120 PASS.
+- Startup preflight: PASS; nhận diện vendor/three@0.160.0 và GLB 2.0.
+- Vendor module integrity: PASS; quét 5 mô-đun, 1 cạnh import tương đối hợp lệ.
+- HTTP smoke: PASS cho tài nguyên runtime, HEAD, 404 và chặn path traversal.
+- Tệp vendor/three/build/three.module.js còn tồn tại sau khi chạy toàn bộ test suite.
+
+Giới hạn:
+- Chưa xác minh render avatar trong trình duyệt thật, WebGL/GPU, HTTPS/CDN hoặc Safari/iPhone.
+- Vì vậy V303 là bản đã kiểm thử mã nguồn và HTTP cục bộ, chưa được tuyên bố là đã xác nhận hiển thị avatar 3D hoàn chỉnh.

@@ -1,0 +1,19 @@
+LÝ LÂM LAM V226 — SO SÁNH BẢN GHI BIỂU CẢM
+============================================
+
+MỤC TIÊU
+- So sánh hai JSON snapshot cùng schema, phiên bản và asset GLB.
+- Hiển thị số morph thay đổi, độ lệch tuyệt đối lớn nhất/trung bình và danh sách chênh lệch B − A.
+- Chỉ số mang tính số học, không đánh giá vẻ đẹp, tự nhiên hoặc tính đúng giải phẫu của biểu cảm.
+
+CÁCH DÙNG
+1. Mở trang xem thử với ?diagnostics=1.
+2. Tạo hoặc dán bản ghi A (trước) và B (sau) trong khu vực “So sánh hai bản ghi”.
+3. Bấm “So sánh A và B”.
+4. Xem morph nào thay đổi và độ lớn thay đổi; chênh lệch được sắp theo trị tuyệt đối giảm dần.
+
+AN TOÀN / GIỚI HẠN
+- Cả hai bản ghi được kiểm tra bằng parser snapshot trước khi so sánh.
+- Từ chối JSON sai, schema sai, sai asset, tên morph không hỗ trợ hoặc trọng số không hợp lệ.
+- Chỉ xử lý cục bộ tại trình duyệt; không có lưu trữ server hoặc gửi dữ liệu.
+- Không thay thế đánh giá trực quan trên trình duyệt/Safari hoặc chuyên gia mô hình hóa.

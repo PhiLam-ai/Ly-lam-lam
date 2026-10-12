@@ -1,0 +1,7 @@
+LÝ LÂM LAM V306 — KIỂM TRA TÍCH HỢP MÁY CHỦ XEM THỬ THẬT
+==========================================================
+- Bổ sung tools/preview-server-integration.cjs: khởi chạy chính tools/serve-preview.cjs trên cổng ngẫu nhiên và kiểm tra phản hồi thực.
+- Kiểm tra GET trang chính, GLB, Three.js core, GLTFLoader và OrbitControls; kiểm tra HEAD GLB, 404 tài nguyên thiếu và 403 đường dẫn thoát thư mục.
+- Đưa kiểm tra tích hợp này vào tools/verify-startup.cjs để phát hiện lỗi máy chủ thực mà HTTP mock trước đây không bắt được.
+- Thêm bài kiểm tra hồi quy để đảm bảo startup gate luôn gọi kiểm tra máy chủ thật.
+- Giới hạn: không thay thế kiểm tra WebGL/GPU, hình ảnh avatar trên Chrome Windows hoặc Safari/iPhone thật.

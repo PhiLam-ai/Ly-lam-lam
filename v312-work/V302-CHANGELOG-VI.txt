@@ -1,0 +1,17 @@
+LÝ LÂM LAM V302 — ĐÓNG GÓI THƯ VIỆN THREE.JS NỘI BỘ
+
+Mục tiêu:
+- Tiếp tục từ V301, giữ nguyên mã ứng dụng và mô hình GLB.
+- Bổ sung thư viện Three.js 0.160.0 vào đúng đường dẫn vendor/three để chế độ ?three=local có đủ tài nguyên cốt lõi và addon.
+- Không ghi đè các ZIP đầu vào; V302 là gói phát triển mới.
+
+Kiểm tra tự động trong môi trường đóng gói:
+- tests/avatar-core.test.cjs: 40/40 đạt.
+- tests/package-integrity.test.cjs: 80/80 đạt.
+- tools/startup-preflight.cjs: PASS; nhận diện vendor/three@0.160.0 và các tài nguyên khởi động.
+- tools/vendor-module-integrity.cjs: PASS; 5 mô-đun được quét, 1 cạnh import tương đối hợp lệ; bare import "three" được import map ánh xạ.
+
+Giới hạn chưa xác minh:
+- Chưa chạy trình duyệt thật để xác nhận avatar render; chưa xác minh WebGL, CDN/HTTPS hoặc Safari/iPhone.
+- Mặc định của trang vẫn dùng CDN; chế độ ?three=local cần được thử qua HTTP server/host thực tế.
+- Các bài kiểm thử là kiểm thử tự động, không thay thế kiểm tra trực quan.

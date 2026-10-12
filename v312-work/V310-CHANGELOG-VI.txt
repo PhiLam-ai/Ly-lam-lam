@@ -1,0 +1,7 @@
+LÝ LÂM LAM V310 — AUDIT CẤU TRÚC GLB TRƯỚC KHI KHỞI CHẠY
+================================================================
+- Thêm công cụ audit cấu trúc GLB 2.0 trước khi khởi chạy: kiểm tra header và độ dài tệp, chunk JSON/BIN, JSON glTF, buffer nhúng, phạm vi bufferView/accessor, và tham chiếu tới accessor, mesh, node, skin, scene, image.
+- Cổng startup preflight nay chặn mô hình GLB có cấu trúc hỏng trước khi mở trình duyệt, với thông báo lỗi cụ thể.
+- Bổ sung 5 kiểm thử hồi quy: mô hình hiện tại, GLB tối thiểu hợp lệ, bufferView vượt giới hạn, tham chiếu hỏng và chunk/JSON sai định dạng.
+- Audit độc lập xác nhận mô hình hiện tại 390.580 byte, 103 nodes, 85 meshes, 425 accessors và 425 bufferViews.
+- Giới hạn: audit cấu trúc không chứng minh shader/GPU hoặc render avatar thành công; vẫn cần xác nhận trực tiếp trên Chrome Windows/Safari iPhone.

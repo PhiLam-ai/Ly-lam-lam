@@ -1,0 +1,22 @@
+LÝ LÂM LAM — KIỂM TRA TỔ HỢP BIỂU CẢM V224
+================================================
+
+MỤC TIÊU
+- Cung cấp các tổ hợp lặp lại được để kiểm tra nhiều morph cùng lúc trên avatar.
+- Giúp quan sát các tương tác có thể cạnh tranh hoặc chồng lấn giữa cơ mặt và khẩu hình.
+
+PRESET BỔ SUNG
+1. Cười + chớp mắt: smile 0,70; cheek_raise 0,20; blink_left/right 1,00.
+2. Cười khi nói: smile 0,50; cheek_raise 0,20; mouth_open 0,35; jaw_open 0,25; jaw_hinge 0,18.
+3. Môi tròn khi nói: lip_round 0,75; mouth_open 0,28; jaw_open 0,22.
+
+CÁCH DÙNG
+- Mở bản xem thử bằng URL HTTPS có ?diagnostics=1.
+- Chọn preset, sau đó quan sát mô hình và điều chỉnh từng thanh morph nếu cần.
+- Trạng thái nút được phản ánh bằng aria-pressed; khi chỉnh thanh trượt, preset không còn được đánh dấu là đang chọn.
+- “Đưa về trung tính” đặt các morph thử về 0; “Trở lại điều khiển API” thoát chế độ thử cục bộ.
+
+GIỚI HẠN
+- Giá trị preset là trọng số thử nghiệm, không phải dữ liệu capture chuyển động hay kết quả tối ưu nghệ thuật.
+- Bộ kiểm thử tự động xác nhận các điều khiển và trạng thái; chưa chứng minh biểu cảm nhìn tự nhiên.
+- Chưa xác minh trực quan trên trình duyệt, iPhone/Safari thật hoặc triển khai công khai.
