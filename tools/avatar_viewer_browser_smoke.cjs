@@ -59,6 +59,7 @@ const { spawn } = require('node:child_process');
     if (!debugState?.ready) failures.push('GLTFLoader success callback did not confirm avatar readiness; debug=' + JSON.stringify(debugState));
     if (!debugState || debugState.meshCount < 1) failures.push('loaded GLB has no mesh objects; debug=' + JSON.stringify(debugState));
     if (!debugState || debugState.morphCount < 1) failures.push('loaded GLB has no morph bindings; debug=' + JSON.stringify(debugState));
+    if (!debugState || Math.abs(debugState.bounds.y - 1.6) > 0.02) failures.push('avatar height is not normalized to 1.60 m; debug=' + JSON.stringify(debugState));
     if (pageErrors.length) failures.push('page errors: ' + pageErrors.join(' | '));
     if (badResponses.some(x => x.includes('127.0.0.1:8765'))) failures.push('local asset HTTP errors: ' + badResponses.filter(x => x.includes('127.0.0.1:8765')).join(' | '));
     if (failures.length) {
