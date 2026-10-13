@@ -99,6 +99,9 @@ def main():
         uv("foot."+side,(sign*.22,-.115,.14),(.11,.19,.075),shoes)
     # fuse body parts that should visually read continuous. Voxel remesh joins overlapping surfaces.
     def fuse(objects,name,voxel):
+        # Each fused anatomical group is intended to use one material only.
+        # Prevent overlapping capsule faces from leaving material-index bands.
+        base_material = next((m for obj in objects for m in obj.data.materials if m), None)
         bpy.ops.object.select_all(action="DESELECT")
         for o in objects:o.select_set(True)
         bpy.context.view_layer.objects.active=objects[0]
@@ -108,6 +111,10 @@ def main():
         bpy.ops.object.modifier_apply(modifier=mod.name)
         sm=o.modifiers.new("GentleSmooth","SMOOTH"); sm.factor=1.35; sm.iterations=6
         bpy.ops.object.modifier_apply(modifier=sm.name)
+        o.data.materials.clear()
+        if base_material:
+            o.data.materials.append(base_material)
+            for p in o.data.polygons: p.material_index=0
         for p in o.data.polygons:p.use_smooth=True
         return o
     fused_trunk=fuse(trunk,"BODY_DRESS_CONTINUOUS",.024)
