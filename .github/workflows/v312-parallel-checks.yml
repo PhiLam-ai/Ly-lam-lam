@@ -1,0 +1,57 @@
+name: V312 Parallel Branch Checks
+
+on:
+  push:
+    branches:
+      - "avatar/parallel-v312-*"
+  pull_request:
+    paths:
+      - "v312-work/**"
+      - ".github/workflows/v312-parallel-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  static-startup-and-glb:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Static startup checks
+        working-directory: v312-work
+        run: node tools/test-startup-config.cjs
+      - name: GLB structure and morph audit
+        working-directory: v312-work
+        run: node tools/audit-avatar-glb.cjs
+      - name: GLB node transform and geometry diagnostic
+        working-directory: v312-work
+        run: node tools/audit-avatar-geometry.cjs
+
+  chromium-browser-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Playwright
+        run: npm install --no-save playwright
+      - name: Install Chromium and system dependencies
+        run: npx playwright install --with-deps chromium
+      - name: Load viewer and GLB in Chromium
+        working-directory: v312-work
+        run: node tools/browser-smoke.cjs
+      - name: Upload browser screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v312-avatar-browser-smoke
+          path: v312-work/avatar-browser-*.png
+          if-no-files-found: ignore
