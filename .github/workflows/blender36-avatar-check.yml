@@ -1,0 +1,79 @@
+name: Blender 3.6 Avatar Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      builder_script:
+        description: "Optional path to an avatar builder .py already committed to the repository"
+        required: false
+        type: string
+        default: ""
+  push:
+    paths:
+      - ".github/workflows/blender36-avatar-check.yml"
+      - "tools/blender36_smoke_test.py"
+      - "tools/avatar-builder.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: blender36-avatar-check
+  cancel-in-progress: true
+
+jobs:
+  blender36-headless:
+    name: Blender 3.6 headless smoke test
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates curl xz-utils libxi6 libxrender1 libxfixes3 \
+            libxkbcommon0 libsm6 libgl1 libegl1 libx11-6 libxxf86vm1 \
+            libxcb1 libxext6 libdbus-1-3
+          sudo rm -rf /var/lib/apt/lists/*
+
+      - name: Download pinned Blender 3.6 LTS
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            https://download.blender.org/release/Blender3.6/blender-3.6.23-linux-x64.tar.xz \
+            --output /tmp/blender.tar.xz
+          mkdir -p "$RUNNER_TEMP/blender"
+          tar -xJf /tmp/blender.tar.xz -C "$RUNNER_TEMP/blender" --strip-components=1
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup --python-expr \
+            "import bpy; print('BLENDER_VERSION=' + bpy.app.version_string)"
+          echo "$RUNNER_TEMP/blender" >> "$GITHUB_PATH"
+
+      - name: Run Blender smoke test (render + GLB export)
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_smoke_test.py -- \
+            --output-dir "$GITHUB_WORKSPACE/artifacts"
+
+      - name: Optionally run a committed avatar builder
+        if: ${{ inputs.builder_script != '' }}
+        run: |
+          set -euo pipefail
+          test -f "${{ inputs.builder_script }}"
+          mkdir -p artifacts/builder
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python "${{ inputs.builder_script }}" -- \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/builder"
+
+      - name: Upload render, GLB and diagnostic report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blender36-avatar-validation
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
