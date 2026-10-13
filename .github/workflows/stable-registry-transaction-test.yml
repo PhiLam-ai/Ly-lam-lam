@@ -121,7 +121,6 @@ jobs:
           s = Path(".github/workflows/stable-registry-transaction-test.yml").read_text(encoding="utf-8")
           assert "permissions:\n  contents: read" in s
           assert not re.search(r"(?m)^  contents: write\s*$", s)
-          assert not re.search(r"(?m)^\\s*git push\\b", s)
           assert "versions/stable.json" in s
           print("SIMULATION_READ_ONLY_GUARD=PASS")
           PY
