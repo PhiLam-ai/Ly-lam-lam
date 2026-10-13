@@ -13,6 +13,7 @@ on:
       - "avatar_mesh_inspector.js"
       - "tools/check_avatar_viewer.py"
       - "tools/avatar_viewer_browser_smoke.cjs"
+      - "v312-work/**"
       - ".github/workflows/avatar-viewer-check.yml"
   workflow_dispatch:
 
@@ -31,6 +32,9 @@ jobs:
           node-version: "20"
       - name: Validate avatar viewer and GLB
         run: python3 tools/check_avatar_viewer.py
+      - name: Run V312 Windows startup gate and bundled Three.js integrity checks
+        working-directory: v312-work
+        run: node tools/verify-startup.cjs
 
   viewer-browser-smoke:
     name: Headless browser loads the real avatar GLB
@@ -52,6 +56,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: avatar-viewer-chromium-screenshot
-          path: avatar-viewer-chromium.png
+          path: avatar-viewer-*.png
           if-no-files-found: warn
           retention-days: 14
