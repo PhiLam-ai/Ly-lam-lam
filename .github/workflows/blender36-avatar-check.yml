@@ -145,7 +145,20 @@ jobs:
           report = json.loads(p.read_text(encoding="utf-8"))
           assert report["status"] == "EXPERIMENTAL_CANDIDATE_NOT_APPROVED", report
           assert report["bytes"] > 1024, report
+          height = report.get("measured_bounds_m", {}).get("size", [0, 0, 0])[2]
+          assert abs(height - 1.60) < 0.03, report
+          # Inspect the actual GLB JSON chunk: the studio floor must not ship with the character.
+          import struct
+          glb = Path("artifacts/coherent-body-candidate/lam-coherent-body-candidate.glb").read_bytes()
+          assert glb[:4] == b"glTF" and struct.unpack_from("<I", glb, 4)[0] == 2, "Invalid GLB header"
+          chunk_len, chunk_type = struct.unpack_from("<II", glb, 12)
+          assert chunk_type == 0x4E4F534A, "First GLB chunk is not JSON"
+          doc = json.loads(glb[20:20 + chunk_len].decode("utf-8"))
+          names = [node.get("name", "") for node in doc.get("nodes", [])]
+          assert "StudioFloor" not in names, "Studio floor leaked into candidate GLB"
           print("COHERENT_BODY_CANDIDATE_EXPORTED=PASS_EXPERIMENTAL")
+          print("CANDIDATE_HEIGHT_GATE=PASS")
+          print("GLB_HEADER_AND_NO_STUDIO_FLOOR_GATE=PASS")
           PY
 
       - name: Optionally run another committed avatar builder
