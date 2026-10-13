@@ -12,6 +12,7 @@ on:
       - "avatar_morph_transition.js"
       - "avatar_mesh_inspector.js"
       - "tools/check_avatar_viewer.py"
+      - "tools/avatar_viewer_browser_smoke.cjs"
       - ".github/workflows/avatar-viewer-check.yml"
   workflow_dispatch:
 
@@ -30,3 +31,19 @@ jobs:
           node-version: "20"
       - name: Validate avatar viewer and GLB
         run: python3 tools/check_avatar_viewer.py
+
+  viewer-browser-smoke:
+    name: Headless browser loads the real avatar GLB
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Chromium and Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Open viewer and verify GLB loading
+        run: node tools/avatar_viewer_browser_smoke.cjs
