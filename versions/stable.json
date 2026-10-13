@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "repository": "PhiLam-ai/Ly-lam-lam",
+  "policy": "Only promote a candidate after the promotion workflow passes its package-integrity checks and required application checks have been reviewed.",
+  "current": null,
+  "previous": null,
+  "note": "No version is designated stable until a candidate is explicitly promoted. Source backup success alone is not application validation."
+}
