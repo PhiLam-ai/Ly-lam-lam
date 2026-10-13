@@ -238,7 +238,10 @@ def main():
             "single_unified_mesh": geometry_ok,
             "target_height_range": height_ok
         },
-        "scope_note": "Early visual avatar blockout: body, simple facial landmarks, hair silhouette and clothing shells. Not a finished avatar; final face sculpt, detailed hair/clothes, rigging and animation are not included."
+        "facial_morphs": morph_report,
+        "facial_morphs_passed": sum(1 for item in morph_report.values() if item["status"] == "PASS"),
+        "facial_morphs_total": len(morph_report),
+        "scope_note": "Early visual avatar blockout with an initial geometric facial-shape-key pass. These morphs are functional prototypes; production facial sculpt, body rigging and animation remain separate work."
     }
     with open(os.path.join(out, "lam-step1-body-report.json"), "w", encoding="utf-8") as report_file:
         json.dump(report, report_file, ensure_ascii=False, indent=2)
