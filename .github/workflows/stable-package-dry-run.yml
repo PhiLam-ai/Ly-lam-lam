@@ -1,0 +1,85 @@
+name: LLL Stable Package Dry Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "v312-work/**"
+      - "lam-default.glb"
+      - ".github/workflows/stable-package-dry-run.yml"
+      - ".github/workflows/stable-version-promotion.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lll-stable-package-dry-run
+  cancel-in-progress: false
+
+jobs:
+  package-check:
+    name: Package current source without promoting it
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create ZIP, verify checksum, and validate GLB header
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dry-run-output
+          SHA="$(git rev-parse HEAD)"
+          ZIP="ly-lam-lam-dry-run-${SHA:0:12}.zip"
+          git archive --format=zip --output="dry-run-output/$ZIP" "$SHA"
+          test -s "dry-run-output/$ZIP"
+          unzip -t "dry-run-output/$ZIP"
+          (
+            cd dry-run-output
+            sha256sum "$ZIP" > "$ZIP.sha256"
+            sha256sum -c "$ZIP.sha256"
+          )
+          python3 - <<'PY'
+          import struct, zipfile
+          from pathlib import Path
+          zpath = next(Path("dry-run-output").glob("*.zip"))
+          with zipfile.ZipFile(zpath) as z:
+              names = set(z.namelist())
+              assert "v312-work/index.html" in names, "Missing v312-work/index.html"
+              data = z.read("lam-default.glb")
+          assert len(data) >= 20, "GLB too small"
+          magic, version, length = struct.unpack_from("<4sII", data, 0)
+          assert magic == b"glTF", f"Invalid GLB magic: {magic!r}"
+          assert version == 2, f"Expected GLB version 2, got {version}"
+          assert length == len(data), f"GLB length mismatch: {length} != {len(data)}"
+          print("SOURCE_PACKAGE_DRY_RUN=PASS")
+          print(f"ZIP_BYTES={zpath.stat().st_size}")
+          print(f"GLB_BYTES={len(data)}")
+          PY
+
+      - name: Upload dry-run evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: stable-package-dry-run-${{ github.sha }}
+          path: |
+            dry-run-output/*.zip
+            dry-run-output/*.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish dry-run summary
+        run: |
+          {
+            echo "## Stable package dry run: PASS"
+            echo
+            echo "- Commit: `$GITHUB_SHA`"
+            echo "- ZIP integrity: PASS"
+            echo "- SHA-256 verification: PASS"
+            echo "- GLB header and declared length: PASS"
+            echo "- Stable registry changed: NO"
+            echo "- Application visual/iPhone validation: NOT COVERED"
+          } >> "$GITHUB_STEP_SUMMARY"
