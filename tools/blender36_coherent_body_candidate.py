@@ -53,30 +53,30 @@ def main():
     uv("neck",(0,0,4.625),(.135,.135,.27),skin)
     uv("head",(0,-.015,5.035),(.275,.255,.365),skin,64,40)
     # Soft cheek volume and a gentler jaw/chin transition for a less toy-like face.
-    uv("cheek.L",(-.145,-.218,4.975),(.092,.055,.078),skin,32,20)
-    uv("cheek.R",(.145,-.218,4.975),(.092,.055,.078),skin,32,20)
-    uv("chin",(0,-.205,4.855),(.105,.060,.070),skin,32,20)
+    uv("cheek.L",(-.125,-.226,4.985),(.068,.040,.060),skin,32,20)
+    uv("cheek.R",(.125,-.226,4.985),(.068,.040,.060),skin,32,20)
+    uv("chin",(0,-.205,4.865),(.082,.045,.055),skin,32,20)
     # ears
     uv("ear.L",(-.29,0,5.02),(.065,.075,.105),skin)
     uv("ear.R",(.29,0,5.02),(.065,.075,.105),skin)
     # Hair cap and back hair
     uv("hair_cap",(0,.025,5.20),(.31,.285,.29),hair,48,32)
     # Swept fringe pieces soften the hard helmet-like hairline.
-    uv("fringe.L",(-.105,-.218,5.205),(.155,.085,.105),hair,32,20)
-    uv("fringe.R",(.075,-.222,5.215),(.155,.085,.105),hair,32,20)
-    uv("fringe_tip",(0,-.245,5.145),(.12,.045,.075),hair,32,20)
+    uv("fringe.L",(-.095,-.218,5.205),(.135,.055,.075),hair,32,20)
+    uv("fringe.R",(.075,-.222,5.215),(.135,.055,.075),hair,32,20)
+    uv("fringe_tip",(0,-.238,5.155),(.085,.035,.055),hair,32,20)
     uv("hair_back",(0,.16,4.98),(.30,.16,.48),hair,36,24)
     uv("hair_side.L",(-.265,.015,4.99),(.075,.10,.37),hair)
     uv("hair_side.R",(.265,.015,4.99),(.075,.10,.37),hair)
     # eyes face toward -Y
     for x,side in [(-.115,"L"),(.115,"R")]:
-        uv("eye_white."+side,(x,-.257,5.075),(.057,.030,.040),white)
-        uv("iris."+side,(x,-.288,5.074),(.023,.014,.025),iris)
-        uv("brow."+side,(x,-.258,5.145),(.075,.025,.018),hair)
-    uv("nose",(0,-.294,4.995),(.032,.048,.052),skin)
-    uv("mouth",(0,-.277,4.91),(.073,.020,.018),material("Muted rose lips",(.42,.105,.12),.4))
+        uv("eye_white."+side,(x,-.254,5.075),(.045,.022,.030),white)
+        uv("iris."+side,(x,-.276,5.074),(.018,.010,.020),iris)
+        uv("brow."+side,(x,-.253,5.130),(.060,.016,.012),hair)
+    uv("nose",(0,-.276,4.995),(.026,.035,.040),skin)
+    uv("mouth",(0,-.260,4.925),(.052,.014,.012),material("Muted rose lips",(.42,.105,.12),.4))
     # A tiny smile highlight, kept subtle in this geometry-only prototype.
-    uv("lower_lip",(0,-.278,4.895),(.047,.012,.009),material("Lower lip",(.57,.20,.20),.4))
+    uv("lower_lip",(0,-.261,4.910),(.035,.009,.007),material("Lower lip",(.57,.20,.20),.4))
     # Arms are grouped and voxel-fused per side to reduce toy-like elbow/wrist seams.
     arms=[]
     for sign,side in [(-1,"L"),(1,"R")]:
