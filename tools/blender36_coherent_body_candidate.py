@@ -101,16 +101,22 @@ def main():
         return o
     fused_trunk=fuse(trunk,"BODY_DRESS_CONTINUOUS",.035)
     fused_legs=fuse(legs,"BODY_LEGS_CONTINUOUS",.025)
+    # Normalize the generated figure to the requested 1.60 m scale (Z extent about 5.5 units before normalization).
+    scale_factor=1.60/5.5
+    for obj in list(scene.objects):
+        if obj.type=="MESH":
+            obj.location *= scale_factor
+            obj.scale *= scale_factor
     # camera, ground, and render
     bpy.ops.mesh.primitive_plane_add(size=200, location=(0,0,-.015))
     floor=bpy.context.object; floor.name="StudioFloor"; floor.data.materials.append(material("Studio floor",(.055,.06,.065)))
-    target=(0,0,2.65); dist=14
+    target=(0,0,.77); dist=4.1
     def camera(name,loc):
         d=bpy.data.cameras.new(name); c=bpy.data.objects.new(name,d); scene.collection.objects.link(c); c.location=loc
-        c.rotation_euler=(Vector(target)-c.location).to_track_quat("-Z","Y").to_euler(); d.type="ORTHO"; d.ortho_scale=6.0; return c
-    cam=camera("FrontCamera",(0,-dist,2.65)); scene.camera=cam
+        c.rotation_euler=(Vector(target)-c.location).to_track_quat("-Z","Y").to_euler(); d.type="ORTHO"; d.ortho_scale=1.85; return c
+    cam=camera("FrontCamera",(0,-dist,.77)); scene.camera=cam
     scene.render.filepath=os.path.join(out,"coherent-body-front.png"); bpy.ops.render.render(write_still=True)
-    cam2=camera("ThreeQuarterCamera",(dist*.7,-dist*.7,2.65)); scene.camera=cam2
+    cam2=camera("ThreeQuarterCamera",(dist*.7,-dist*.7,.77)); scene.camera=cam2
     scene.render.filepath=os.path.join(out,"coherent-body-three-quarter.png"); bpy.ops.render.render(write_still=True)
     glb=os.path.join(out,"lam-coherent-body-candidate.glb")
     bpy.ops.object.select_all(action="DESELECT")
@@ -118,7 +124,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=fused_trunk
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in scene.objects),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Must visually inspect and test in web viewer before any promotion"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in scene.objects),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Must visually inspect and test in web viewer before any promotion"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
