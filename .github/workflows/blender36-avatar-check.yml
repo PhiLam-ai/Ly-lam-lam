@@ -13,6 +13,7 @@ on:
       - ".github/workflows/blender36-avatar-check.yml"
       - "tools/blender36_smoke_test.py"
       - "tools/blender36_model_audit.py"
+      - "tools/blender36_arm_alignment_candidate.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
 
@@ -86,7 +87,27 @@ jobs:
             --python tools/blender36_smoke_test.py -- \
             --output-dir "$GITHUB_WORKSPACE/artifacts/smoke-test"
 
-      - name: Optionally run a committed avatar builder
+      - name: Build isolated experimental arm-alignment candidate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/arm-alignment-candidate
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_arm_alignment_candidate.py -- \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/arm-alignment-candidate"
+          test -s artifacts/arm-alignment-candidate/lam-arm-alignment-candidate.glb
+          test -s artifacts/arm-alignment-candidate/arm-alignment-candidate-front.png
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/arm-alignment-candidate/arm-alignment-candidate-report.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["source_unchanged"] is True, report
+          assert report["candidate_bytes"] > 1024, report
+          print("ARM_ALIGNMENT_CANDIDATE_EXPORTED=PASS")
+          print(json.dumps(report, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Optionally run another committed avatar builder
         if: ${{ inputs.builder_script != '' }}
         run: |
           set -euo pipefail
@@ -96,7 +117,7 @@ jobs:
             --python "${{ inputs.builder_script }}" -- \
             --output-dir "$GITHUB_WORKSPACE/artifacts/builder"
 
-      - name: Upload real-model renders, round-trip GLB and reports
+      - name: Upload real-model renders, candidate GLB and reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
