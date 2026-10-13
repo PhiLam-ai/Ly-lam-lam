@@ -2,48 +2,38 @@ const { chromium } = require('playwright');
 const { spawn } = require('node:child_process');
 
 (async () => {
-  const server = spawn('python3', ['-m', 'http.server', '8765', '--bind', '127.0.0.1'], {
-    stdio: 'ignore',
-    detached: false
-  });
+  const server = spawn('python3', ['-m', 'http.server', '8765', '--bind', '127.0.0.1'], { stdio: 'ignore' });
   let browser;
   try {
     await new Promise((resolve, reject) => {
       let attempts = 0;
       const poll = async () => {
-        attempts++;
         try {
           const response = await fetch('http://127.0.0.1:8765/');
           if (response.ok) return resolve();
         } catch {}
-        if (attempts >= 40) return reject(new Error('Local preview server did not start'));
+        if (++attempts >= 40) return reject(new Error('Local preview server did not start'));
         setTimeout(poll, 250);
       };
       poll();
     });
 
-    browser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-webgl']
-    });
+    browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-webgl'] });
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     const pageErrors = [];
+    const consoleErrors = [];
+    const failedRequests = [];
     const badResponses = [];
     page.on('pageerror', error => pageErrors.push(error.message));
+    page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+    page.on('requestfailed', request => failedRequests.push(request.url() + ' :: ' + (request.failure()?.errorText || 'request failed')));
     page.on('response', response => {
-      if (response.status() >= 400 && new URL(response.url()).origin === 'http://127.0.0.1:8765') {
-        badResponses.push(`${response.status()} ${response.url()}`);
-      }
+      if (response.status() >= 400) badResponses.push(response.status() + ' ' + response.url());
     });
 
     await page.goto('http://127.0.0.1:8765/?diagnostics=1', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForFunction(() => {
-      const status = document.querySelector('#status')?.textContent || '';
-      return status.includes('Avatar đã tải thành công') ||
-             status.includes('Tải avatar thất bại') ||
-             status.includes('không có hình học hiển thị') ||
-             status.includes('Không tìm thấy tài nguyên');
-    }, { timeout: 45000 });
+    // Wait long enough for either success or the viewer's 15-second diagnostic timeout.
+    await page.waitForTimeout(22000);
 
     const result = await page.evaluate(() => ({
       status: document.querySelector('#status')?.textContent || '',
@@ -55,21 +45,26 @@ const { spawn } = require('node:child_process');
         return { width: r.width, height: r.height };
       })(),
       diagnosticsVisible: getComputedStyle(document.querySelector('#diagnostics')).display !== 'none',
-      glbResourceRequested: performance.getEntriesByType('resource').some(r => r.name.includes('lam-default.glb'))
+      glbResourceRequested: performance.getEntriesByType('resource').some(r => r.name.includes('lam-default.glb')),
+      stageHasChildren: document.querySelector('#stage')?.children.length > 0
     }));
+    console.log('BROWSER_RESULT ' + JSON.stringify({ ...result, pageErrors, consoleErrors, failedRequests, badResponses }));
 
-    console.log('BROWSER_RESULT ' + JSON.stringify(result));
-    if (!result.diagnosticsVisible) throw new Error('Diagnostics panel did not appear for diagnostics=1');
-    if (result.canvasCount !== 1 || !result.canvasRect || result.canvasRect.width < 100 || result.canvasRect.height < 100) {
-      throw new Error('WebGL canvas is missing or too small');
+    const failures = [];
+    if (!result.diagnosticsVisible) failures.push('diagnostics panel did not appear for diagnostics=1');
+    if (result.canvasCount !== 1 || !result.canvasRect || result.canvasRect.width < 100 || result.canvasRect.height < 100) failures.push('WebGL canvas missing or too small');
+    if (!result.glbResourceRequested) failures.push('browser did not request lam-default.glb');
+    if (!result.status.includes('Avatar đã tải thành công')) failures.push('avatar did not reach loaded state; status=' + result.status);
+    if (pageErrors.length) failures.push('page errors: ' + pageErrors.join(' | '));
+    if (badResponses.some(x => x.includes('127.0.0.1:8765'))) failures.push('local asset HTTP errors: ' + badResponses.filter(x => x.includes('127.0.0.1:8765')).join(' | '));
+    if (failures.length) {
+      console.error('FAIL: ' + failures.join('\n'));
+      process.exitCode = 1;
+    } else {
+      console.log('PASS: Chromium created canvas, requested GLB, and viewer reached avatar-loaded state');
     }
-    if (!result.glbResourceRequested) throw new Error('Browser did not request lam-default.glb');
-    if (!result.status.includes('Avatar đã tải thành công')) throw new Error('Avatar did not reach loaded state: ' + result.status);
-    if (pageErrors.length) throw new Error('Browser page errors: ' + pageErrors.join(' | '));
-    if (badResponses.length) throw new Error('Local asset HTTP errors: ' + badResponses.join(' | '));
-    console.log('PASS: browser loaded GLB and viewer reached avatar-loaded state');
   } catch (error) {
-    console.error('FAIL: browser smoke test:', error.stack || error);
+    console.error('FAIL: browser smoke test setup:', error.stack || error);
     process.exitCode = 1;
   } finally {
     if (browser) await browser.close();
