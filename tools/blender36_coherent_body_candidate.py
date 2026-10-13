@@ -103,6 +103,13 @@ def main():
     fused_trunk=fuse(trunk,"BODY_DRESS_CONTINUOUS",.024)
     fused_legs=fuse(legs,"BODY_LEGS_CONTINUOUS",.022)
     fused_arms=fuse(arms,"BODY_ARMS_CONTINUOUS",.018)
+    # Add a modest flared skirt overlay so the prototype reads as a dressed adult figure,
+    # rather than a single tight torso/hip capsule. Kept isolated to this experimental candidate.
+    bpy.ops.mesh.primitive_cone_add(vertices=64, radius1=.51, radius2=.385, depth=.56, location=(0,-.012,2.82))
+    skirt=bpy.context.object; skirt.name="EXPERIMENTAL_FLARED_SKIRT"; skirt.data.materials.append(dress)
+    bevel=skirt.modifiers.new("Soft skirt edges","BEVEL"); bevel.width=.045; bevel.segments=3
+    bpy.ops.object.modifier_apply(modifier=bevel.name)
+    for p in skirt.data.polygons: p.use_smooth=True
     # Normalize the generated figure to the requested 1.60 m scale (Z extent about 5.5 units before normalization).
     scale_factor=1.60/5.5
     for obj in list(scene.objects):
