@@ -34,7 +34,11 @@ jobs:
         run: python3 tools/check_avatar_viewer.py
       - name: Run V312 Windows startup gate and bundled Three.js integrity checks
         working-directory: v312-work
-        run: node tools/verify-startup.cjs
+        run: |
+          node tools/startup-preflight.cjs
+          node tools/vendor-module-integrity.cjs .
+          node tools/static-http-smoke.cjs
+          node tools/preview-server-integration.cjs
 
   viewer-browser-smoke:
     name: Headless browser loads the real avatar GLB
