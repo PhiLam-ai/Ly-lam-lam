@@ -67,17 +67,18 @@ def main():
         uv("brow."+side,(x,-.258,5.145),(.075,.025,.018),hair)
     uv("nose",(0,-.294,4.995),(.045,.07,.075),skin)
     uv("mouth",(0,-.275,4.91),(.075,.018,.022),material("Muted rose lips",(.34,.075,.08),.4))
-    # arms overlap shoulders and torso, with softly rounded parts.
+    # Arms are grouped and voxel-fused per side to reduce toy-like elbow/wrist seams.
+    arms=[]
     for sign,side in [(-1,"L"),(1,"R")]:
         shoulder=(sign*.52,0,4.28); elbow=(sign*.67,-.005,3.78); wrist=(sign*.69,-.035,3.32); hand=(sign*.69,-.055,3.15)
-        capsule_piece("upper_arm."+side,shoulder,elbow,.135,skin,.14)
-        uv("elbow."+side,elbow,(.13,.13,.14),skin)
-        capsule_piece("forearm."+side,elbow,wrist,.105,skin,.105)
-        uv("hand."+side,hand,(.105,.075,.15),skin)
+        arms.append(capsule_piece("upper_arm."+side,shoulder,elbow,.125,skin,.13))
+        arms.append(uv("elbow."+side,elbow,(.115,.12,.12),skin))
+        arms.append(capsule_piece("forearm."+side,elbow,wrist,.095,skin,.10))
+        arms.append(uv("hand."+side,hand,(.09,.07,.125),skin))
         for j in range(4):
             x=sign*(.635+j*.035)
-            capsule_piece("finger."+side+str(j),(x,-.065,3.12),(x,-.07,3.00-(.025 if j in (0,3) else 0)),.018,skin,.018)
-        capsule_piece("thumb."+side,(sign*.62,-.08,3.17),(sign*.57,-.09,3.08),.026,skin,.025)
+            arms.append(capsule_piece("finger."+side+str(j),(x,-.065,3.10),(x,-.07,3.015-(.02 if j in (0,3) else 0)),.018,skin,.018))
+        arms.append(capsule_piece("thumb."+side,(sign*.62,-.08,3.16),(sign*.57,-.09,3.08),.024,skin,.024))
     # legs are fused separately into one lower-body surface; dress hem overlaps the upper legs.
     legs=[]
     for sign,side in [(-1,"L"),(1,"R")]:
@@ -99,8 +100,9 @@ def main():
         bpy.ops.object.modifier_apply(modifier=sm.name)
         for p in o.data.polygons:p.use_smooth=True
         return o
-    fused_trunk=fuse(trunk,"BODY_DRESS_CONTINUOUS",.035)
-    fused_legs=fuse(legs,"BODY_LEGS_CONTINUOUS",.025)
+    fused_trunk=fuse(trunk,"BODY_DRESS_CONTINUOUS",.028)
+    fused_legs=fuse(legs,"BODY_LEGS_CONTINUOUS",.022)
+    fused_arms=fuse(arms,"BODY_ARMS_CONTINUOUS",.018)
     # Normalize the generated figure to the requested 1.60 m scale (Z extent about 5.5 units before normalization).
     scale_factor=1.60/5.5
     for obj in list(scene.objects):
@@ -124,7 +126,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=fused_trunk
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in scene.objects),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Must visually inspect and test in web viewer before any promotion"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in scene.objects),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
