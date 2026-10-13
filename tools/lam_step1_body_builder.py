@@ -165,6 +165,62 @@ def main():
         polygon.use_smooth = True
     avatar_details.append(necklace)
 
+    # STEP 3: geometric shape-key prototypes for the 12 facial controls.
+    # This makes the exported GLB carry actual non-zero deformations; sculpting
+    # a production-quality face and adding a body rig remain separate stages.
+    morph_names = ["smile", "blink_left", "blink_right", "mouth_open", "jaw_open",
+                   "jaw_hinge", "brow_raise", "cheek_raise", "lip_press", "lip_fv",
+                   "lip_round", "tongue_tip"]
+
+    def deform_for(name, co, obj):
+        x, y, z = co.x, co.y, co.z
+        if name == "smile" and obj.name.startswith("Mouth_Blockout"):
+            return Vector((math.copysign(abs(x) * 0.18, x), 0, abs(x) * 0.10))
+        if name == "mouth_open" and obj.name.startswith("Mouth_Blockout"):
+            return Vector((0, 0, z * 0.42))
+        if name == "lip_press" and obj.name.startswith("Mouth_Blockout"):
+            return Vector((0, -abs(z) * 0.12, -z * 0.22))
+        if name == "lip_round" and obj.name.startswith("Mouth_Blockout"):
+            return Vector((-x * 0.12, -abs(z) * 0.16, 0))
+        if name == "lip_fv" and obj.name.startswith("Mouth_Blockout"):
+            return Vector((0, -abs(x) * 0.08, z * 0.10))
+        if name == "tongue_tip" and obj.name.startswith("Mouth_Blockout"):
+            return Vector((0, -0.006, -0.003))
+        if name == "blink_left" and obj.name.startswith(("Eye_White", "Eye_Iris")) and obj.location.x < 0:
+            return Vector((0, 0, -z * 0.72))
+        if name == "blink_right" and obj.name.startswith(("Eye_White", "Eye_Iris")) and obj.location.x > 0:
+            return Vector((0, 0, -z * 0.72))
+        if name == "brow_raise" and obj.name.startswith("Brow_Blockout"):
+            return Vector((0, 0, abs(x) * 0.10 + 0.001))
+        if name == "cheek_raise" and obj.name.startswith(("Eye_White", "Ear_Blockout")):
+            return Vector((0, 0, abs(x) * 0.04))
+        if name in ("jaw_open", "jaw_hinge") and obj == body:
+            world = obj.matrix_world @ co
+            if 1.40 < world.z < 1.49:
+                amount = 0.018 if name == "jaw_open" else 0.012
+                return Vector((0, 0, -amount * max(0.0, 1.0 - abs(world.x) / 0.10)))
+        return Vector((0, 0, 0))
+
+    morph_report = {}
+    mesh_targets = [body] + [obj for obj in avatar_details if obj.type == "MESH"]
+    for morph_name in morph_names:
+        affected = []
+        for target in mesh_targets:
+            if not any(deform_for(morph_name, v.co, target).length > 1e-8 for v in target.data.vertices):
+                continue
+            if target.data.shape_keys is None:
+                target.shape_key_add(name="Basis", from_mix=False)
+            key = target.shape_key_add(name=morph_name, from_mix=False)
+            changed = 0
+            for vertex in target.data.vertices:
+                delta = deform_for(morph_name, vertex.co, target)
+                if delta.length > 1e-8:
+                    key.data[vertex.index].co = vertex.co + delta
+                    changed += 1
+            if changed:
+                affected.append(target.name)
+        morph_report[morph_name] = {"status": "PASS" if affected else "FAIL", "meshes": affected}
+
     # Render setup: front three-quarter orthographic preview.
     bpy.ops.mesh.primitive_plane_add(size=5.0, location=(0.0, 0.0, 0.0))
     floor = bpy.context.object
