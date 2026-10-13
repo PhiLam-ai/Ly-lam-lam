@@ -15,6 +15,7 @@ on:
       - "tools/blender36_model_audit.py"
       - "tools/blender36_arm_alignment_candidate.py"
       - "tools/blender36_geometry_gap_audit.py"
+      - "tools/blender36_coherent_body_candidate.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
 
@@ -125,6 +126,26 @@ jobs:
           assert report["candidate_bytes"] > 1024, report
           print("ARM_ALIGNMENT_CANDIDATE_EXPORTED=PASS")
           print(json.dumps(report, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Build isolated coherent-body prototype candidate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/coherent-body-candidate
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_coherent_body_candidate.py -- \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/coherent-body-candidate"
+          test -s artifacts/coherent-body-candidate/lam-coherent-body-candidate.glb
+          test -s artifacts/coherent-body-candidate/coherent-body-front.png
+          test -s artifacts/coherent-body-candidate/coherent-body-three-quarter.png
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/coherent-body-candidate/coherent-body-candidate.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["status"] == "EXPERIMENTAL_CANDIDATE_NOT_APPROVED", report
+          assert report["bytes"] > 1024, report
+          print("COHERENT_BODY_CANDIDATE_EXPORTED=PASS_EXPERIMENTAL")
           PY
 
       - name: Optionally run another committed avatar builder
