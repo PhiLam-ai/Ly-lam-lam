@@ -28,6 +28,9 @@ jobs:
       - name: GLB structure and morph audit
         working-directory: v312-work
         run: node tools/audit-avatar-glb.cjs
+      - name: GLB node transform and geometry diagnostic
+        working-directory: v312-work
+        run: node tools/audit-avatar-geometry.cjs
 
   chromium-browser-smoke:
     runs-on: ubuntu-latest
