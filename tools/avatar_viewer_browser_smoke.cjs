@@ -50,6 +50,8 @@ const { spawn } = require('node:child_process');
     }));
     console.log('BROWSER_RESULT ' + JSON.stringify({ ...result, pageErrors, consoleErrors, failedRequests, badResponses }));
 
+    const debugState = await page.evaluate(() => window.__avatarViewerDebug || null);
+    console.log('AVATAR_DEBUG ' + JSON.stringify(debugState));
     const failures = [];
     if (!result.diagnosticsVisible) failures.push('diagnostics panel did not appear for diagnostics=1');
     if (result.canvasCount !== 1 || !result.canvasRect || result.canvasRect.width < 100 || result.canvasRect.height < 100) failures.push('WebGL canvas missing or too small');
