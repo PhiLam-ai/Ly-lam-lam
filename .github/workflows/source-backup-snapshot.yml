@@ -1,0 +1,58 @@
+name: Scheduled Source Backup Snapshot
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly snapshot every Sunday at 02:17 UTC.
+    - cron: "17 2 * * 0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: source-backup-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    name: Archive tracked source and verify checksum
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create source ZIP, metadata, and SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p backup-output
+          SHORT_SHA="${GITHUB_SHA:0:12}"
+          STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+          ZIP="backup-output/LyLamLam-SOURCE-SNAPSHOT-${STAMP}-${SHORT_SHA}.zip"
+
+          git archive --format=zip --prefix="LyLamLam-${SHORT_SHA}/" HEAD -o "$ZIP"
+          test -s "$ZIP"
+          unzip -t "$ZIP"
+
+          {
+            echo "repository=PhiLam-ai/Ly-lam-lam"
+            echo "ref=$GITHUB_REF"
+            echo "commit=$GITHUB_SHA"
+            echo "created_utc=$STAMP"
+            echo "classification=SOURCE_SNAPSHOT_NOT_RELEASE_NOT_RUNTIME_TESTED"
+            echo "note=This archive contains tracked files at the selected commit; it does not back up Replit secrets, environment variables, databases, or untracked local files."
+          } > backup-output/backup-metadata.txt
+
+          sha256sum "$ZIP" > backup-output/SHA256SUMS.txt
+          sha256sum --check backup-output/SHA256SUMS.txt
+
+      - name: Upload verified snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: ly-lam-lam-source-snapshot-${{ github.run_id }}
+          path: backup-output/
+          if-no-files-found: error
+          retention-days: 30
