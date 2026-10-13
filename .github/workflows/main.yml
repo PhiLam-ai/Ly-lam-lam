@@ -16,24 +16,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy:
+  validate-and-deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run startup-readiness gate
+        working-directory: v312-work
+        run: node tools/verify-startup.cjs
+
+      - name: Prepare pinned local Three.js for Pages
+        working-directory: v312-work
+        run: node tools/prepare-pages-deploy.cjs
+
+      - name: Assemble minimal public Pages artifact
+        working-directory: v312-work
+        run: node tools/prepare-pages-artifact.cjs dist
+
+      - name: Smoke-test the exact deployment artifact
+        working-directory: v312-work
+        run: node tools/static-http-smoke.cjs dist
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
 
-      - name: Upload V312 website files
+      - name: Upload validated website artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./v312-work
+          path: ./v312-work/dist
 
       - name: Deploy website
         id: deployment
