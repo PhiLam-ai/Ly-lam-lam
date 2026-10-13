@@ -64,7 +64,7 @@ loader.load(targetUrl,gltf=>{
  if(disposed)return;clearTimeout(loadTimer);loadedGltf=gltf;loadedAnimations=Array.isArray(gltf.animations)?gltf.animations:[];animationMixer=new THREE.AnimationMixer(gltf.scene);avatarScene=gltf.scene;
  const box=new THREE.Box3().setFromObject(gltf.scene),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
  if(box.isEmpty()||![size.x,size.y,size.z].every(Number.isFinite)||Math.max(size.x,size.y,size.z)<.001){setStatus('Tệp GLB tải được nhưng không có hình học hiển thị.');console.error('GLB has empty/invalid bounds',size);return;}
- gltf.scene.position.sub(center);scene.add(gltf.scene);
+ const modelScale=1.6/size.y;gltf.scene.scale.setScalar(modelScale);size.multiplyScalar(modelScale);center.multiplyScalar(modelScale);gltf.scene.position.sub(center);scene.add(gltf.scene);
  const radius=Math.max(size.x,size.y,size.z,.1);cameraDistance=radius*1.8/Math.tan(THREE.MathUtils.degToRad(camera.fov/2));camera.near=Math.max(.001,cameraDistance/10000);camera.far=Math.max(100,cameraDistance*10);camera.updateProjectionMatrix();camera.position.set(0,0,cameraDistance);controls.target.set(0,0,0);controls.minDistance=radius*.25;controls.maxDistance=radius*12;controls.update();
  bindings=collect(gltf.scene);viewerReady=true;
  let debugMeshCount=0;gltf.scene.traverse(node=>{if(node.isMesh)debugMeshCount++;});window.__avatarViewerDebug={ready:true,meshCount:debugMeshCount,morphCount:bindings.size,animations:loadedAnimations.length,glbUrl:targetUrl,bounds:{x:size.x,y:size.y,z:size.z}};
