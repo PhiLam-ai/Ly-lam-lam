@@ -100,7 +100,7 @@ def main():
     scene.render.image_settings.file_format = "PNG"
     scene.render.image_settings.color_mode = "RGBA"
     scene.render.film_transparent = False
-    scene.world.color = (0.055, 0.055, 0.055)
+    if scene.world is None:\n        scene.world = bpy.data.worlds.new("LamAuditWorld")\n    scene.world.color = (0.055, 0.055, 0.055)
 
     distance = max_dim * 2.8
     ortho = max(size[0], size[2], size[1]) * 1.28
