@@ -42,15 +42,15 @@ def main():
     bpy.ops.import_scene.gltf(filepath=source)
     meshes = {o.name.lower(): o for o in bpy.context.scene.objects if o.type == "MESH"}
 
-    # This is a diagnostic candidate only: align left arm/hand components to the
-    # mirrored world-space positions of their right-side counterparts. Do not alter
-    # face, torso, legs, source GLB, materials, or shape keys.
+    # Candidate-only validation: never silently export a no-op correction.
+    # Discover names conservatively; require at least one recognized bilateral pair.
     pairs = [
         "upper_arm", "shoulder", "shoulder_cap", "elbow", "elbow_cap",
         "forearm", "wrist", "hand", "palm", "thumb",
         "index", "middle", "ring", "little"
     ]
     changes = []
+    moved_count = 0
     for part in pairs:
         left_name, right_name = "left_" + part, "right_" + part
         left, right = meshes.get(left_name), meshes.get(right_name)
@@ -63,12 +63,33 @@ def main():
         left_center = [(v[0] + v[1]) / 2 for v in lb]
         target = [-right_center[0], right_center[1], right_center[2]]
         delta = [target[i] - left_center[i] for i in range(3)]
+        delta_length = sum(v * v for v in delta) ** 0.5
+        if delta_length < 1e-5:
+            changes.append({
+                "part": part, "left_object": left.name, "right_reference": right.name,
+                "translation_delta": delta, "status": "ALREADY_ALIGNED"
+            })
+            continue
         left.matrix_world.translation += Vector(delta)
+        moved_count += 1
         changes.append({
-            "part": part, "left_object": left_name, "right_reference": right_name,
+            "part": part, "left_object": left.name, "right_reference": right.name,
             "left_center_before": left_center, "target_mirrored_center": target,
             "translation_delta": delta, "status": "MOVED"
         })
+
+    found_pairs = sum(1 for item in changes if item["status"] in {"MOVED", "ALREADY_ALIGNED"})
+    if found_pairs == 0:
+        available = sorted(meshes.keys())
+        raise RuntimeError(
+            "No recognized bilateral arm/hand mesh pairs found; refusing to export a no-op candidate. "
+            "Available mesh names: " + ", ".join(available)
+        )
+    if moved_count == 0:
+        raise RuntimeError(
+            "Recognized bilateral pairs exist, but no mesh required a measurable correction; "
+            "refusing to label this as a corrected candidate."
+        )
 
     scene = bpy.context.scene
     scene.render.engine = "BLENDER_WORKBENCH"
@@ -113,6 +134,8 @@ def main():
     bpy.ops.export_scene.gltf(filepath=glb, export_format="GLB", use_selection=True)
     report = {
         "status": "CANDIDATE_EXPORTED_NOT_APPROVED",
+        "recognized_pair_count": found_pairs,
+        "moved_pair_count": moved_count,
         "purpose": "Experimental mirrored-position correction of arm and hand components only; not a finished avatar.",
         "source_file": os.path.basename(source),
         "source_sha256_before": source_hash,
