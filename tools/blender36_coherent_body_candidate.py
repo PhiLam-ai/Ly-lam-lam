@@ -62,9 +62,9 @@ def main():
     # Hair cap and back hair
     uv("hair_cap",(0,.025,5.20),(.31,.285,.29),hair,48,32)
     # Swept fringe pieces soften the hard helmet-like hairline.
-    uv("fringe.L",(-.095,-.218,5.205),(.135,.055,.075),hair,32,20)
-    uv("fringe.R",(.075,-.222,5.215),(.135,.055,.075),hair,32,20)
-    uv("fringe_tip",(0,-.238,5.155),(.085,.035,.055),hair,32,20)
+    uv("fringe.L",(-.095,-.224,5.205),(.125,.035,.040),hair,32,20)
+    uv("fringe.R",(.075,-.226,5.212),(.125,.035,.040),hair,32,20)
+    uv("fringe_tip",(0,-.237,5.168),(.065,.025,.030),hair,32,20)
     uv("hair_back",(0,.16,4.98),(.30,.16,.48),hair,36,24)
     uv("hair_side.L",(-.265,.015,4.99),(.075,.10,.37),hair)
     uv("hair_side.R",(.265,.015,4.99),(.075,.10,.37),hair)
@@ -72,7 +72,7 @@ def main():
     for x,side in [(-.115,"L"),(.115,"R")]:
         uv("eye_white."+side,(x,-.257,5.075),(.041,.017,.027),white)
         uv("iris."+side,(x,-.274,5.074),(.015,.008,.017),iris)
-        uv("brow."+side,(x,-.246,5.126),(.052,.010,.009),hair)
+        uv("brow."+side,(x,-.258,5.119),(.040,.007,.006),hair)
     uv("nose",(0,-.278,4.995),(.022,.028,.030),skin)
     uv("mouth",(0,-.267,4.925),(.046,.010,.009),material("Muted rose lips",(.42,.105,.12),.4))
     # A tiny smile highlight, kept subtle in this geometry-only prototype.
@@ -153,7 +153,7 @@ def main():
         if o.type in {"MESH","ARMATURE"} and o.name != "StudioFloor":o.select_set(True)
     bpy.context.view_layer.objects.active=fused_trunk
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Fourth candidate refinement: softened shoulder/knee seams and reduced protrusion of facial feature geometry"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Fifth candidate refinement: reduce brow and fringe bulk after visual review of front render"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
