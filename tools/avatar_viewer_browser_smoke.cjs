@@ -56,7 +56,9 @@ const { spawn } = require('node:child_process');
     if (!result.diagnosticsVisible) failures.push('diagnostics panel did not appear for diagnostics=1');
     if (result.canvasCount !== 1 || !result.canvasRect || result.canvasRect.width < 100 || result.canvasRect.height < 100) failures.push('WebGL canvas missing or too small');
     if (!result.glbResourceRequested) failures.push('browser did not request lam-default.glb');
-    if (!result.status.includes('Avatar đã tải thành công')) failures.push('avatar did not reach loaded state; status=' + result.status);
+    if (!debugState?.ready) failures.push('GLTFLoader success callback did not confirm avatar readiness; debug=' + JSON.stringify(debugState));
+    if (!debugState || debugState.meshCount < 1) failures.push('loaded GLB has no mesh objects; debug=' + JSON.stringify(debugState));
+    if (!debugState || debugState.morphCount < 1) failures.push('loaded GLB has no morph bindings; debug=' + JSON.stringify(debugState));
     if (pageErrors.length) failures.push('page errors: ' + pageErrors.join(' | '));
     if (badResponses.some(x => x.includes('127.0.0.1:8765'))) failures.push('local asset HTTP errors: ' + badResponses.filter(x => x.includes('127.0.0.1:8765')).join(' | '));
     if (failures.length) {
