@@ -1,0 +1,86 @@
+name: LLL Stable Registry Safety Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "versions/**"
+      - ".github/workflows/stable-version-promotion.yml"
+      - ".github/workflows/stable-registry-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lll-stable-registry-check
+  cancel-in-progress: false
+
+jobs:
+  registry-check:
+    name: Validate stable registry and promotion safeguards
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate registry schema and stable pointer invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, re
+          from pathlib import Path
+
+          state = json.loads(Path("versions/stable.json").read_text(encoding="utf-8"))
+          assert state.get("schema_version") == 1, "Unexpected schema version"
+          assert state.get("repository") == "PhiLam-ai/Ly-lam-lam", "Repository mismatch"
+          assert "current" in state and "previous" in state, "Stable pointers are missing"
+
+          def validate_entry(entry, label):
+              if entry is None:
+                  return
+              required = ("version", "commit_sha", "archive", "sha256")
+              for key in required:
+                  assert isinstance(entry.get(key), str) and entry[key], f"{label}.{key} is missing"
+              assert re.fullmatch(r"[A-Za-z0-9._-]{1,64}", entry["version"]), f"{label}.version invalid"
+              assert re.fullmatch(r"[0-9a-f]{40}", entry["commit_sha"]), f"{label}.commit_sha invalid"
+              assert re.fullmatch(r"[0-9a-f]{64}", entry["sha256"]), f"{label}.sha256 invalid"
+              assert entry["archive"].endswith(".zip"), f"{label}.archive is not ZIP"
+
+          validate_entry(state["current"], "current")
+          validate_entry(state["previous"], "previous")
+          if state["current"] and state["previous"]:
+              assert state["current"]["commit_sha"] != state["previous"]["commit_sha"], "Current and previous must differ"
+          print("STABLE_REGISTRY_SCHEMA=PASS")
+          print("CURRENT_SET=" + str(state["current"] is not None))
+          print("PREVIOUS_SET=" + str(state["previous"] is not None))
+          PY
+
+      - name: Verify promotion workflow has safe gating and package checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path(".github/workflows/stable-version-promotion.yml")
+          s = p.read_text(encoding="utf-8")
+          required = [
+              "workflow_dispatch:",
+              "contents: write",
+              "git archive --format=zip",
+              "unzip -t",
+              "sha256sum -c",
+              "v312-work/index.html",
+              "lam-default.glb",
+              "state[\"previous\"] = old_current",
+              "state[\"current\"] = new_current",
+              "retention-days: 90",
+              "NOT_IMPLIED_BY_PACKAGE_CHECKS",
+          ]
+          missing = [x for x in required if x not in s]
+          assert not missing, "Promotion workflow missing safeguards: " + ", ".join(missing)
+          assert "push:\n" not in s, "Promotion must not run automatically on every push"
+          print("PROMOTION_WORKFLOW_STATIC_SAFETY=PASS")
+          PY
