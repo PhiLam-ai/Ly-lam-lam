@@ -1,0 +1,125 @@
+name: LLL Stable Registry Transaction Simulation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/stable-registry-transaction-test.yml"
+      - ".github/workflows/stable-registry-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lll-stable-registry-transaction-simulation
+  cancel-in-progress: false
+
+jobs:
+  simulate:
+    name: Simulate promotion and rollback without changing registry
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Exercise registry state transitions in isolated memory
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import copy, json, re
+          from pathlib import Path
+
+          original = json.loads(Path("versions/stable.json").read_text(encoding="utf-8"))
+          disk_before = json.dumps(original, sort_keys=True)
+
+          sha_a = "a" * 40
+          sha_b = "b" * 40
+          sha_bad = "not-a-sha"
+
+          def entry(version, sha):
+              assert re.fullmatch(r"[0-9a-f]{40}", sha), "invalid commit SHA"
+              return {
+                  "version": version,
+                  "commit_sha": sha,
+                  "archive": f"ly-lam-lam-{version}.zip",
+                  "sha256": "c" * 64,
+              }
+
+          def promote(state, candidate):
+              assert re.fullmatch(r"[A-Za-z0-9._-]{1,64}", candidate["version"])
+              assert re.fullmatch(r"[0-9a-f]{40}", candidate["commit_sha"])
+              old = state.get("current")
+              if old and old["commit_sha"] != candidate["commit_sha"]:
+                  state["previous"] = copy.deepcopy(old)
+              state["current"] = copy.deepcopy(candidate)
+              return state
+
+          def rollback(state):
+              cur, prev = state.get("current"), state.get("previous")
+              assert cur and prev, "rollback requires current and previous"
+              assert cur["commit_sha"] != prev["commit_sha"], "current and previous must differ"
+              state["current"], state["previous"] = copy.deepcopy(prev), copy.deepcopy(cur)
+              return state
+
+          # First promotion: current is set, previous remains empty.
+          s = {"current": None, "previous": None}
+          promote(s, entry("TEST-A", sha_a))
+          assert s["current"]["commit_sha"] == sha_a and s["previous"] is None
+
+          # Second promotion: former current becomes previous.
+          promote(s, entry("TEST-B", sha_b))
+          assert s["current"]["commit_sha"] == sha_b
+          assert s["previous"]["commit_sha"] == sha_a
+
+          # Rollback swaps both pointers, preserving the two distinct commits.
+          rollback(s)
+          assert s["current"]["commit_sha"] == sha_a
+          assert s["previous"]["commit_sha"] == sha_b
+
+          # Invalid candidate and invalid rollback states must fail closed.
+          before = copy.deepcopy(s)
+          try:
+              promote(s, {"version": "BAD", "commit_sha": sha_bad})
+              raise AssertionError("invalid SHA unexpectedly accepted")
+          except AssertionError as e:
+              assert str(e) == "invalid commit SHA"
+          assert s == before, "failed promotion changed simulated state"
+
+          try:
+              rollback({"current": None, "previous": None})
+              raise AssertionError("empty registry unexpectedly rolled back")
+          except AssertionError as e:
+              assert str(e) == "rollback requires current and previous"
+
+          try:
+              rollback({"current": entry("SAME-A", sha_a), "previous": entry("SAME-B", sha_a)})
+              raise AssertionError("duplicate SHA pointers unexpectedly rolled back")
+          except AssertionError as e:
+              assert str(e) == "current and previous must differ"
+
+          disk_after = json.dumps(json.loads(Path("versions/stable.json").read_text(encoding="utf-8")), sort_keys=True)
+          assert disk_before == disk_after, "real registry changed during simulation"
+          print("FIRST_PROMOTION_SIMULATION=PASS")
+          print("SECOND_PROMOTION_SHIFTS_PREVIOUS=PASS")
+          print("ROLLBACK_POINTER_SWAP_SIMULATION=PASS")
+          print("INVALID_CANDIDATE_FAILS_CLOSED=PASS")
+          print("EMPTY_OR_DUPLICATE_ROLLBACK_BLOCKED=PASS")
+          print("REAL_REGISTRY_UNCHANGED=PASS")
+          print("NOTE=Simulation only; does not test GitHub write permissions, push conflicts, or a live rollback.")
+          PY
+
+      - name: Confirm simulation workflow is read-only
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s = Path(".github/workflows/stable-registry-transaction-test.yml").read_text(encoding="utf-8")
+          assert "contents: read" in s
+          assert "contents: write" not in s
+          assert "git push" not in s
+          assert "versions/stable.json" in s
+          print("SIMULATION_READ_ONLY_GUARD=PASS")
+          PY
