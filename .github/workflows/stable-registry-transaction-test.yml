@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/stable-registry-transaction-test.yml"
       - ".github/workflows/stable-registry-check.yml"
+      - "versions/stable.json"
   workflow_dispatch:
 
 permissions:
