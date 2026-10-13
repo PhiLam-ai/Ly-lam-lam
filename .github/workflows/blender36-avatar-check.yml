@@ -14,6 +14,7 @@ on:
       - "tools/blender36_smoke_test.py"
       - "tools/blender36_model_audit.py"
       - "tools/blender36_arm_alignment_candidate.py"
+      - "tools/blender36_geometry_gap_audit.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
 
@@ -77,6 +78,25 @@ jobs:
           assert report.get("mesh_count", 0) > 0, report
           print("REAL_MODEL_AUDIT_GATE=PASS")
           print(json.dumps(report, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Audit body-part adjacency using world-space bounds
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/geometry-gap-audit
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_geometry_gap_audit.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/geometry-gap-audit"
+          test -s artifacts/geometry-gap-audit/geometry-gap-audit.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/geometry-gap-audit/geometry-gap-audit.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["mesh_count"] > 0, report
+          assert all(x["status"] == "MEASURED" for x in report["pairs"]), report
+          print("GEOMETRY_GAP_AUDIT=PASS_DIAGNOSTIC_ONLY")
           PY
 
       - name: Run isolated smoke test
