@@ -55,9 +55,9 @@ if(diagnosticsEnabled){
  document.querySelectorAll('[data-camera]').forEach(b=>b.addEventListener('click',()=>{const p=globalThis.AvatarMeshInspector.getCameraPreset(b.dataset.camera,cameraDistance,0);if(p){camera.position.set(p.x,p.y,p.z);controls.target.set(0,0,0);controls.update();}}));
 }
 const manager=new THREE.LoadingManager();
-manager.onStart=()=>setStatus('Đang tải thư viện và mô hình avatar…');
-manager.onProgress=(url,loaded,total)=>setStatus('Đang tải tệp: '+url.split('/').pop()+' ('+loaded+'/'+total+')');
-manager.onError=url=>setStatus('Không tìm thấy tài nguyên: '+url);
+manager.onStart=()=>{if(!viewerReady)setStatus('Đang tải thư viện và mô hình avatar…');};
+manager.onProgress=(url,loaded,total)=>{if(!viewerReady)setStatus('Đang tải tệp: '+url.split('/').pop()+' ('+loaded+'/'+total+')');};
+manager.onError=url=>{if(!viewerReady)setStatus('Không tìm thấy tài nguyên: '+url);};
 const loader=new GLTFLoader(manager);
 const loadTimer=setTimeout(()=>{if(!viewerReady&&!disposed)setStatus('Đang chờ mô hình quá 15 giây. Kiểm tra lam-default.glb, mạng hoặc Console (F12 → Console). Tệp cần tải: '+targetUrl);},15000);
 loader.load(targetUrl,gltf=>{
@@ -67,6 +67,7 @@ loader.load(targetUrl,gltf=>{
  gltf.scene.position.sub(center);scene.add(gltf.scene);
  const radius=Math.max(size.x,size.y,size.z,.1);cameraDistance=radius*1.8/Math.tan(THREE.MathUtils.degToRad(camera.fov/2));camera.near=Math.max(.001,cameraDistance/10000);camera.far=Math.max(100,cameraDistance*10);camera.updateProjectionMatrix();camera.position.set(0,0,cameraDistance);controls.target.set(0,0,0);controls.minDistance=radius*.25;controls.maxDistance=radius*12;controls.update();
  bindings=collect(gltf.scene);viewerReady=true;
+ window.__avatarViewerDebug={ready:true,meshCount:meshEntries.length,morphCount:bindings.size,animations:loadedAnimations.length,glbUrl:targetUrl,bounds:{x:size.x,y:size.y,z:size.z}};
  if(diagnosticsEnabled){meshEntries=globalThis.AvatarMeshInspector.collectMeshEntries(avatarScene);meshButtons.replaceChildren();for(const [i,entry] of meshEntries.entries()){const label=document.createElement('label'),input=document.createElement('input'),caption=document.createElement('span');input.type='checkbox';input.checked=entry.visible;input.addEventListener('change',()=>globalThis.AvatarMeshInspector.setMeshVisibility(entry.node,input.checked));caption.textContent=(i+1)+'. '+entry.name;label.append(input,caption);meshButtons.appendChild(label);}const missing=expectedMorphs.filter(n=>!bindings.has(n));diagResult.textContent='Đã tải '+bindings.size+' morph; thiếu '+missing.length+': '+missing.join(', ');}
  setStatus('Avatar đã tải thành công · '+size.y.toFixed(2)+' m chiều cao mô hình · '+bindings.size+' morph · API chưa kết nối (xem thử cục bộ)');getState();
 },xhr=>{if(xhr.total>0)setStatus('Đang tải avatar: '+Math.round(xhr.loaded/xhr.total*100)+'%');},error=>{clearTimeout(loadTimer);console.error('Avatar GLB load failed:',error);setStatus('Tải avatar thất bại. Kiểm tra mạng/đường dẫn tệp và mở F12 → Console.\nTệp: '+targetUrl+'\nLỗi: '+(error?.message||'Không rõ nguyên nhân'));});
