@@ -118,6 +118,6 @@ jobs:
           ]
           missing = [x for x in required if x not in s]
           assert not missing, "Rollback workflow missing safeguards: " + ", ".join(missing)
-          assert "push:\\n" not in s, "Rollback must not run automatically on every push"
+          assert "push:\n" not in s, "Rollback must not run automatically on every push"
           print("ROLLBACK_WORKFLOW_STATIC_SAFETY=PASS")
           PY
