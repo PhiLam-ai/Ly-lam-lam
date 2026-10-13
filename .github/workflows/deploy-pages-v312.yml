@@ -1,0 +1,49 @@
+name: Deploy Lý Lâm Lam to GitHub Pages
+
+on:
+  push:
+    branches:
+      - step1-body-rebuild
+    paths:
+      - "v312-work/**"
+      - ".github/workflows/deploy-pages-v312.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "github-pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout V312
+        uses: actions/checkout@v4
+      - name: Verify web entry and avatar assets
+        run: |
+          test -s v312-work/index.html
+          test -s v312-work/lam-default.glb
+          test -d v312-work/vendor/three
+          echo "V312 web entry, GLB, and bundled Three.js exist."
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload V312 website
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: v312-work
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
