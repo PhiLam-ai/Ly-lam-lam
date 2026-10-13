@@ -39,7 +39,7 @@ const expectedMorphs=['smile','blink_left','blink_right','mouth_open','jaw_open'
 function clamp(v){v=Number(v);return Number.isFinite(v)?Math.max(0,Math.min(1,v)):0}
 function collect(root){const m=new Map();root.traverse(n=>{if(!n.morphTargetDictionary||!n.morphTargetInfluences)return;for(const [name,raw] of Object.entries(n.morphTargetDictionary)){const i=Number(raw);if(Number.isInteger(i)&&i>=0&&i<n.morphTargetInfluences.length){if(!m.has(name))m.set(name,[]);m.get(name).push({node:n,index:i})}}});return m}
 function apply(weights){for(const [name,list] of bindings){const goal=clamp(weights?.[name]);for(const {node,index} of list)node.morphTargetInfluences[index]=goal;}}
-async function getState(){targets={};setStatus(`Avatar đã tải và đang hiển thị · ${bindings.size} morph · API chưa kết nối (chế độ xem cục bộ)`);}
+async function getState(){targets={};}
 if(diagnosticsEnabled){
  const presets={smile:{smile:.82,cheek_raise:.25},blink:{blink_left:1,blink_right:1},talk:{mouth_open:.62,jaw_open:.5,jaw_hinge:.35},fv:{lip_fv:.9,lip_press:.12},round:{lip_round:.9,mouth_open:.12}};
  document.querySelectorAll('[data-preset]').forEach(b=>b.addEventListener('click',()=>{const p=presets[b.dataset.preset]||{};debugWeights=Object.fromEntries(expectedMorphs.map(k=>[k,p[k]||0]));diagResult.textContent='Đang thử: '+b.textContent;}));
@@ -67,7 +67,7 @@ loader.load(targetUrl,gltf=>{
  gltf.scene.position.sub(center);scene.add(gltf.scene);
  const radius=Math.max(size.x,size.y,size.z,.1);cameraDistance=radius*1.8/Math.tan(THREE.MathUtils.degToRad(camera.fov/2));camera.near=Math.max(.001,cameraDistance/10000);camera.far=Math.max(100,cameraDistance*10);camera.updateProjectionMatrix();camera.position.set(0,0,cameraDistance);controls.target.set(0,0,0);controls.minDistance=radius*.25;controls.maxDistance=radius*12;controls.update();
  bindings=collect(gltf.scene);viewerReady=true;
- window.__avatarViewerDebug={ready:true,meshCount:meshEntries.length,morphCount:bindings.size,animations:loadedAnimations.length,glbUrl:targetUrl,bounds:{x:size.x,y:size.y,z:size.z}};
+ let debugMeshCount=0;gltf.scene.traverse(node=>{if(node.isMesh)debugMeshCount++;});window.__avatarViewerDebug={ready:true,meshCount:debugMeshCount,morphCount:bindings.size,animations:loadedAnimations.length,glbUrl:targetUrl,bounds:{x:size.x,y:size.y,z:size.z}};
  if(diagnosticsEnabled){meshEntries=globalThis.AvatarMeshInspector.collectMeshEntries(avatarScene);meshButtons.replaceChildren();for(const [i,entry] of meshEntries.entries()){const label=document.createElement('label'),input=document.createElement('input'),caption=document.createElement('span');input.type='checkbox';input.checked=entry.visible;input.addEventListener('change',()=>globalThis.AvatarMeshInspector.setMeshVisibility(entry.node,input.checked));caption.textContent=(i+1)+'. '+entry.name;label.append(input,caption);meshButtons.appendChild(label);}const missing=expectedMorphs.filter(n=>!bindings.has(n));diagResult.textContent='Đã tải '+bindings.size+' morph; thiếu '+missing.length+': '+missing.join(', ');}
  setStatus('Avatar đã tải thành công · '+size.y.toFixed(2)+' m chiều cao mô hình · '+bindings.size+' morph · API chưa kết nối (xem thử cục bộ)');getState();
 },xhr=>{if(xhr.total>0)setStatus('Đang tải avatar: '+Math.round(xhr.loaded/xhr.total*100)+'%');},error=>{clearTimeout(loadTimer);console.error('Avatar GLB load failed:',error);setStatus('Tải avatar thất bại. Kiểm tra mạng/đường dẫn tệp và mở F12 → Console.\nTệp: '+targetUrl+'\nLỗi: '+(error?.message||'Không rõ nguyên nhân'));});
