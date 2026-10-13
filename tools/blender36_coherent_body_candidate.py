@@ -111,7 +111,7 @@ def main():
         o=bpy.context.object; o.name=name
         mod=o.modifiers.new("VoxelFuse","REMESH"); mod.mode="VOXEL"; mod.voxel_size=voxel
         bpy.ops.object.modifier_apply(modifier=mod.name)
-        sm=o.modifiers.new("AnatomicalTransitionSmooth","SMOOTH"); sm.factor=1.15; sm.iterations=14
+        sm=o.modifiers.new("AnatomicalTransitionSmooth","SMOOTH"); sm.factor=.45; sm.iterations=8
         bpy.ops.object.modifier_apply(modifier=sm.name)
         o.data.materials.clear()
         if base_material:
@@ -119,9 +119,9 @@ def main():
             for p in o.data.polygons: p.material_index=0
         for p in o.data.polygons:p.use_smooth=True
         return o
-    fused_trunk=fuse(trunk,"BODY_DRESS_CONTINUOUS",.024)
-    fused_legs=fuse(legs,"BODY_LEGS_CONTINUOUS",.016)
-    fused_arms=fuse(arms,"BODY_ARMS_CONTINUOUS",.014)
+    fused_trunk=fuse(trunk,"BODY_DRESS_CONTINUOUS",.018)
+    fused_legs=fuse(legs,"BODY_LEGS_CONTINUOUS",.012)
+    fused_arms=fuse(arms,"BODY_ARMS_CONTINUOUS",.012)
     # Add a modest flared skirt overlay so the prototype reads as a dressed adult figure,
     # rather than a single tight torso/hip capsule. Kept isolated to this experimental candidate.
     bpy.ops.mesh.primitive_cone_add(vertices=64, radius1=.51, radius2=.385, depth=.56, location=(0,-.012,2.82))
@@ -165,7 +165,7 @@ def main():
         if o.type in {"MESH","ARMATURE"} and o.name != "StudioFloor":o.select_set(True)
     bpy.context.view_layer.objects.active=fused_trunk
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-side.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Refinement pass: remove chest-sphere artifacts and increase smoothing at waist, hip, and limb joins; experimental only"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-side.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Refinement pass: finer voxel fusion and restrained smoothing to reduce visible bands at leg and torso joins; experimental only"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
