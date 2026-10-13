@@ -60,6 +60,7 @@ async function waitForServer(url, timeoutMs = 15000) {
     await page.waitForFunction(() =>
       window.__lyLamAppBooted === true ||
       window.__lyLamBootFailed === true,
+      undefined,
       { timeout: 45000 }
     );
     await page.waitForTimeout(1000);
