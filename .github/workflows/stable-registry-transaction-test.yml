@@ -50,8 +50,8 @@ jobs:
               }
 
           def promote(state, candidate):
-              assert re.fullmatch(r"[A-Za-z0-9._-]{1,64}", candidate["version"])
-              assert re.fullmatch(r"[0-9a-f]{40}", candidate["commit_sha"])
+              assert re.fullmatch(r"[A-Za-z0-9._-]{1,64}", candidate["version"]), "invalid version label"
+              assert re.fullmatch(r"[0-9a-f]{40}", candidate["commit_sha"]), "invalid commit SHA"
               old = state.get("current")
               if old and old["commit_sha"] != candidate["commit_sha"]:
                   state["previous"] = copy.deepcopy(old)
