@@ -68,6 +68,12 @@ const { spawn } = require('node:child_process');
     if (!debugState || debugState.meshCount < 1) failures.push('loaded GLB has no mesh objects; debug=' + JSON.stringify(debugState));
     if (!debugState || debugState.morphCount < 1) failures.push('loaded GLB has no morph bindings; debug=' + JSON.stringify(debugState));
     if (!debugState || Math.abs(debugState.bounds.y - 1.6) > 0.02) failures.push('avatar height is not normalized to 1.60 m; debug=' + JSON.stringify(debugState));
+    // The normal viewer is a separate launch path: it must be asserted, not only screenshotted.
+    if (normalState.canvasCount !== 1 || !normalState.canvasRect || normalState.canvasRect.width < 100 || normalState.canvasRect.height < 100) failures.push('normal viewer canvas missing or too small');
+    if (!normalState.glbRequested) failures.push('normal viewer did not request lam-default.glb');
+    if (!normalState.debug?.ready || normalState.debug.meshCount < 1 || normalState.debug.morphCount < 1) failures.push('normal viewer did not confirm a loaded avatar with meshes and morphs; state=' + JSON.stringify(normalState));
+    if (normalState.bootFailed) failures.push('normal viewer reported boot failure; state=' + JSON.stringify(normalState));
+    if (normalState.recentErrors?.length) failures.push('normal viewer startup errors: ' + normalState.recentErrors.join(' | '));
     if (pageErrors.length) failures.push('page errors: ' + pageErrors.join(' | '));
     if (consoleErrors.length) failures.push('console errors: ' + consoleErrors.join(' | '));
     if (failedRequests.length) failures.push('failed requests: ' + failedRequests.join(' | '));
@@ -76,7 +82,7 @@ const { spawn } = require('node:child_process');
       console.error('FAIL: ' + failures.join('\n'));
       process.exitCode = 1;
     } else {
-      console.log('PASS: Chromium created canvas, requested GLB, and viewer reached avatar-loaded state');
+      console.log('PASS: diagnostic and normal viewer paths both created a usable canvas and confirmed avatar GLB readiness');
     }
   } catch (error) {
     console.error('FAIL: browser smoke test setup:', error.stack || error);
