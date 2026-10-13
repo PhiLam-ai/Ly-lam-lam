@@ -304,16 +304,20 @@ loader.load(targetUrl,gltf=>{
   animationMixer=new THREE.AnimationMixer(gltf.scene);
   scene.add(gltf.scene);avatarScene=gltf.scene;
   const box=new THREE.Box3().setFromObject(gltf.scene), size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
+  if(box.isEmpty()||!Number.isFinite(size.y)||size.y<.001){statusMessage.textContent='Tệp GLB tải được nhưng không có hình học hợp lệ.';window.__lyLamBootFailed=true;return;}
+  const modelScale=1.6/size.y;gltf.scene.scale.setScalar(modelScale);size.multiplyScalar(modelScale);center.multiplyScalar(modelScale);
   gltf.scene.position.sub(center);
   const largest=Math.max(size.x,size.y,size.z,0.5);cameraDistance=Math.max(largest*2.3,2.2);
   camera.position.set(0,Math.max(size.y*.15,.2),cameraDistance);
   controls.target.set(0,0,0);controls.update();
   bindings=collect(gltf.scene);viewerReady=true;setQuickView('reset');
+  let debugMeshCount=0;gltf.scene.traverse(node=>{if(node.isMesh)debugMeshCount++;});
+  window.__avatarViewerDebug={ready:true,meshCount:debugMeshCount,morphCount:bindings.size,animations:loadedAnimations.length,glbUrl:targetUrl,bounds:{x:size.x,y:size.y,z:size.z}};
   if(diagnosticsEnabled){
     meshEntries=globalThis.AvatarMeshInspector.collectMeshEntries(avatarScene);meshButtons.replaceChildren();
     for(const [index,entry] of meshEntries.entries()){const label=document.createElement('label'),input=document.createElement('input'),caption=document.createElement('span');input.type='checkbox';input.checked=entry.visible;input.addEventListener('change',()=>{globalThis.AvatarMeshInspector.setMeshVisibility(entry.node,input.checked);diagResult.textContent=`${input.checked?'Đang hiện':'Đã ẩn'} mesh ${entry.name}. Đây chỉ là công cụ kiểm tra, không sửa file GLB.`;});caption.textContent=`${index+1}. ${entry.name}`;label.append(input,caption);meshButtons.appendChild(label);}
     const missing=expectedMorphs.filter(name=>!bindings.has(name));diagResult.textContent=`Đã tải mô hình: ${bindings.size} tên morph; ${missing.length} tên chuẩn còn thiếu${missing.length?': '+missing.join(', '):'.'} Có ${meshEntries.length} mesh để kiểm tra.`;}
-  statusMessage.textContent=`Mô hình đã tải · ${bindings.size} morph · chế độ xem thử cục bộ`;
+  statusMessage.textContent=`Avatar đã tải thành công · ${size.y.toFixed(2)} m chiều cao mô hình · ${bindings.size} morph · API chưa kết nối (xem thử cục bộ)`;
   window.__lyLamAppBooted=true; window.__lyLamBootFailed=false; window.clearTimeout(window.__lyLamBootTimer);
   const retryButton=document.querySelector('#retry-startup'), modeButton=document.querySelector('#switch-three-mode'); if(retryButton)retryButton.hidden=true; if(modeButton)modeButton.hidden=true; try { sessionStorage.removeItem(`ly-lam-lam-three-unpkg-fallback:${location.pathname}`); } catch (_) {} try { const cleanUrl = new URL(location.href); if (cleanUrl.searchParams.has('threeFallbackAttempted')) { cleanUrl.searchParams.delete('threeFallbackAttempted'); history.replaceState(null, '', cleanUrl.href); } } catch (_) {}
   getState();
