@@ -1,0 +1,104 @@
+name: LLL Browser Startup Smoke Test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "v312-work/**"
+      - ".github/workflows/browser-startup-smoke.yml"
+  workflow_dispatch:
+  schedule:
+    # 23:35 Vietnam time (UTC+7)
+    - cron: "35 16 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lll-browser-startup-smoke
+  cancel-in-progress: true
+
+jobs:
+  chromium-startup:
+    name: Chromium app boot and GLB load smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Start local HTTPS-independent static preview server
+        shell: bash
+        run: |
+          python3 -m http.server 4173 --directory v312-work > /tmp/lll-preview-server.log 2>&1 &
+          echo $! > /tmp/lll-preview-server.pid
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+              echo "Preview server ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/lll-preview-server.log
+          exit 1
+
+      - name: Test app boot, local modules, and GLB loading
+        shell: bash
+        run: |
+          cat > /tmp/lll-browser-smoke.cjs <<'JS'
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch({
+              headless: true,
+              args: ['--enable-webgl', '--use-gl=angle', '--use-angle=swiftshader', '--ignore-gpu-blocklist']
+            });
+            const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+            const errors = [];
+            const failedRequests = [];
+            page.on('pageerror', e => errors.push(e.message));
+            page.on('requestfailed', r => failedRequests.push({url:r.url(), error:r.failure()?.errorText || 'unknown'}));
+            const response = await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+            if (!response || !response.ok()) throw new Error('App HTML response failed');
+            await page.waitForFunction(() => window.__lyLamAppBooted === true || window.__lyLamBootFailed === true, { timeout: 45000 });
+            const state = await page.evaluate(() => ({
+              booted: window.__lyLamAppBooted === true,
+              bootFailed: window.__lyLamBootFailed === true,
+              rendererReady: window.__lyLamRendererReady === true,
+              canvasCount: document.querySelectorAll('#stage canvas').length,
+              status: document.querySelector('#status-message')?.textContent || '',
+              localModelUrl: './lam-default.glb',
+              webgl: (() => { try { return !!document.querySelector('canvas')?.getContext('webgl2') || !!document.querySelector('canvas')?.getContext('webgl'); } catch (_) { return false; } })()
+            }));
+            console.log('SMOKE_STATE=' + JSON.stringify(state));
+            console.log('PAGE_ERRORS=' + JSON.stringify(errors));
+            console.log('FAILED_REQUESTS=' + JSON.stringify(failedRequests));
+            await page.screenshot({ path: '/tmp/lll-browser-smoke.png', fullPage: true });
+            if (!state.booted) throw new Error('Avatar did not finish loading: ' + state.status);
+            if (!state.rendererReady || state.canvasCount !== 1) throw new Error('WebGL renderer/canvas not initialized');
+            if (!state.status.includes('Mô hình đã tải')) throw new Error('Expected successful GLB-load status; got: ' + state.status);
+            if (errors.length) throw new Error('Browser page errors: ' + errors.join(' | '));
+            await browser.close();
+          })().catch(e => { console.error(e.stack || e); process.exit(1); });
+          JS
+          node /tmp/lll-browser-smoke.cjs
+
+      - name: Upload browser screenshot and server logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lll-browser-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            /tmp/lll-browser-smoke.png
+            /tmp/lll-preview-server.log
+          if-no-files-found: warn
+          retention-days: 14
