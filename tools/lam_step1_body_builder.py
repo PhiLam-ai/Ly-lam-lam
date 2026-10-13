@@ -107,6 +107,21 @@ def main():
     body.data.remesh_mode = "VOXEL"
     body.data.remesh_voxel_size = 0.009
     bpy.ops.object.voxel_remesh()
+
+    # Reduce the visible seams between the primitive blockout parts.
+    # Apply modifiers so exported GLB geometry matches the saved Blender mesh.
+    smooth = body.modifiers.new("Step1_Surface_Blend", "SMOOTH")
+    smooth.factor = 0.85
+    smooth.iterations = 6
+    bpy.context.view_layer.objects.active = body
+    bpy.ops.object.modifier_apply(modifier=smooth.name)
+
+    subdivision = body.modifiers.new("Step1_Surface_Refine", "SUBSURF")
+    subdivision.subdivision_type = "CATMULL_CLARK"
+    subdivision.levels = 1
+    subdivision.render_levels = 1
+    bpy.ops.object.modifier_apply(modifier=subdivision.name)
+
     for polygon in body.data.polygons:
         polygon.use_smooth = True
     body.data.materials.clear()
@@ -170,7 +185,7 @@ def main():
         "blender_version": bpy.app.version_string,
         "body_object": body.name,
         "body_mesh_vertices": len(mesh.vertices),
-        "body_mesh_faces": len(mesh.polygons),
+        "body_mesh_faces": len(mesh.polygons),\n        "body_mesh_edges": len(mesh.edges),
         "body_connected_components": components,
         "height_m": round(z_max - z_min, 4),
         "z_min_m": round(z_min, 4),
