@@ -45,13 +45,13 @@ def main():
     # Units: approximate 1.60m total height, Z up. Build a stylized female figure.
     # Dress and trunk are fused via voxel remesh, creating a continuous torso/hip silhouette.
     trunk=[]
-    trunk.append(uv("trunk_waist",(0,0,3.35),(.34,.23,.48),dress))
-    trunk.append(uv("trunk_hips",(0,0,2.92),(.43,.27,.36),dress))
-    trunk.append(uv("trunk_torso",(0,0,3.88),(.43,.25,.60),dress))
-    trunk.append(uv("trunk_shoulders",(0,0,4.31),(.49,.24,.18),dress))
+    trunk.append(uv("trunk_waist",(0,0,3.38),(.365,.245,.53),dress))
+    trunk.append(uv("trunk_hips",(0,0,2.99),(.405,.26,.33),dress))
+    trunk.append(uv("trunk_torso",(0,0,3.89),(.425,.245,.59),dress))
+    trunk.append(uv("trunk_shoulders",(0,0,4.29),(.455,.235,.17),dress))
     # Neck and head are intentionally separate to preserve future facial rigging.
-    uv("neck",(0,0,4.60),(.14,.14,.25),skin)
-    uv("head",(0,-.015,5.02),(.29,.27,.39),skin,48,32)
+    uv("neck",(0,0,4.625),(.135,.135,.27),skin)
+    uv("head",(0,-.015,5.035),(.285,.265,.385),skin,48,32)
     # ears
     uv("ear.L",(-.29,0,5.02),(.065,.075,.105),skin)
     uv("ear.R",(.29,0,5.02),(.065,.075,.105),skin)
@@ -84,9 +84,9 @@ def main():
     for sign,side in [(-1,"L"),(1,"R")]:
         hip=(sign*.19,0,2.72); knee=(sign*.20,-.005,1.72); ankle=(sign*.20,0,.30)
         legs.append(capsule_piece("thigh."+side,hip,knee,.19,skin,.19))
-        legs.append(uv("knee."+side,knee,(.14,.14,.14),skin))
+        legs.append(uv("knee."+side,knee,(.115,.12,.12),skin))
         legs.append(capsule_piece("shin."+side,knee,ankle,.115,skin,.12))
-        uv("foot."+side,(sign*.23,-.12,.14),(.12,.24,.095),shoes)
+        uv("foot."+side,(sign*.22,-.115,.14),(.105,.205,.08),shoes)
     # fuse body parts that should visually read continuous. Voxel remesh joins overlapping surfaces.
     def fuse(objects,name,voxel):
         bpy.ops.object.select_all(action="DESELECT")
@@ -100,7 +100,7 @@ def main():
         bpy.ops.object.modifier_apply(modifier=sm.name)
         for p in o.data.polygons:p.use_smooth=True
         return o
-    fused_trunk=fuse(trunk,"BODY_DRESS_CONTINUOUS",.028)
+    fused_trunk=fuse(trunk,"BODY_DRESS_CONTINUOUS",.024)
     fused_legs=fuse(legs,"BODY_LEGS_CONTINUOUS",.022)
     fused_arms=fuse(arms,"BODY_ARMS_CONTINUOUS",.018)
     # Normalize the generated figure to the requested 1.60 m scale (Z extent about 5.5 units before normalization).
@@ -135,7 +135,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=fused_trunk
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
