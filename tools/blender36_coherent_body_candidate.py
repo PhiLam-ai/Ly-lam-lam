@@ -70,13 +70,13 @@ def main():
     uv("hair_side.R",(.265,.015,4.99),(.075,.10,.37),hair)
     # eyes face toward -Y
     for x,side in [(-.115,"L"),(.115,"R")]:
-        uv("eye_white."+side,(x,-.246,5.075),(.039,.014,.026),white)
-        uv("iris."+side,(x,-.260,5.074),(.015,.007,.017),iris)
+        uv("eye_white."+side,(x,-.257,5.075),(.041,.017,.027),white)
+        uv("iris."+side,(x,-.274,5.074),(.015,.008,.017),iris)
         uv("brow."+side,(x,-.246,5.126),(.052,.010,.009),hair)
-    uv("nose",(0,-.254,4.995),(.022,.024,.030),skin)
-    uv("mouth",(0,-.244,4.925),(.046,.009,.009),material("Muted rose lips",(.42,.105,.12),.4))
+    uv("nose",(0,-.278,4.995),(.022,.028,.030),skin)
+    uv("mouth",(0,-.267,4.925),(.046,.010,.009),material("Muted rose lips",(.42,.105,.12),.4))
     # A tiny smile highlight, kept subtle in this geometry-only prototype.
-    uv("lower_lip",(0,-.244,4.913),(.030,.006,.005),material("Lower lip",(.57,.20,.20),.4))
+    uv("lower_lip",(0,-.268,4.913),(.030,.007,.005),material("Lower lip",(.57,.20,.20),.4))
     # Arms are grouped and voxel-fused per side to reduce toy-like elbow/wrist seams.
     arms=[]
     for sign,side in [(-1,"L"),(1,"R")]:
