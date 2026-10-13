@@ -2,7 +2,7 @@ const { chromium } = require('playwright');
 const { spawn } = require('node:child_process');
 
 (async () => {
-  const server = spawn('python3', ['-m', 'http.server', '8765', '--bind', '127.0.0.1'], { stdio: 'ignore' });
+  const server = spawn('python3', ['-m', 'http.server', '8765', '--bind', '127.0.0.1', '--directory', 'v312-work'], { stdio: 'ignore' });
   let browser;
   try {
     await new Promise((resolve, reject) => {
@@ -52,8 +52,12 @@ const { spawn } = require('node:child_process');
 
     const debugState = await page.evaluate(() => window.__avatarViewerDebug || null);
     console.log('AVATAR_DEBUG ' + JSON.stringify(debugState));
-    await page.screenshot({ path: 'avatar-viewer-chromium.png', fullPage: true });
-    console.log('SCREENSHOT: avatar-viewer-chromium.png');
+    await page.screenshot({ path: 'avatar-viewer-diagnostics.png', fullPage: true });
+    console.log('SCREENSHOT: avatar-viewer-diagnostics.png');
+    await page.goto('http://127.0.0.1:8765/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForFunction(() => Boolean(window.__avatarViewerDebug?.ready), { timeout: 20000 });
+    await page.screenshot({ path: 'avatar-viewer-normal.png', fullPage: true });
+    console.log('SCREENSHOT: avatar-viewer-normal.png');
     const failures = [];
     if (!result.diagnosticsVisible) failures.push('diagnostics panel did not appear for diagnostics=1');
     if (result.canvasCount !== 1 || !result.canvasRect || result.canvasRect.width < 100 || result.canvasRect.height < 100) failures.push('WebGL canvas missing or too small');
