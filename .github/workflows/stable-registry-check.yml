@@ -78,7 +78,13 @@ jobs:
               "state[\"previous\"] = old_current",
               "state[\"current\"] = new_current",
               "retention-days: 90",
-              "NOT_IMPLIED_BY_PACKAGE_CHECKS",
+              "application_checks_confirmed:",
+              "application_test_evidence:",
+              "APPLICATION_CHECKS_CONFIRMED",
+              "RUN_CONCLUSION",
+              "RUN_SHA",
+              "MANUALLY_CONFIRMED",
+              "application_test_evidence",
           ]
           missing = [x for x in required if x not in s]
           assert not missing, "Promotion workflow missing safeguards: " + ", ".join(missing)
