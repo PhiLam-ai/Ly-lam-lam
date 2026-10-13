@@ -140,8 +140,9 @@ def main():
     skirt_mat = make_material("Lam_Skirt_DarkTeal", (0.025, 0.12, 0.15), 0.68)
 
     avatar_details = []
-    # Hair cap and long side locks; silhouette only, not strand-level hair.
+    # Hair cap, rear volume and long side locks; silhouette only, not strand-level hair.
     avatar_details.append(add_ellipsoid("Hair_Cap_Blockout", (0.0, 0.003, 1.565), (0.105, 0.101, 0.067), hair_mat))
+    avatar_details.append(add_ellipsoid("Hair_Back_Volume", (0.0, 0.055, 1.445), (0.096, 0.055, 0.155), hair_mat))
     for side in (-1, 1):
         avatar_details.append(add_ellipsoid("Hair_Side_Lock", (side * 0.086, 0.005, 1.435), (0.032, 0.046, 0.155), hair_mat, rotation_y=side * -0.08))
         # Eye whites and irises face the negative-Y direction.
@@ -151,9 +152,18 @@ def main():
         avatar_details.append(add_ellipsoid("Ear_Blockout", (side * 0.099, -0.002, 1.475), (0.014, 0.023, 0.027), skin))
     avatar_details.append(add_ellipsoid("Nose_Blockout", (0.0, -0.099, 1.485), (0.012, 0.018, 0.027), skin))
     avatar_details.append(add_ellipsoid("Mouth_Blockout", (0.0, -0.091, 1.455), (0.022, 0.007, 0.006), lip_mat))
-    # Simple fitted clothing shells over torso and hips; final tailoring comes later.
-    avatar_details.append(add_ellipsoid("Top_Blockout", (0.0, 0.012, 1.13), (0.193, 0.137, 0.205), top_mat))
+    # Tunic-like top overlaps the waist to remove the exposed gap in this early blockout.
+    # These smooth shells are temporary; tailored garment meshes will replace them later.
+    avatar_details.append(add_ellipsoid("Top_Blockout", (0.0, 0.012, 1.105), (0.193, 0.139, 0.265), top_mat))
     avatar_details.append(add_ellipsoid("Skirt_Blockout", (0.0, 0.012, 0.795), (0.232, 0.151, 0.16), skirt_mat))
+    # Simple necklace cue matching Lam’s distinctive accessory reference.
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.047, minor_radius=0.0035, major_segments=32, minor_segments=8, location=(0.0, -0.003, 1.355))
+    necklace = bpy.context.object
+    necklace.name = "Lam_Necklace_Blockout"
+    necklace.data.materials.append(make_material("Lam_Necklace_WarmGold", (0.68, 0.43, 0.16), 0.35))
+    for polygon in necklace.data.polygons:
+        polygon.use_smooth = True
+    avatar_details.append(necklace)
 
     # Render setup: front three-quarter orthographic preview.
     bpy.ops.mesh.primitive_plane_add(size=5.0, location=(0.0, 0.0, 0.0))
