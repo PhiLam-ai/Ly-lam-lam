@@ -51,12 +51,20 @@ def main():
     trunk.append(uv("trunk_shoulders",(0,0,4.29),(.43,.225,.15),dress))
     # Neck and head are intentionally separate to preserve future facial rigging.
     uv("neck",(0,0,4.625),(.135,.135,.27),skin)
-    uv("head",(0,-.015,5.035),(.275,.255,.365),skin,48,32)
+    uv("head",(0,-.015,5.035),(.275,.255,.365),skin,64,40)
+    # Soft cheek volume and a gentler jaw/chin transition for a less toy-like face.
+    uv("cheek.L",(-.145,-.218,4.975),(.092,.055,.078),skin,32,20)
+    uv("cheek.R",(.145,-.218,4.975),(.092,.055,.078),skin,32,20)
+    uv("chin",(0,-.205,4.855),(.105,.060,.070),skin,32,20)
     # ears
     uv("ear.L",(-.29,0,5.02),(.065,.075,.105),skin)
     uv("ear.R",(.29,0,5.02),(.065,.075,.105),skin)
     # Hair cap and back hair
-    uv("hair_cap",(0,.025,5.20),(.31,.285,.29),hair,40,24)
+    uv("hair_cap",(0,.025,5.20),(.31,.285,.29),hair,48,32)
+    # Swept fringe pieces soften the hard helmet-like hairline.
+    uv("fringe.L",(-.105,-.218,5.205),(.155,.085,.105),hair,32,20)
+    uv("fringe.R",(.075,-.222,5.215),(.155,.085,.105),hair,32,20)
+    uv("fringe_tip",(0,-.245,5.145),(.12,.045,.075),hair,32,20)
     uv("hair_back",(0,.16,4.98),(.30,.16,.48),hair,36,24)
     uv("hair_side.L",(-.265,.015,4.99),(.075,.10,.37),hair)
     uv("hair_side.R",(.265,.015,4.99),(.075,.10,.37),hair)
@@ -66,19 +74,21 @@ def main():
         uv("iris."+side,(x,-.288,5.074),(.023,.014,.025),iris)
         uv("brow."+side,(x,-.258,5.145),(.075,.025,.018),hair)
     uv("nose",(0,-.294,4.995),(.032,.048,.052),skin)
-    uv("mouth",(0,-.275,4.91),(.075,.018,.022),material("Muted rose lips",(.34,.075,.08),.4))
+    uv("mouth",(0,-.277,4.91),(.073,.020,.018),material("Muted rose lips",(.42,.105,.12),.4))
+    # A tiny smile highlight, kept subtle in this geometry-only prototype.
+    uv("lower_lip",(0,-.278,4.895),(.047,.012,.009),material("Lower lip",(.57,.20,.20),.4))
     # Arms are grouped and voxel-fused per side to reduce toy-like elbow/wrist seams.
     arms=[]
     for sign,side in [(-1,"L"),(1,"R")]:
-        shoulder=(sign*.47,0,4.28); elbow=(sign*.62,-.005,3.78); wrist=(sign*.64,-.035,3.32); hand=(sign*.64,-.055,3.15)
+        shoulder=(sign*.405,-.005,4.285); elbow=(sign*.575,-.005,3.80); wrist=(sign*.60,-.035,3.35); hand=(sign*.60,-.055,3.18)
         arms.append(capsule_piece("upper_arm."+side,shoulder,elbow,.125,skin,.13))
         arms.append(uv("elbow."+side,elbow,(.11,.115,.11),skin))
         arms.append(capsule_piece("forearm."+side,elbow,wrist,.095,skin,.10))
         arms.append(uv("hand."+side,hand,(.09,.07,.125),skin))
         for j in range(4):
-            x=sign*(.585+j*.028)
+            x=sign*(.545+j*.028)
             arms.append(capsule_piece("finger."+side+str(j),(x,-.065,3.10),(x,-.07,3.015-(.02 if j in (0,3) else 0)),.018,skin,.018))
-        arms.append(capsule_piece("thumb."+side,(sign*.57,-.08,3.16),(sign*.52,-.09,3.08),.024,skin,.024))
+        arms.append(capsule_piece("thumb."+side,(sign*.535,-.08,3.19),(sign*.49,-.09,3.11),.024,skin,.024))
     # legs are fused separately into one lower-body surface; dress hem overlaps the upper legs.
     legs=[]
     for sign,side in [(-1,"L"),(1,"R")]:
