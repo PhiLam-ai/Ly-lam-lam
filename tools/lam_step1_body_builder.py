@@ -154,10 +154,10 @@ def main():
     avatar_details.append(add_ellipsoid("Mouth_Blockout", (0.0, -0.091, 1.455), (0.022, 0.007, 0.006), lip_mat))
     # Tunic-like top overlaps the waist to remove the exposed gap in this early blockout.
     # These smooth shells are temporary; tailored garment meshes will replace them later.
-    avatar_details.append(add_ellipsoid("Top_Blockout", (0.0, 0.012, 1.105), (0.193, 0.139, 0.265), top_mat))
-    avatar_details.append(add_ellipsoid("Skirt_Blockout", (0.0, 0.012, 0.795), (0.232, 0.151, 0.16), skirt_mat))
+    avatar_details.append(add_ellipsoid("Top_Blockout", (0.0, 0.006, 1.075), (0.205, 0.158, 0.315), top_mat))
+    avatar_details.append(add_ellipsoid("Skirt_Blockout", (0.0, 0.012, 0.785), (0.238, 0.158, 0.205), skirt_mat))
     # Simple necklace cue matching Lam’s distinctive accessory reference.
-    bpy.ops.mesh.primitive_torus_add(major_radius=0.047, minor_radius=0.0035, major_segments=32, minor_segments=8, location=(0.0, -0.003, 1.355))
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.047, minor_radius=0.0035, major_segments=32, minor_segments=8, location=(0.0, -0.048, 1.355))
     necklace = bpy.context.object
     necklace.name = "Lam_Necklace_Blockout"
     necklace.data.materials.append(make_material("Lam_Necklace_WarmGold", (0.68, 0.43, 0.16), 0.35))
