@@ -79,21 +79,21 @@ def main():
     parts = []
     # Proportional blockout for a 1.60 m adult female character.
     # These overlapping ellipsoids are fused by voxel remeshing below.
-    parts.append(add_ellipsoid("Pelvis", (0.0, 0.0, 0.79), (0.205, 0.135, 0.155), skin))
-    parts.append(add_ellipsoid("Abdomen", (0.0, 0.0, 0.98), (0.145, 0.115, 0.205), skin))
-    parts.append(add_ellipsoid("Chest", (0.0, 0.0, 1.17), (0.205, 0.135, 0.205), skin))
-    parts.append(add_ellipsoid("Neck", (0.0, 0.0, 1.375), (0.065, 0.065, 0.085), skin))
-    parts.append(add_ellipsoid("Head_Blockout", (0.0, 0.0, 1.485), (0.105, 0.095, 0.125), skin))
+    parts.append(add_ellipsoid("Pelvis", (0.0, 0.008, 0.79), (0.225, 0.145, 0.16), skin))
+    parts.append(add_ellipsoid("Abdomen", (0.0, 0.0, 0.985), (0.132, 0.112, 0.195), skin))
+    parts.append(add_ellipsoid("Chest", (0.0, 0.0, 1.17), (0.184, 0.13, 0.19), skin))
+    parts.append(add_ellipsoid("Neck", (0.0, 0.0, 1.375), (0.055, 0.058, 0.082), skin))
+    parts.append(add_ellipsoid("Head_Blockout", (0.0, -0.006, 1.485), (0.098, 0.094, 0.125), skin))
 
     for side in (-1, 1):
         x = side * 0.105
-        parts.append(add_ellipsoid("Thigh", (x, 0.0, 0.545), (0.096, 0.096, 0.285), skin, rotation_y=side * -0.025))
-        parts.append(add_ellipsoid("Calf", (x, 0.0, 0.255), (0.068, 0.073, 0.195), skin, rotation_y=side * 0.02))
-        parts.append(add_ellipsoid("Foot", (x, -0.085, 0.085), (0.071, 0.155, 0.065), skin))
-        parts.append(add_ellipsoid("Shoulder", (side * 0.205, 0.0, 1.205), (0.095, 0.092, 0.105), skin))
-        parts.append(add_ellipsoid("UpperArm", (side * 0.275, 0.0, 1.055), (0.071, 0.071, 0.175), skin, rotation_y=side * 0.32))
-        parts.append(add_ellipsoid("Forearm", (side * 0.335, -0.002, 0.895), (0.057, 0.059, 0.145), skin, rotation_y=side * 0.20))
-        parts.append(add_ellipsoid("Hand_Blockout", (side * 0.365, -0.012, 0.765), (0.052, 0.043, 0.066), skin))
+        parts.append(add_ellipsoid("Thigh", (side * 0.112, 0.006, 0.545), (0.102, 0.101, 0.285), skin, rotation_y=side * -0.025))
+        parts.append(add_ellipsoid("Calf", (side * 0.112, 0.006, 0.255), (0.064, 0.069, 0.19), skin, rotation_y=side * 0.02))
+        parts.append(add_ellipsoid("Foot", (side * 0.112, -0.088, 0.085), (0.064, 0.15, 0.055), skin))
+        parts.append(add_ellipsoid("Shoulder", (side * 0.184, 0.0, 1.205), (0.075, 0.082, 0.09), skin))
+        parts.append(add_ellipsoid("UpperArm", (side * 0.247, 0.0, 1.055), (0.059, 0.061, 0.17), skin, rotation_y=side * 0.28))
+        parts.append(add_ellipsoid("Forearm", (side * 0.295, -0.002, 0.895), (0.047, 0.05, 0.14), skin, rotation_y=side * 0.18))
+        parts.append(add_ellipsoid("Hand_Blockout", (side * 0.315, -0.018, 0.765), (0.044, 0.034, 0.055), skin))
 
     # Join all overlapping body pieces, then voxel-remesh into one continuous surface.
     bpy.ops.object.select_all(action="DESELECT")
