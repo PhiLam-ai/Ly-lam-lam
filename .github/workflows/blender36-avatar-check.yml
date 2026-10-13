@@ -61,6 +61,22 @@ jobs:
             --python tools/blender36_model_audit.py -- \
             --input "$GITHUB_WORKSPACE/lam-default.glb" \
             --output-dir "$GITHUB_WORKSPACE/artifacts/model-audit"
+          test -s artifacts/model-audit/blender36-model-audit.json
+          test -s artifacts/model-audit/lam-default-front.png
+          test -s artifacts/model-audit/lam-default-side.png
+          test -s artifacts/model-audit/lam-default-three-quarter.png
+          test -s artifacts/model-audit/lam-default-roundtrip.glb
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/model-audit/blender36-model-audit.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report.get("status") == "PASS", report
+          assert report.get("source_unchanged") is True, report
+          assert report.get("mesh_count", 0) > 0, report
+          print("REAL_MODEL_AUDIT_GATE=PASS")
+          print(json.dumps(report, ensure_ascii=False, indent=2))
+          PY
 
       - name: Run isolated smoke test
         run: |
