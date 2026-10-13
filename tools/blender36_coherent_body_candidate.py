@@ -26,7 +26,7 @@ def main():
     def material(name,color,rough=.6):
         m=bpy.data.materials.new(name); m.diffuse_color=(*color,1); m.roughness=rough; return m
     skin=material("Candidate warm skin",(0.62,.34,.23))
-    dress=material("Candidate deep teal dress",(.035,.16,.19))
+    dress=material("Candidate deep teal dress",(.025,.12,.15))
     hair=material("Candidate black hair",(.025,.018,.022),.32)
     shoes=material("Candidate dark shoes",(.035,.035,.04))
     white=material("Candidate eye whites",(.86,.8,.7),.35)
@@ -46,9 +46,9 @@ def main():
     # Dress and trunk are fused via voxel remesh, creating a continuous torso/hip silhouette.
     trunk=[]
     trunk.append(uv("trunk_waist",(0,0,3.35),(.34,.23,.48),dress))
-    trunk.append(uv("trunk_hips",(0,0,2.92),(.48,.29,.40),dress))
+    trunk.append(uv("trunk_hips",(0,0,2.92),(.43,.27,.36),dress))
     trunk.append(uv("trunk_torso",(0,0,3.88),(.43,.25,.60),dress))
-    trunk.append(uv("trunk_shoulders",(0,0,4.31),(.55,.25,.20),dress))
+    trunk.append(uv("trunk_shoulders",(0,0,4.31),(.49,.24,.18),dress))
     # Neck and head are intentionally separate to preserve future facial rigging.
     uv("neck",(0,0,4.60),(.14,.14,.25),skin)
     uv("head",(0,-.015,5.02),(.29,.27,.39),skin,48,32)
@@ -70,23 +70,23 @@ def main():
     # Arms are grouped and voxel-fused per side to reduce toy-like elbow/wrist seams.
     arms=[]
     for sign,side in [(-1,"L"),(1,"R")]:
-        shoulder=(sign*.52,0,4.28); elbow=(sign*.67,-.005,3.78); wrist=(sign*.69,-.035,3.32); hand=(sign*.69,-.055,3.15)
+        shoulder=(sign*.47,0,4.28); elbow=(sign*.62,-.005,3.78); wrist=(sign*.64,-.035,3.32); hand=(sign*.64,-.055,3.15)
         arms.append(capsule_piece("upper_arm."+side,shoulder,elbow,.125,skin,.13))
-        arms.append(uv("elbow."+side,elbow,(.115,.12,.12),skin))
+        arms.append(uv("elbow."+side,elbow,(.11,.115,.11),skin))
         arms.append(capsule_piece("forearm."+side,elbow,wrist,.095,skin,.10))
         arms.append(uv("hand."+side,hand,(.09,.07,.125),skin))
         for j in range(4):
-            x=sign*(.635+j*.035)
+            x=sign*(.585+j*.028)
             arms.append(capsule_piece("finger."+side+str(j),(x,-.065,3.10),(x,-.07,3.015-(.02 if j in (0,3) else 0)),.018,skin,.018))
-        arms.append(capsule_piece("thumb."+side,(sign*.62,-.08,3.16),(sign*.57,-.09,3.08),.024,skin,.024))
+        arms.append(capsule_piece("thumb."+side,(sign*.57,-.08,3.16),(sign*.52,-.09,3.08),.024,skin,.024))
     # legs are fused separately into one lower-body surface; dress hem overlaps the upper legs.
     legs=[]
     for sign,side in [(-1,"L"),(1,"R")]:
-        hip=(sign*.22,0,2.72); knee=(sign*.23,-.005,1.72); ankle=(sign*.23,0,.30)
+        hip=(sign*.19,0,2.72); knee=(sign*.20,-.005,1.72); ankle=(sign*.20,0,.30)
         legs.append(capsule_piece("thigh."+side,hip,knee,.19,skin,.19))
-        legs.append(uv("knee."+side,knee,(.17,.17,.18),skin))
+        legs.append(uv("knee."+side,knee,(.14,.14,.14),skin))
         legs.append(capsule_piece("shin."+side,knee,ankle,.115,skin,.12))
-        uv("foot."+side,(sign*.23,-.12,.14),(.13,.28,.12),shoes)
+        uv("foot."+side,(sign*.23,-.12,.14),(.12,.24,.095),shoes)
     # fuse body parts that should visually read continuous. Voxel remesh joins overlapping surfaces.
     def fuse(objects,name,voxel):
         bpy.ops.object.select_all(action="DESELECT")
