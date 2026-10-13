@@ -6,6 +6,7 @@ on:
     paths:
       - "versions/**"
       - ".github/workflows/stable-version-promotion.yml"
+      - ".github/workflows/stable-version-rollback.yml"
       - ".github/workflows/stable-registry-check.yml"
   workflow_dispatch:
 
@@ -83,4 +84,34 @@ jobs:
           assert not missing, "Promotion workflow missing safeguards: " + ", ".join(missing)
           assert "push:\n" not in s, "Promotion must not run automatically on every push"
           print("PROMOTION_WORKFLOW_STATIC_SAFETY=PASS")
+          PY
+
+      - name: Verify rollback workflow is guarded and validates package before pointer changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path(".github/workflows/stable-version-rollback.yml")
+          s = p.read_text(encoding="utf-8")
+          required = [
+              "workflow_dispatch:",
+              "confirm_rollback:",
+              "- YES",
+              "inputs.confirm_rollback == 'YES'",
+              "contents: write",
+              "both current and previous versions must exist",
+              "git archive --format=zip",
+              "unzip -t",
+              "sha256sum -c",
+              "ROLLBACK_PACKAGE_CHECKS=PASS",
+              "state[\"current\"] = target",
+              "state[\"previous\"] = old_current",
+              "retention-days: 90",
+              "NOT_IMPLIED_BY_PACKAGE_CHECKS",
+          ]
+          missing = [x for x in required if x not in s]
+          assert not missing, "Rollback workflow missing safeguards: " + ", ".join(missing)
+          assert "push:\\n" not in s, "Rollback must not run automatically on every push"
+          print("ROLLBACK_WORKFLOW_STATIC_SAFETY=PASS")
           PY
