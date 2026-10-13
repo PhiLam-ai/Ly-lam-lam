@@ -128,7 +128,32 @@ def main():
     body.data.materials.append(skin)
     body["stage"] = "STEP1_BASE_BODY_BLOCKOUT"
     body["target_height_m"] = 1.60
-    body["note"] = "Base body geometry only; facial features, hair, clothing and rigging are later steps."
+    body["note"] = "Base body with early face, hair and clothing blockout; final sculpting and rigging are later steps."
+
+    # STEP 2 visual blockout: add hair silhouette, facial landmarks and simple clothing layers.
+    # These remain separate objects so later sculpting and rigging can replace them cleanly.
+    hair_mat = make_material("Lam_Hair_Black", (0.035, 0.022, 0.018), 0.42)
+    eye_mat = make_material("Lam_Eyes_DarkBrown", (0.075, 0.032, 0.018), 0.3)
+    white_mat = make_material("Lam_Eye_White", (0.82, 0.74, 0.65), 0.38)
+    lip_mat = make_material("Lam_Lips_Rose", (0.42, 0.12, 0.12), 0.48)
+    top_mat = make_material("Lam_Top_DeepTeal", (0.035, 0.24, 0.25), 0.62)
+    skirt_mat = make_material("Lam_Skirt_DarkTeal", (0.025, 0.12, 0.15), 0.68)
+
+    avatar_details = []
+    # Hair cap and long side locks; silhouette only, not strand-level hair.
+    avatar_details.append(add_ellipsoid("Hair_Cap_Blockout", (0.0, 0.003, 1.565), (0.105, 0.101, 0.067), hair_mat))
+    for side in (-1, 1):
+        avatar_details.append(add_ellipsoid("Hair_Side_Lock", (side * 0.086, 0.005, 1.435), (0.032, 0.046, 0.155), hair_mat, rotation_y=side * -0.08))
+        # Eye whites and irises face the negative-Y direction.
+        avatar_details.append(add_ellipsoid("Eye_White", (side * 0.036, -0.089, 1.505), (0.021, 0.009, 0.012), white_mat))
+        avatar_details.append(add_ellipsoid("Eye_Iris", (side * 0.036, -0.098, 1.505), (0.009, 0.005, 0.009), eye_mat))
+        avatar_details.append(add_ellipsoid("Brow_Blockout", (side * 0.036, -0.087, 1.526), (0.024, 0.008, 0.006), hair_mat, rotation_y=side * 0.08))
+        avatar_details.append(add_ellipsoid("Ear_Blockout", (side * 0.099, -0.002, 1.475), (0.014, 0.023, 0.027), skin))
+    avatar_details.append(add_ellipsoid("Nose_Blockout", (0.0, -0.099, 1.485), (0.012, 0.018, 0.027), skin))
+    avatar_details.append(add_ellipsoid("Mouth_Blockout", (0.0, -0.091, 1.455), (0.022, 0.007, 0.006), lip_mat))
+    # Simple fitted clothing shells over torso and hips; final tailoring comes later.
+    avatar_details.append(add_ellipsoid("Top_Blockout", (0.0, 0.012, 1.13), (0.193, 0.137, 0.205), top_mat))
+    avatar_details.append(add_ellipsoid("Skirt_Blockout", (0.0, 0.012, 0.795), (0.232, 0.151, 0.16), skirt_mat))
 
     # Render setup: front three-quarter orthographic preview.
     bpy.ops.mesh.primitive_plane_add(size=5.0, location=(0.0, 0.0, 0.0))
@@ -161,9 +186,11 @@ def main():
 
     bpy.ops.render.render(write_still=True)
 
-    # Export the unified body only; exclude camera and preview floor.
+    # Export body plus visual-detail objects; exclude camera and preview floor.
     bpy.ops.object.select_all(action="DESELECT")
     body.select_set(True)
+    for detail in avatar_details:
+        detail.select_set(True)
     bpy.context.view_layer.objects.active = body
     glb_path = os.path.join(out, "lam-step1-base-body.glb")
     bpy.ops.export_scene.gltf(filepath=glb_path, export_format="GLB", use_selection=True)
@@ -201,7 +228,7 @@ def main():
             "single_unified_mesh": geometry_ok,
             "target_height_range": height_ok
         },
-        "scope_note": "This is a base-body blockout for Step 1, not the finished Lam avatar. Face details, hair, clothes, rigging and animation are not included."
+        "scope_note": "Early visual avatar blockout: body, simple facial landmarks, hair silhouette and clothing shells. Not a finished avatar; final face sculpt, detailed hair/clothes, rigging and animation are not included."
     }
     with open(os.path.join(out, "lam-step1-body-report.json"), "w", encoding="utf-8") as report_file:
         json.dump(report, report_file, ensure_ascii=False, indent=2)
