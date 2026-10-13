@@ -220,7 +220,7 @@ function apply(weights){for(const [name,list] of bindings){const goal=clamp(weig
 async function getState(){
   // Standalone preview: no backend/API dependency. Use the local diagnostic controls.
   targets={};
-  statusMessage.textContent=`Bản xem thử cục bộ · ${bindings.size} morph · API hội thoại chưa tích hợp`;
+  statusMessage.textContent=viewerReady?`Mô hình đã tải · ${bindings.size} morph · API hội thoại chưa tích hợp`:`Bản xem thử cục bộ · ${bindings.size} morph · API hội thoại chưa tích hợp`;
 }
 
 if(diagnosticsEnabled){
