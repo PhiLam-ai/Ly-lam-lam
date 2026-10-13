@@ -45,13 +45,13 @@ def main():
     # Units: approximate 1.60m total height, Z up. Build a stylized female figure.
     # Dress and trunk are fused via voxel remesh, creating a continuous torso/hip silhouette.
     trunk=[]
-    trunk.append(uv("trunk_waist",(0,0,3.38),(.365,.245,.53),dress))
-    trunk.append(uv("trunk_hips",(0,0,2.99),(.405,.26,.33),dress))
-    trunk.append(uv("trunk_torso",(0,0,3.89),(.425,.245,.59),dress))
-    trunk.append(uv("trunk_shoulders",(0,0,4.29),(.455,.235,.17),dress))
+    trunk.append(uv("trunk_waist",(0,0,3.38),(.37,.245,.53),dress))
+    trunk.append(uv("trunk_hips",(0,0,2.99),(.415,.27,.34),dress))
+    trunk.append(uv("trunk_torso",(0,0,3.89),(.40,.235,.57),dress))
+    trunk.append(uv("trunk_shoulders",(0,0,4.29),(.43,.225,.15),dress))
     # Neck and head are intentionally separate to preserve future facial rigging.
     uv("neck",(0,0,4.625),(.135,.135,.27),skin)
-    uv("head",(0,-.015,5.035),(.285,.265,.385),skin,48,32)
+    uv("head",(0,-.015,5.035),(.275,.255,.365),skin,48,32)
     # ears
     uv("ear.L",(-.29,0,5.02),(.065,.075,.105),skin)
     uv("ear.R",(.29,0,5.02),(.065,.075,.105),skin)
@@ -62,10 +62,10 @@ def main():
     uv("hair_side.R",(.265,.015,4.99),(.075,.10,.37),hair)
     # eyes face toward -Y
     for x,side in [(-.115,"L"),(.115,"R")]:
-        uv("eye_white."+side,(x,-.257,5.075),(.066,.035,.048),white)
-        uv("iris."+side,(x,-.288,5.074),(.027,.016,.03),iris)
+        uv("eye_white."+side,(x,-.257,5.075),(.057,.030,.040),white)
+        uv("iris."+side,(x,-.288,5.074),(.023,.014,.025),iris)
         uv("brow."+side,(x,-.258,5.145),(.075,.025,.018),hair)
-    uv("nose",(0,-.294,4.995),(.045,.07,.075),skin)
+    uv("nose",(0,-.294,4.995),(.032,.048,.052),skin)
     uv("mouth",(0,-.275,4.91),(.075,.018,.022),material("Muted rose lips",(.34,.075,.08),.4))
     # Arms are grouped and voxel-fused per side to reduce toy-like elbow/wrist seams.
     arms=[]
@@ -82,11 +82,11 @@ def main():
     # legs are fused separately into one lower-body surface; dress hem overlaps the upper legs.
     legs=[]
     for sign,side in [(-1,"L"),(1,"R")]:
-        hip=(sign*.19,0,2.72); knee=(sign*.20,-.005,1.72); ankle=(sign*.20,0,.30)
-        legs.append(capsule_piece("thigh."+side,hip,knee,.19,skin,.19))
-        legs.append(uv("knee."+side,knee,(.115,.12,.12),skin))
-        legs.append(capsule_piece("shin."+side,knee,ankle,.115,skin,.12))
-        uv("foot."+side,(sign*.22,-.115,.14),(.105,.205,.08),shoes)
+        hip=(sign*.205,0,2.72); knee=(sign*.205,-.005,1.72); ankle=(sign*.20,0,.30)
+        legs.append(capsule_piece("thigh."+side,hip,knee,.205,skin,.20))
+        legs.append(uv("knee."+side,knee,(.125,.13,.125),skin))
+        legs.append(capsule_piece("shin."+side,knee,ankle,.125,skin,.13))
+        uv("foot."+side,(sign*.22,-.115,.14),(.11,.19,.075),shoes)
     # fuse body parts that should visually read continuous. Voxel remesh joins overlapping surfaces.
     def fuse(objects,name,voxel):
         bpy.ops.object.select_all(action="DESELECT")
