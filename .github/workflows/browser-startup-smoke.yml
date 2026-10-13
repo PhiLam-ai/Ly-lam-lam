@@ -65,8 +65,10 @@ jobs:
             const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
             const errors = [];
             const failedRequests = [];
+            const modelResponses = [];
             page.on('pageerror', e => errors.push(e.message));
             page.on('requestfailed', r => failedRequests.push({url:r.url(), error:r.failure()?.errorText || 'unknown'}));
+            page.on('response', r => { if (new URL(r.url()).pathname.endsWith('/lam-default.glb')) modelResponses.push({url:r.url(), status:r.status()}); });
             const response = await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 30000 });
             if (!response || !response.ok()) throw new Error('App HTML response failed');
             await page.waitForFunction(() => window.__lyLamAppBooted === true || window.__lyLamBootFailed === true, { timeout: 45000 });
@@ -82,10 +84,11 @@ jobs:
             console.log('SMOKE_STATE=' + JSON.stringify(state));
             console.log('PAGE_ERRORS=' + JSON.stringify(errors));
             console.log('FAILED_REQUESTS=' + JSON.stringify(failedRequests));
+            console.log('MODEL_RESPONSES=' + JSON.stringify(modelResponses));
             await page.screenshot({ path: '/tmp/lll-browser-smoke.png', fullPage: true });
             if (!state.booted) throw new Error('Avatar did not finish loading: ' + state.status);
             if (!state.rendererReady || state.canvasCount !== 1) throw new Error('WebGL renderer/canvas not initialized');
-            if (!state.status.includes('Mô hình đã tải')) throw new Error('Expected successful GLB-load status; got: ' + state.status);
+            if (!modelResponses.some(r => r.status === 200)) throw new Error('GLB request did not return HTTP 200: ' + JSON.stringify(modelResponses));
             if (errors.length) throw new Error('Browser page errors: ' + errors.join(' | '));
             await browser.close();
           })().catch(e => { console.error(e.stack || e); process.exit(1); });
