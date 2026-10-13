@@ -1,0 +1,61 @@
+name: P0 Launch Readiness — V312
+
+on:
+  push:
+    branches: [step1-body-rebuild]
+    paths:
+      - "v312-work/**"
+      - ".github/workflows/p0-launch-readiness.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: p0-launch-readiness
+  cancel-in-progress: true
+
+jobs:
+  p0-package-gate:
+    name: Startup, offline dependencies, and deploy artifact
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate startup and package dependencies
+        working-directory: v312-work
+        run: node tools/verify-startup.cjs
+
+      - name: Verify local Three.js import graph
+        working-directory: v312-work
+        run: node tools/vendor-module-integrity.cjs
+
+      - name: Prepare local Three.js default for deployment
+        working-directory: v312-work
+        run: node tools/prepare-pages-deploy.cjs
+
+      - name: Build minimal public deployment artifact
+        working-directory: v312-work
+        run: node tools/prepare-pages-artifact.cjs dist
+
+      - name: HTTP-smoke-test the exact artifact
+        working-directory: v312-work
+        run: node tools/static-http-smoke.cjs dist
+
+      - name: Upload deploy artifact and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v312-p0-launch-readiness
+          path: |
+            v312-work/dist
+            v312-work/SHA256SUMS.txt
+          if-no-files-found: warn
+          retention-days: 14
