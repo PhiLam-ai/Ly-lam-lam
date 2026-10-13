@@ -12,6 +12,7 @@ const root = path.resolve(__dirname, '..');
 const port = Number(process.env.PORT || 4173);
 const baseUrl = `http://127.0.0.1:${port}/`;
 const screenshotPath = path.join(root, 'avatar-browser-smoke.png');
+const oppositeScreenshotPath = path.join(root, 'avatar-browser-opposite.png');
 let server;
 let browser;
 
@@ -78,8 +79,15 @@ async function waitForServer(url, timeoutMs = 15000) {
       })()
     }));
     await page.screenshot({ path: screenshotPath, fullPage: true });
+    // Rotate the camera roughly half a turn to verify whether the face is oriented toward +Z or -Z.
+    await page.mouse.move(640, 450);
+    await page.mouse.down();
+    await page.mouse.move(1100, 450, { steps: 24 });
+    await page.mouse.up();
+    await page.waitForTimeout(700);
+    await page.screenshot({ path: oppositeScreenshotPath, fullPage: true });
 
-    console.log(JSON.stringify({ state, glbStatus, errors, failedRequests, screenshotPath }, null, 2));
+    console.log(JSON.stringify({ state, glbStatus, errors, failedRequests, screenshotPath, oppositeScreenshotPath }, null, 2));
 
     if (!state.booted) throw new Error(`Model did not finish loading: ${state.bootFailure || state.statusText}`);
     if (!state.rendererReady) throw new Error('Renderer-ready flag was not set');
