@@ -1,7 +1,7 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title LÝ LÂM LAM - V311
+title LÝ LÂM LAM - V312
 where node >nul 2>nul
 if errorlevel 1 (
   echo [LOI] May chua cai Node.js hoac Windows chua nhan lenh node.
