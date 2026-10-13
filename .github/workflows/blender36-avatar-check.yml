@@ -12,7 +12,9 @@ on:
     paths:
       - ".github/workflows/blender36-avatar-check.yml"
       - "tools/blender36_smoke_test.py"
+      - "tools/blender36_model_audit.py"
       - "tools/avatar-builder.py"
+      - "lam-default.glb"
 
 permissions:
   contents: read
@@ -23,7 +25,7 @@ concurrency:
 
 jobs:
   blender36-headless:
-    name: Blender 3.6 headless smoke test
+    name: Blender 3.6 real model audit
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
@@ -51,13 +53,22 @@ jobs:
             "import bpy; print('BLENDER_VERSION=' + bpy.app.version_string)"
           echo "$RUNNER_TEMP/blender" >> "$GITHUB_PATH"
 
-      - name: Run Blender smoke test (render + GLB export)
+      - name: Run real Lam GLB audit, render three views, and round-trip export
         run: |
           set -euo pipefail
-          mkdir -p artifacts
+          mkdir -p artifacts/model-audit
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_model_audit.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/model-audit"
+
+      - name: Run isolated smoke test
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/smoke-test
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
             --python tools/blender36_smoke_test.py -- \
-            --output-dir "$GITHUB_WORKSPACE/artifacts"
+            --output-dir "$GITHUB_WORKSPACE/artifacts/smoke-test"
 
       - name: Optionally run a committed avatar builder
         if: ${{ inputs.builder_script != '' }}
@@ -69,7 +80,7 @@ jobs:
             --python "${{ inputs.builder_script }}" -- \
             --output-dir "$GITHUB_WORKSPACE/artifacts/builder"
 
-      - name: Upload render, GLB and diagnostic report
+      - name: Upload real-model renders, round-trip GLB and reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
