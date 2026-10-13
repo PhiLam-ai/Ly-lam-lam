@@ -93,9 +93,9 @@ def main():
     legs=[]
     for sign,side in [(-1,"L"),(1,"R")]:
         hip=(sign*.205,0,2.72); knee=(sign*.205,-.005,1.72); ankle=(sign*.20,0,.30)
-        legs.append(capsule_piece("thigh."+side,hip,knee,.185,skin,.19))
+        legs.append(capsule_piece("thigh."+side,hip,(sign*.205,-.005,1.60),.185,skin,.19))
         # Omit the separate knee sphere; overlapping thigh/shin capsules fuse into a smoother transition.
-        legs.append(capsule_piece("shin."+side,knee,ankle,.115,skin,.12))
+        legs.append(capsule_piece("shin."+side,(sign*.205,-.005,1.82),ankle,.115,skin,.12))
         uv("foot."+side,(sign*.22,-.115,.14),(.11,.19,.075),shoes)
     # fuse body parts that should visually read continuous. Voxel remesh joins overlapping surfaces.
     def fuse(objects,name,voxel):
@@ -106,7 +106,7 @@ def main():
         o=bpy.context.object; o.name=name
         mod=o.modifiers.new("VoxelFuse","REMESH"); mod.mode="VOXEL"; mod.voxel_size=voxel
         bpy.ops.object.modifier_apply(modifier=mod.name)
-        sm=o.modifiers.new("GentleSmooth","SMOOTH"); sm.factor=1.15; sm.iterations=3
+        sm=o.modifiers.new("GentleSmooth","SMOOTH"); sm.factor=1.35; sm.iterations=6
         bpy.ops.object.modifier_apply(modifier=sm.name)
         for p in o.data.polygons:p.use_smooth=True
         return o
@@ -153,7 +153,7 @@ def main():
         if o.type in {"MESH","ARMATURE"} and o.name != "StudioFloor":o.select_set(True)
     bpy.context.view_layer.objects.active=fused_trunk
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Seventh candidate refinement: overlap neck into head and torso; move shoulders inward to reduce visible seams; experimental only"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Eighth candidate refinement: increase smoothing iterations and overlap thigh-shin capsules to soften visible knee bands; experimental only"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
