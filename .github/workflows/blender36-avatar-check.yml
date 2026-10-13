@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       builder_script:
-        description: "Optional path to an avatar builder .py already committed to the repository"
+        description: "Optional path to an additional avatar builder .py already committed to the repository"
         required: false
         type: string
         default: ""
@@ -12,6 +12,7 @@ on:
     paths:
       - ".github/workflows/blender36-avatar-check.yml"
       - "tools/blender36_smoke_test.py"
+      - "tools/lam_step1_body_builder.py"
       - "tools/avatar-builder.py"
 
 permissions:
@@ -23,7 +24,7 @@ concurrency:
 
 jobs:
   blender36-headless:
-    name: Blender 3.6 headless smoke test
+    name: Blender 3.6 headless smoke test and Step 1 body validation
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
@@ -51,25 +52,33 @@ jobs:
             "import bpy; print('BLENDER_VERSION=' + bpy.app.version_string)"
           echo "$RUNNER_TEMP/blender" >> "$GITHUB_PATH"
 
-      - name: Run Blender smoke test (render + GLB export)
+      - name: Run diagnostic Blender smoke test (render + GLB export)
         run: |
           set -euo pipefail
-          mkdir -p artifacts
+          mkdir -p artifacts/smoke-test
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
             --python tools/blender36_smoke_test.py -- \
-            --output-dir "$GITHUB_WORKSPACE/artifacts"
+            --output-dir "$GITHUB_WORKSPACE/artifacts/smoke-test"
 
-      - name: Optionally run a committed avatar builder
+      - name: Build and validate Lam Step 1 unified base body
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/step1-body
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/lam_step1_body_builder.py -- \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/step1-body"
+
+      - name: Optionally run an additional committed avatar builder
         if: ${{ inputs.builder_script != '' }}
         run: |
           set -euo pipefail
           test -f "${{ inputs.builder_script }}"
-          mkdir -p artifacts/builder
+          mkdir -p artifacts/additional-builder
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
             --python "${{ inputs.builder_script }}" -- \
-            --output-dir "$GITHUB_WORKSPACE/artifacts/builder"
+            --output-dir "$GITHUB_WORKSPACE/artifacts/additional-builder"
 
-      - name: Upload render, GLB and diagnostic report
+      - name: Upload render, GLB, blend and diagnostic reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
