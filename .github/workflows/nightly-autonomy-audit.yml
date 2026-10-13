@@ -1,0 +1,150 @@
+name: LLL Nightly Work Cycle - Safe Baseline Audit
+
+on:
+  schedule:
+    # 23:15 Vietnam time (UTC+7), daily. GitHub may start scheduled jobs late.
+    - cron: "15 16 * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/nightly-autonomy-audit.yml"
+      - "v312-work/index.html"
+      - "v312-work/lam-default.glb"
+      - "lam-default.glb"
+      - "versions/stable.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lll-nightly-work-cycle
+  cancel-in-progress: false
+
+jobs:
+  safe-baseline-audit:
+    name: Audit app startup prerequisites and record nightly report
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check required app files, local Three.js modules, GLB header and stable registry
+        id: audit
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p nightly-report
+          python3 - <<'PY'
+          import hashlib, json, struct, sys
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          root = Path(".")
+          checks = []
+          errors = []
+
+          def check(name, ok, detail):
+              item = {"check": name, "status": "PASS" if ok else "FAIL", "detail": str(detail)}
+              checks.append(item)
+              if not ok:
+                  errors.append(name)
+
+          page = root / "v312-work/index.html"
+          check("app_entry_exists", page.is_file() and page.stat().st_size > 1000,
+                f"exists={page.is_file()}, bytes={page.stat().st_size if page.exists() else 0}")
+
+          html = page.read_text(encoding="utf-8", errors="replace") if page.exists() else ""
+          for label, path in [
+              ("three_module", "v312-work/vendor/three/build/three.module.js"),
+              ("gltf_loader", "v312-work/vendor/three/examples/jsm/loaders/GLTFLoader.js"),
+              ("orbit_controls", "v312-work/vendor/three/examples/jsm/controls/OrbitControls.js"),
+          ]:
+              p = root / path
+              check(label, p.is_file() and p.stat().st_size > 1000,
+                    f"path={path}, exists={p.is_file()}, bytes={p.stat().st_size if p.exists() else 0}")
+
+          check("app_import_map_local_mode", "three/addons/" in html and "./vendor/three/" in html,
+                "index.html references local Three.js import map")
+
+          model_candidates = [root / "v312-work/lam-default.glb", root / "lam-default.glb"]
+          model = next((p for p in model_candidates if p.is_file()), None)
+          if model is None:
+              check("glb_file", False, "lam-default.glb missing from v312-work/ and repository root")
+          else:
+              data = model.read_bytes()
+              valid = len(data) >= 20 and data[:4] == b"glTF" and struct.unpack_from("<I", data, 4)[0] == 2
+              declared = struct.unpack_from("<I", data, 8)[0] if len(data) >= 12 else 0
+              check("glb_file", valid and declared == len(data),
+                    f"path={model.as_posix()}, bytes={len(data)}, glTF2={valid}, declared_length_matches={declared == len(data)}")
+              checks[-1]["sha256"] = hashlib.sha256(data).hexdigest()
+
+          registry_path = root / "versions/stable.json"
+          registry_status = "MISSING"
+          if registry_path.is_file():
+              try:
+                  registry = json.loads(registry_path.read_text(encoding="utf-8"))
+                  current = registry.get("current")
+                  previous = registry.get("previous")
+                  registry_status = "PROMOTED" if current and previous else "NOT_YET_PROMOTED"
+                  check("stable_registry_json", registry.get("schema_version") == 1,
+                        f"schema_version={registry.get('schema_version')}")
+                  # An empty stable registry is a warning/state, not a failed audit: no version
+                  # is promoted until real application validation has been completed.
+                  checks.append({"check": "stable_version_state",
+                                 "status": "INFO" if registry_status == "NOT_YET_PROMOTED" else "PASS",
+                                 "detail": f"current={current}, previous={previous}; visual/iPhone validation is still required"})
+              except Exception as exc:
+                  registry_status = "INVALID"
+                  check("stable_registry_json", False, repr(exc))
+          else:
+              check("stable_registry_json", False, "versions/stable.json missing")
+
+          report = {
+              "title": "Lý Lâm Lam nightly safe baseline audit",
+              "created_utc": datetime.now(timezone.utc).isoformat(),
+              "commit": __import__("os").environ.get("GITHUB_SHA", "unknown"),
+              "trigger": __import__("os").environ.get("GITHUB_EVENT_NAME", "unknown"),
+              "scope": "Deterministic file/integrity checks only; this workflow does not use an AI agent, edit source, or claim visual/iPhone validation.",
+              "registry_state": registry_status,
+              "overall_status": "PASS" if not errors else "FAIL",
+              "failed_checks": errors,
+              "checks": checks,
+              "next_step": "When checks pass, continue browser/iPhone visual validation and separately integrate a bounded AI coding agent before claiming autonomous code repair."
+          }
+          out = root / "nightly-report/nightly-audit.json"
+          out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          md = [
+              "# Lý Lâm Lam — Nightly Safe Baseline Audit",
+              "",
+              f"- Created (UTC): {report['created_utc']}",
+              f"- Commit: {report['commit']}",
+              f"- Trigger: {report['trigger']}",
+              f"- Overall: **{report['overall_status']}**",
+              f"- Stable registry: **{registry_status}**",
+              "",
+              "> This is a deterministic audit, not an autonomous AI coding run. It does not prove visual rendering on an iPhone.",
+              "",
+              "| Check | Status | Detail |",
+              "|---|---|---|",
+          ]
+          for c in checks:
+              detail = c["detail"].replace("|", "\\|").replace("\n", " ")
+              md.append(f"| {c['check']} | {c['status']} | {detail} |")
+          md += ["", "## Next step", "", report["next_step"], ""]
+          (root / "nightly-report/REPORT.md").write_text("\n".join(md), encoding="utf-8")
+          print(json.dumps(report, ensure_ascii=False, indent=2))
+          if errors:
+              sys.exit(1)
+          PY
+
+      - name: Upload nightly audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lll-nightly-audit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: nightly-report/
+          if-no-files-found: warn
+          retention-days: 30
