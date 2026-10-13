@@ -1,0 +1,32 @@
+name: Avatar Viewer Automated Checks
+
+on:
+  push:
+    branches: [step1-body-rebuild]
+    paths:
+      - "index.html"
+      - "lam-default.glb"
+      - "avatar_expression_motion.js"
+      - "avatar_api_recovery.js"
+      - "avatar_expression_composer.js"
+      - "avatar_morph_transition.js"
+      - "avatar_mesh_inspector.js"
+      - "tools/check_avatar_viewer.py"
+      - ".github/workflows/avatar-viewer-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  viewer-static-check:
+    name: Viewer paths, GLB structure and JavaScript syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Validate avatar viewer and GLB
+        run: python3 tools/check_avatar_viewer.py
