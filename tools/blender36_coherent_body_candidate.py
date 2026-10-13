@@ -45,9 +45,12 @@ def main():
     # Units: approximate 1.60m total height, Z up. Build a stylized female figure.
     # Dress and trunk are fused via voxel remesh, creating a continuous torso/hip silhouette.
     trunk=[]
-    trunk.append(uv("trunk_waist",(0,0,3.38),(.37,.245,.53),dress))
-    trunk.append(uv("trunk_hips",(0,0,2.99),(.415,.27,.34),dress))
-    trunk.append(uv("trunk_torso",(0,0,3.89),(.40,.235,.57),dress))
+    # Adult feminine silhouette: defined waist, fuller hips, and a softly fuller chest.
+    trunk.append(uv("trunk_waist",(0,0,3.38),(.335,.235,.50),dress))
+    trunk.append(uv("trunk_hips",(0,0,2.99),(.455,.285,.36),dress))
+    trunk.append(uv("trunk_torso",(0,0,3.89),(.385,.245,.54),dress))
+    trunk.append(uv("trunk_chest.L",(-.145,-.115,3.99),(.155,.135,.165),dress,40,28))
+    trunk.append(uv("trunk_chest.R",(.145,-.115,3.99),(.155,.135,.165),dress,40,28))
     trunk.append(uv("trunk_shoulders",(0,0,4.255),(.395,.225,.19),dress))
     # Neck and head are intentionally separate to preserve future facial rigging.
     uv("neck",(0,0,4.610),(.125,.125,.265),skin)
@@ -93,7 +96,7 @@ def main():
     legs=[]
     for sign,side in [(-1,"L"),(1,"R")]:
         hip=(sign*.205,0,2.72); knee=(sign*.205,-.005,1.72); ankle=(sign*.20,0,.30)
-        legs.append(capsule_piece("thigh."+side,hip,(sign*.205,-.005,1.60),.185,skin,.19))
+        legs.append(capsule_piece("thigh."+side,hip,(sign*.205,-.005,1.60),.205,skin,.205))
         # Omit the separate knee sphere; overlapping thigh/shin capsules fuse into a smoother transition.
         legs.append(capsule_piece("shin."+side,(sign*.205,-.005,1.82),ankle,.115,skin,.12))
         uv("foot."+side,(sign*.22,-.115,.14),(.11,.19,.075),shoes)
@@ -163,7 +166,7 @@ def main():
         if o.type in {"MESH","ARMATURE"} and o.name != "StudioFloor":o.select_set(True)
     bpy.context.view_layer.objects.active=fused_trunk
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-side.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Ninth candidate refinement: stronger low-factor smoothing after render review; experimental only"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-side.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Adult silhouette refinement: fuller hip and thigh volumes plus softly fuller chest; experimental only"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
