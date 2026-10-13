@@ -1,0 +1,74 @@
+name: LLL Source Backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly backup at 03:17 UTC on Sunday
+    - cron: "17 3 * * 0"
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lll-source-backup
+  cancel-in-progress: false
+
+jobs:
+  source-backup:
+    name: Create source snapshot and SHA-256 manifest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p backup-output
+          SHORT_SHA="$(git rev-parse --short=12 HEAD)"
+          STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+          ARCHIVE="ly-lam-lam-source-${STAMP}-${SHORT_SHA}.zip"
+          git archive --format=zip --output="backup-output/${ARCHIVE}" HEAD
+          (
+            cd backup-output
+            sha256sum "${ARCHIVE}" > "${ARCHIVE}.sha256"
+          )
+          {
+            echo "Commit: $(git rev-parse HEAD)"
+            echo "Branch: $(git branch --show-current)"
+            echo "Created UTC: ${STAMP}"
+            echo "Archive: ${ARCHIVE}"
+            echo
+            sha256sum "backup-output/${ARCHIVE}"
+          } > backup-output/BACKUP-MANIFEST.txt
+          test -s "backup-output/${ARCHIVE}"
+          test -s "backup-output/${ARCHIVE}.sha256"
+          unzip -t "backup-output/${ARCHIVE}"
+
+      - name: Verify archive checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd backup-output
+          ARCHIVE="$(find . -maxdepth 1 -type f -name '*.zip' -print -quit)"
+          test -n "${ARCHIVE}"
+          sha256sum -c "${ARCHIVE#./}.sha256"
+          unzip -t "${ARCHIVE}"
+
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-backup-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            backup-output/*.zip
+            backup-output/*.sha256
+            backup-output/BACKUP-MANIFEST.txt
+          if-no-files-found: error
+          retention-days: 90
