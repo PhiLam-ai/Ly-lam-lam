@@ -12,6 +12,18 @@ on:
         description: "Human-readable version label, for example V312-PASS1"
         required: true
         type: string
+      application_checks_confirmed:
+        description: "Confirm you personally reviewed browser/iPhone behavior and required app checks"
+        required: true
+        type: choice
+        options:
+          - NO
+          - YES
+        default: NO
+      application_test_evidence:
+        description: "URL of a successful GitHub Actions run for this exact candidate commit"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -37,9 +49,20 @@ jobs:
         env:
           CANDIDATE_REF: ${{ inputs.candidate_ref }}
           CANDIDATE_VERSION: ${{ inputs.candidate_version }}
+          APPLICATION_CHECKS_CONFIRMED: ${{ inputs.application_checks_confirmed }}
+          APPLICATION_TEST_EVIDENCE: ${{ inputs.application_test_evidence }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
+          if [[ "$APPLICATION_CHECKS_CONFIRMED" != "YES" ]]; then
+            echo "Promotion blocked: application/browser/iPhone checks must be reviewed and confirmed first." >&2
+            exit 1
+          fi
+          if [[ ! "$APPLICATION_TEST_EVIDENCE" =~ ^https://github\.com/PhiLam-ai/Ly-lam-lam/actions/runs/[0-9]+$ ]]; then
+            echo "Evidence must be a GitHub Actions run URL from this repository." >&2
+            exit 1
+          fi
           if [[ ! "$CANDIDATE_VERSION" =~ ^[A-Za-z0-9._-]{1,64}$ ]]; then
             echo "Invalid version label. Use letters, numbers, dot, underscore, or hyphen." >&2
             exit 1
@@ -48,6 +71,16 @@ jobs:
           CANDIDATE_SHA="$(git rev-parse FETCH_HEAD)"
           git cat-file -e "${CANDIDATE_SHA}:v312-work/index.html"
           git cat-file -e "${CANDIDATE_SHA}:lam-default.glb"
+          RUN_ID="${APPLICATION_TEST_EVIDENCE##*/}"
+          RUN_JSON="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")"
+          RUN_STATUS="$(jq -r '.status' <<< "$RUN_JSON")"
+          RUN_CONCLUSION="$(jq -r '.conclusion' <<< "$RUN_JSON")"
+          RUN_SHA="$(jq -r '.head_sha' <<< "$RUN_JSON")"
+          if [[ "$RUN_STATUS" != "completed" || "$RUN_CONCLUSION" != "success" || "$RUN_SHA" != "$CANDIDATE_SHA" ]]; then
+            echo "Evidence run must be completed successfully for the exact candidate commit." >&2
+            exit 1
+          fi
+          echo "evidence=$APPLICATION_TEST_EVIDENCE" >> "$GITHUB_OUTPUT"
           echo "sha=$CANDIDATE_SHA" >> "$GITHUB_OUTPUT"
           echo "version=$CANDIDATE_VERSION" >> "$GITHUB_OUTPUT"
           echo "Candidate commit: $CANDIDATE_SHA"
@@ -92,6 +125,7 @@ jobs:
         env:
           CANDIDATE_SHA: ${{ steps.candidate.outputs.sha }}
           CANDIDATE_VERSION: ${{ steps.candidate.outputs.version }}
+          APPLICATION_TEST_EVIDENCE: ${{ steps.candidate.outputs.evidence }}
           ARCHIVE: ${{ env.ARCHIVE }}
           ARCHIVE_SHA256: ${{ env.SHA256 }}
           GH_TOKEN: ${{ github.token }}
@@ -112,7 +146,8 @@ jobs:
               "sha256": os.environ["ARCHIVE_SHA256"],
               "promoted_at_utc": datetime.now(timezone.utc).isoformat(),
               "package_checks": ["required app entry file exists", "GLB header/length check", "ZIP integrity", "SHA-256 verification"],
-              "application_visual_qa": "NOT_IMPLIED_BY_PACKAGE_CHECKS"
+              "application_visual_qa": "MANUALLY_CONFIRMED",
+              "application_test_evidence": os.environ["APPLICATION_TEST_EVIDENCE"]
           }
           if old_current and old_current.get("commit_sha") != new_current["commit_sha"]:
               state["previous"] = old_current
@@ -147,6 +182,7 @@ jobs:
         env:
           CANDIDATE_SHA: ${{ steps.candidate.outputs.sha }}
           CANDIDATE_VERSION: ${{ steps.candidate.outputs.version }}
+          APPLICATION_TEST_EVIDENCE: ${{ steps.candidate.outputs.evidence }}
           ARCHIVE: ${{ env.ARCHIVE }}
           ARCHIVE_SHA256: ${{ env.SHA256 }}
         run: |
@@ -158,5 +194,7 @@ jobs:
             echo "- ZIP: `$ARCHIVE`"
             echo "- SHA-256: `$ARCHIVE_SHA256`"
             echo "- Package integrity: PASS"
-            echo "- Note: package checks do not prove visual quality or successful iPhone rendering."
+            echo "- Application test evidence: $APPLICATION_TEST_EVIDENCE"
+            echo "- Application/browser/iPhone checks: manually confirmed by operator."
+            echo "- Note: automated package checks alone do not prove visual quality or successful iPhone rendering."
           } >> "$GITHUB_STEP_SUMMARY"
