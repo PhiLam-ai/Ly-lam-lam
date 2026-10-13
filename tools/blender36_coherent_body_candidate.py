@@ -53,9 +53,9 @@ def main():
     uv("neck",(0,0,4.625),(.135,.135,.27),skin)
     uv("head",(0,-.015,5.035),(.275,.255,.365),skin,64,40)
     # Soft cheek volume and a gentler jaw/chin transition for a less toy-like face.
-    uv("cheek.L",(-.125,-.226,4.985),(.068,.040,.060),skin,32,20)
-    uv("cheek.R",(.125,-.226,4.985),(.068,.040,.060),skin,32,20)
-    uv("chin",(0,-.205,4.865),(.082,.045,.055),skin,32,20)
+    uv("cheek.L",(-.125,-.220,4.985),(.060,.025,.050),skin,32,20)
+    uv("cheek.R",(.125,-.220,4.985),(.060,.025,.050),skin,32,20)
+    uv("chin",(0,-.195,4.865),(.070,.028,.045),skin,32,20)
     # ears
     uv("ear.L",(-.29,0,5.02),(.065,.075,.105),skin)
     uv("ear.R",(.29,0,5.02),(.065,.075,.105),skin)
@@ -70,13 +70,13 @@ def main():
     uv("hair_side.R",(.265,.015,4.99),(.075,.10,.37),hair)
     # eyes face toward -Y
     for x,side in [(-.115,"L"),(.115,"R")]:
-        uv("eye_white."+side,(x,-.254,5.075),(.045,.022,.030),white)
-        uv("iris."+side,(x,-.276,5.074),(.018,.010,.020),iris)
-        uv("brow."+side,(x,-.253,5.130),(.060,.016,.012),hair)
-    uv("nose",(0,-.276,4.995),(.026,.035,.040),skin)
-    uv("mouth",(0,-.260,4.925),(.052,.014,.012),material("Muted rose lips",(.42,.105,.12),.4))
+        uv("eye_white."+side,(x,-.246,5.075),(.039,.014,.026),white)
+        uv("iris."+side,(x,-.260,5.074),(.015,.007,.017),iris)
+        uv("brow."+side,(x,-.246,5.126),(.052,.010,.009),hair)
+    uv("nose",(0,-.254,4.995),(.022,.024,.030),skin)
+    uv("mouth",(0,-.244,4.925),(.046,.009,.009),material("Muted rose lips",(.42,.105,.12),.4))
     # A tiny smile highlight, kept subtle in this geometry-only prototype.
-    uv("lower_lip",(0,-.261,4.910),(.035,.009,.007),material("Lower lip",(.57,.20,.20),.4))
+    uv("lower_lip",(0,-.244,4.913),(.030,.006,.005),material("Lower lip",(.57,.20,.20),.4))
     # Arms are grouped and voxel-fused per side to reduce toy-like elbow/wrist seams.
     arms=[]
     for sign,side in [(-1,"L"),(1,"R")]:
@@ -153,7 +153,7 @@ def main():
         if o.type in {"MESH","ARMATURE"} and o.name != "StudioFloor":o.select_set(True)
     bpy.context.view_layer.objects.active=fused_trunk
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Third silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smoother fused knee/arm transitions"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Fourth candidate refinement: softened shoulder/knee seams and reduced protrusion of facial feature geometry"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
