@@ -52,6 +52,8 @@ const { spawn } = require('node:child_process');
 
     const debugState = await page.evaluate(() => window.__avatarViewerDebug || null);
     console.log('AVATAR_DEBUG ' + JSON.stringify(debugState));
+    await page.screenshot({ path: 'avatar-viewer-chromium.png', fullPage: true });
+    console.log('SCREENSHOT: avatar-viewer-chromium.png');
     const failures = [];
     if (!result.diagnosticsVisible) failures.push('diagnostics panel did not appear for diagnostics=1');
     if (result.canvasCount !== 1 || !result.canvasRect || result.canvasRect.width < 100 || result.canvasRect.height < 100) failures.push('WebGL canvas missing or too small');
@@ -61,6 +63,8 @@ const { spawn } = require('node:child_process');
     if (!debugState || debugState.morphCount < 1) failures.push('loaded GLB has no morph bindings; debug=' + JSON.stringify(debugState));
     if (!debugState || Math.abs(debugState.bounds.y - 1.6) > 0.02) failures.push('avatar height is not normalized to 1.60 m; debug=' + JSON.stringify(debugState));
     if (pageErrors.length) failures.push('page errors: ' + pageErrors.join(' | '));
+    if (consoleErrors.length) failures.push('console errors: ' + consoleErrors.join(' | '));
+    if (failedRequests.length) failures.push('failed requests: ' + failedRequests.join(' | '));
     if (badResponses.some(x => x.includes('127.0.0.1:8765'))) failures.push('local asset HTTP errors: ' + badResponses.filter(x => x.includes('127.0.0.1:8765')).join(' | '));
     if (failures.length) {
       console.error('FAIL: ' + failures.join('\n'));
