@@ -129,6 +129,25 @@ def main():
     if not os.path.isfile(roundtrip) or os.path.getsize(roundtrip) < 1024:
         raise RuntimeError("Round-trip GLB export missing or unexpectedly small")
 
+    # Per-part diagnostics: preserve each mesh's world-space bounds to identify detached body parts.
+    mesh_parts = []
+    for obj in sorted(meshes, key=lambda item: item.name.lower()):
+        part_bounds = bounds_for([obj])
+        mesh_parts.append({
+            "name": obj.name,
+            "vertices": len(obj.data.vertices),
+            "polygons": len(obj.data.polygons),
+            "bounds": part_bounds,
+            "materials": sorted({m.name for m in obj.data.materials if m}),
+            "has_shape_keys": bool(obj.data.shape_keys),
+            "shape_keys": [key.name for key in obj.data.shape_keys.key_blocks if key.name != "Basis"] if obj.data.shape_keys else [],
+        })
+    with open(os.path.join(out, "mesh-part-diagnostics.json"), "w", encoding="utf-8") as f:
+        json.dump(mesh_parts, f, ensure_ascii=False, indent=2)
+    with open(os.path.join(out, "mesh-part-diagnostics.txt"), "w", encoding="utf-8") as f:
+        f.write("MESH PART DIAGNOSTICS — world-space bounds per source mesh\\n")
+        f.write(json.dumps(mesh_parts, ensure_ascii=False, indent=2) + "\\n")
+
     material_names = sorted({m.name for o in meshes for m in o.data.materials if m})
     morph_names = sorted({key.name for o in meshes if o.data.shape_keys for key in o.data.shape_keys.key_blocks if key.name != "Basis"})
     animation_names = sorted({a.name for a in bpy.data.actions})
