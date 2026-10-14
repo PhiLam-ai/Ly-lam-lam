@@ -6,7 +6,7 @@ on:
       - avatar/v313-repair-candidate-20261014
     paths:
       - "tools/blender_v345_gentle_smile_visible.py"
-      - ".github/workflows/v345-gentle-smile-strength.yml"
+      - ".github/workflows/v345-gentle-smile-visible.yml"
   workflow_dispatch:
 
 permissions:
