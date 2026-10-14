@@ -30,6 +30,7 @@ on:
       - "tools/blender36_v326_integrated_bangs_candidate.py"
       - "tools/blender36_v327_curved_bangs_panel_candidate.py"
       - "tools/blender36_v328_curved_forehead_wisps_candidate.py"
+      - "tools/blender36_v329_surface_fitted_bangs_candidate.py"
       - "tools/v314_candidate_webgl_smoke.cjs"
       - "tools/blender36_v313_rest_pose_comparison.py"
       - "tools/blender36_v313_pose_reset_experiment.py"
@@ -448,13 +449,66 @@ jobs:
           }, ensure_ascii=False, indent=2))
           PY
 
+      - name: Build V329 surface-fitted bangs candidate and save renders
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/v329-coherent-avatar-candidate
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_v329_surface_fitted_bangs_candidate.py -- \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/v329-coherent-avatar-candidate" \
+            2>&1 | tee artifacts/v329-coherent-avatar-candidate/v329-build.log
+          if grep -q "Traceback (most recent call last)" artifacts/v329-coherent-avatar-candidate/v329-build.log; then
+            echo "Blender Python traceback detected in V329 candidate build."
+            exit 1
+          fi
+          test -s artifacts/v329-coherent-avatar-candidate/v329-build.log
+          test -s artifacts/v329-coherent-avatar-candidate/lam-v329-candidate-report.json
+          test -s artifacts/v329-coherent-avatar-candidate/lam-v329-front.png
+          test -s artifacts/v329-coherent-avatar-candidate/lam-v329-three-quarter.png
+          test -s artifacts/v329-coherent-avatar-candidate/lam-v329-side.png
+          test -s artifacts/v329-coherent-avatar-candidate/lam-v329-face-closeup.png
+          test -s artifacts/v329-coherent-avatar-candidate/lam-v329-root-animated-front.png
+          test -s artifacts/v329-coherent-avatar-candidate/lam-v329-rigged-debug-front.png
+          test -s artifacts/v329-coherent-avatar-candidate/lam-v329-coherent-avatar-candidate.glb
+          test -s artifacts/v329-coherent-avatar-candidate/lam-v329-rigged-debug-candidate.glb
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/v329-coherent-avatar-candidate/lam-v329-candidate-report.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["status"] == "EXPERIMENTAL_V329_VISIBLE_ROOT_ANIMATED_CANDIDATE_NOT_APPROVED", report
+          assert report["candidate_version"] == "V329", report
+          assert report["candidate_skin_count"] == 0, report
+          assert report["candidate_animation_count"] == 1, report
+          assert "Lam_Idle_GentleSway" in report["candidate_animation_names"], report
+          assert report["rig_debug_armature_count"] == 1, report
+          assert report["rig_debug_bone_count"] == 17, report
+          assert report["rigged_debug_skin_count"] == 1, report
+          assert report["missing_expected_morphs"] == [], report
+          assert abs(report["candidate_bounds_m"]["size"][2] - 1.60) < 0.04, report
+          visual = report["v329_visual_refinements"]
+          assert visual["curved_forehead_wisps"] is True, report
+          assert visual["center_part_wisps"] is True, report
+          assert all(visual.values()), report
+          print("V329_SURFACE_FITTED_BANGS=PASS_EXPERIMENTAL_ONLY")
+          print(json.dumps({
+              "candidate_version": report["candidate_version"],
+              "candidate_bytes": report["candidate_bytes"],
+              "height_m": report["candidate_bounds_m"]["size"][2],
+              "mesh_count": report["mesh_count"],
+              "morph_count": len(report["morph_names_found"]),
+              "curved_forehead_wisps": visual["curved_forehead_wisps"],
+              "center_part_wisps": visual["center_part_wisps"]
+          }, ensure_ascii=False, indent=2))
+          PY
+
       - name: Install isolated Playwright dependencies for candidate browser test
         run: |
           set -euo pipefail
           npm install --prefix "$RUNNER_TEMP/v314-playwright" --no-save --package-lock=false playwright pngjs
           "$RUNNER_TEMP/v314-playwright/node_modules/.bin/playwright" install --with-deps chromium
 
-      - name: Load the V328 refined visible candidate and verify idle playback in mobile-sized Three.js viewer
+      - name: Load the V329 refined visible candidate and verify idle playback in mobile-sized Three.js viewer
         env:
           NODE_PATH: ${{ runner.temp }}/v314-playwright/node_modules
           V314_VIEWER_ROOT: ${{ runner.temp }}/v314-viewer
@@ -463,7 +517,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/v314-viewer" artifacts/v314-browser-test
           cp -a v312-work/. "$RUNNER_TEMP/v314-viewer/"
-          cp "$GITHUB_WORKSPACE/artifacts/v328-coherent-avatar-candidate/lam-v328-coherent-avatar-candidate.glb" "$RUNNER_TEMP/v314-viewer/lam-default.glb"
+          cp "$GITHUB_WORKSPACE/artifacts/v329-coherent-avatar-candidate/lam-v329-coherent-avatar-candidate.glb" "$RUNNER_TEMP/v314-viewer/lam-default.glb"
           node --check tools/v314_candidate_webgl_smoke.cjs
           node tools/v314_candidate_webgl_smoke.cjs
           test -s artifacts/v314-browser-test/v314-candidate-browser-report.json
@@ -486,7 +540,7 @@ jobs:
           assert report["pageErrors"] == [], report
           assert report["consoleErrors"] == [], report
           assert report["visualFraming"] is not None, report
-          print("V328_BROWSER_WEBGL_AND_IDLE_PLAYBACK=PASS_EXPERIMENTAL_ONLY")
+          print("V329_BROWSER_WEBGL_AND_IDLE_PLAYBACK=PASS_EXPERIMENTAL_ONLY")
           print(json.dumps({"state": report["state"], "visualFraming": report["visualFraming"],
             "glbResponses": report["glbResponses"],
             "requiredLocalAssetResponses": report["requiredLocalAssetResponses"],
@@ -580,19 +634,19 @@ jobs:
           test -s artifacts/v313-pose-reset-experiment/pose-reset-front.png
           test -s artifacts/v313-pose-reset-experiment/lam-pose-reset-experiment.glb
 
-      - name: Package V328 experimental Windows preview and SHA-256
+      - name: Package V329 experimental Windows preview and SHA-256
         if: success()
         run: |
           set -euo pipefail
-          stage="$RUNNER_TEMP/ly-lam-lam-v328-experimental-stage"
-          package="$RUNNER_TEMP/ly-lam-lam-v328-experimental-windows.zip"
+          stage="$RUNNER_TEMP/ly-lam-lam-v329-experimental-stage"
+          package="$RUNNER_TEMP/ly-lam-lam-v329-experimental-windows.zip"
           mkdir -p "$stage/v312-work"
           cp -a v312-work/. "$stage/v312-work/"
-          cp "artifacts/v328-coherent-avatar-candidate/lam-v328-coherent-avatar-candidate.glb" "$stage/v312-work/lam-default.glb"
-          cat > "$stage/v312-work/V328-EXPERIMENTAL-AVATAR.md" <<'MD'
-          # V328 Experimental Avatar Preview — Not the Production Avatar
+          cp "artifacts/v329-coherent-avatar-candidate/lam-v329-coherent-avatar-candidate.glb" "$stage/v312-work/lam-default.glb"
+          cat > "$stage/v312-work/V329-EXPERIMENTAL-AVATAR.md" <<'MD'
+          # V329 Experimental Avatar Preview — Not the Production Avatar
 
-          This separate Windows preview package uses the V328 procedural stylized avatar candidate so the whole figure can be seen in the browser.
+          This separate Windows preview package uses the V329 procedural stylized avatar candidate so the whole figure can be seen in the browser.
 
           - It is an experimental stylized blockout, not the final photorealistic Lam avatar.
           - The preview candidate intentionally has no skeletal skin. The small `Lam_Idle_GentleSway` clip is a subtle whole-root sway, not joint articulation.
@@ -625,26 +679,26 @@ jobs:
               names = archive.namelist()
               for required in (
                   "v312-work/START-LAM-WINDOWS.bat",
-                  "v312-work/V328-EXPERIMENTAL-AVATAR.md",
+                  "v312-work/V329-EXPERIMENTAL-AVATAR.md",
                   "v312-work/lam-default.glb",
                   "v312-work/vendor/three/build/three.module.js",
               ):
                   if required not in names:
                       raise SystemExit(f"Missing package entry: {required}")
-          print(f"V328_WINDOWS_PREVIEW_ZIP={package}")
-          print(f"V328_WINDOWS_PREVIEW_SHA256={digest}")
-          print(f"V328_WINDOWS_PREVIEW_BYTES={package.stat().st_size}")
-          print("V328_WINDOWS_PREVIEW_ZIP_INTEGRITY=PASS")
+          print(f"V329_WINDOWS_PREVIEW_ZIP={package}")
+          print(f"V329_WINDOWS_PREVIEW_SHA256={digest}")
+          print(f"V329_WINDOWS_PREVIEW_BYTES={package.stat().st_size}")
+          print("V329_WINDOWS_PREVIEW_ZIP_INTEGRITY=PASS")
           PY
 
-      - name: Upload V328 experimental Windows preview ZIP and checksum
+      - name: Upload V329 experimental Windows preview ZIP and checksum
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: ly-lam-lam-v328-experimental-windows-preview-${{ github.run_id }}
+          name: ly-lam-lam-v329-experimental-windows-preview-${{ github.run_id }}
           path: |
-            ${{ runner.temp }}/ly-lam-lam-v328-experimental-windows.zip
-            ${{ runner.temp }}/ly-lam-lam-v328-experimental-windows.zip.sha256
+            ${{ runner.temp }}/ly-lam-lam-v329-experimental-windows.zip
+            ${{ runner.temp }}/ly-lam-lam-v329-experimental-windows.zip.sha256
           if-no-files-found: error
           retention-days: 30
 
