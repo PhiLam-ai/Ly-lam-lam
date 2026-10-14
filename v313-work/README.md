@@ -2,6 +2,9 @@
 
 Status: **IN PROGRESS — NOT A RELEASE**
 
+## Parallel execution
+The app-startup workstream is being developed separately on `v313/app-startup-20261014` so that runtime fixes can proceed without waiting for avatar geometry work. Keep this branch isolated and do not merge either workstream into `main` until release gates pass.
+
 ## Safety rules
 - V312 remains the known baseline and must not be overwritten.
 - Work only on this V313 branch until the candidate passes the release gates below.
