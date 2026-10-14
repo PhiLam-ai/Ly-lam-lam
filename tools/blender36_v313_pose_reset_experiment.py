@@ -19,6 +19,8 @@ def main():
     for p in arm.pose.bones:
         before.append({"bone":p.name,"location":[float(x) for x in p.location],
           "rotation_mode":p.rotation_mode,"rotation_euler":[float(x) for x in p.rotation_euler],
+          "rotation_quaternion":[float(x) for x in p.rotation_quaternion],
+          "rotation_axis_angle":[float(x) for x in p.rotation_axis_angle],
           "scale":[float(x) for x in p.scale]})
     # Reversible experiment only: reset pose channels on in-memory imported copy.
     for p in arm.pose.bones:
@@ -58,6 +60,6 @@ def main():
       "warning":"This experiment tests pose-channel offsets only. It is not an accepted repair; inspect image and re-audit skin, 12 morphs and browser rendering before promotion."}
     with open(os.path.join(out_dir,"pose-reset-experiment-report.json"),"w",encoding="utf-8") as f: json.dump(report,f,indent=2,ensure_ascii=False)
     print("V313_POSE_RESET_EXPERIMENT=NOT_APPROVED")
-    print(json.dumps({"source_unchanged":report["source_unchanged"],"bones_with_nonidentity_before":[x["bone"] for x in before if any(abs(v)>1e-5 for v in x["location"]+x["rotation_euler"]+[s-1 for s in x["scale"]])],
+    print(json.dumps({"source_unchanged":report["source_unchanged"],"bones_with_nonidentity_before":[x["bone"] for x in before if any(abs(v)>1e-5 for v in x["location"]+([x["rotation_quaternion"][i]-(1.0 if i==0 else 0.0) for i in range(4)] if x["rotation_mode"]=="QUATERNION" else x["rotation_euler"])+[s-1 for s in x["scale"]])],
       "morph_count":len(report["morphs_before_export"]),"candidate_sha256":exported_hash},ensure_ascii=False))
 if __name__=="__main__": main()
