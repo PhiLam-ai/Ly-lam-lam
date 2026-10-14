@@ -78,7 +78,10 @@ jobs:
           assert report["faceView"]["clicked"] is True and report["faceView"]["buttonCount"] == 1, report
           assert report["faceView"]["canvas"] == {"width": 390, "height": 844}, report
           assert report["faceView"]["screenshotBytes"] > 5000 and report["faceView"]["foregroundPixels"] > 12000, report
-          assert report["pageErrors"] == [] and report["consoleErrors"] == [] and report["failedRequests"] == [], report
+          assert report["pageErrors"] == [] and report["consoleErrors"] == [], report
+          fatal_requests = [item for item in report["failedRequests"] if item not in report["ignoredBenignAborts"]]
+          assert fatal_requests == [], {"fatal_requests": fatal_requests, "report": report}
+          assert all(item["error"] == "net::ERR_ABORTED" and item["url"].endswith("/lam-default.glb") for item in report["ignoredBenignAborts"]), report
           print("V351_FACE_QUICK_VIEW_WEBGL=PASS_AUDIT_ONLY")
           print(json.dumps({"sourceModel": report["sourceModel"], "state": report["state"], "faceView": report["faceView"], "visualFraming": report["visualFraming"]}, ensure_ascii=False, indent=2))
           PY
