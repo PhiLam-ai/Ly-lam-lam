@@ -21,6 +21,7 @@ on:
       - "tools/blender36_v313_bindpose_audit.py"
       - "tools/blender36_v313_mesh_localization.py"
       - "tools/blender36_v313_transform_bind_audit.py"
+      - "tools/blender36_v313_rest_pose_comparison.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
 
@@ -256,6 +257,16 @@ jobs:
             --input "$GITHUB_WORKSPACE/lam-default.glb" \
             --output-dir "$GITHUB_WORKSPACE/artifacts/v313-transform-bind-audit"
           test -s artifacts/v313-transform-bind-audit/v313-transform-bind-audit.json
+
+      - name: Compare V313 rest pose with mesh bounds
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/v313-rest-pose-comparison
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_v313_rest_pose_comparison.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/v313-rest-pose-comparison"
+          test -s artifacts/v313-rest-pose-comparison/v313-rest-pose-comparison.json
 
       - name: Upload real-model renders, candidate GLB and reports
         if: always()
