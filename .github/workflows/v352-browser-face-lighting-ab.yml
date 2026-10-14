@@ -1,0 +1,175 @@
+name: V352 Browser Face Lighting A/B (V350 Model Unchanged)
+
+on:
+  push:
+    branches:
+      - avatar/v313-repair-candidate-20261014
+    paths:
+      - "tools/v352_apply_viewer_fill_lighting.cjs"
+      - "tools/v352_browser_lighting_capture.cjs"
+      - ".github/workflows/v352-browser-face-lighting-ab.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: v352-browser-face-lighting-ab
+  cancel-in-progress: true
+
+jobs:
+  compare-baseline-and-fill-light:
+    name: Compare V350 browser face rendering before and after temporary fill light
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        name: Check out candidate viewer
+
+      - uses: actions/download-artifact@v4
+        name: Download exact validated V350 model artifact
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 38601681760
+          name: ly-lam-lam-v350-gltf-face-accessory-38601681760
+          path: artifacts/v350-source
+
+      - name: Install Playwright and Chromium
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/v352-playwright" --no-save --package-lock=false playwright pngjs
+          "$RUNNER_TEMP/v352-playwright/node_modules/.bin/playwright" install --with-deps chromium
+
+      - name: Prepare isolated baseline viewer from V350
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v352-viewer" artifacts/v352-browser-lighting/baseline artifacts/v352-browser-lighting/modified
+          cp -a v312-work/. "$RUNNER_TEMP/v352-viewer/"
+          source_glb="$(find artifacts/v350-source -type f -name 'lam-v350-gltf-materials-full-face-candidate.glb' -print -quit)"
+          test -n "$source_glb"
+          test -s "$source_glb"
+          cp "$source_glb" "$RUNNER_TEMP/v352-viewer/lam-default.glb"
+          cp "$RUNNER_TEMP/v352-viewer/index.html" artifacts/v352-browser-lighting/index-v350-baseline.html
+          printf '%s\n'             '# V352 browser lighting A/B — preview only'             ''             'The V350 GLB is unchanged. Baseline and candidate use the same browser viewer, camera controls, 12 morphs, animation and the exact same GLB SHA-256.'             ''             '- Source model: V350 workflow run 38601681760'             '- Source GLB SHA-256: 9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee'             '- Only the temporary viewer lighting block is changed. No repository v312-work/index.html or main/production branch file is edited.'             > artifacts/v352-browser-lighting/README.md
+
+      - name: Capture baseline full-body and face views
+        env:
+          NODE_PATH: ${{ runner.temp }}/v352-playwright/node_modules
+          V351_VIEWER_ROOT: ${{ runner.temp }}/v352-viewer
+          V351_VIEWER_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/v352-browser-lighting/baseline
+          V351_EXPECTED_V350_GLB_SHA256: 9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee
+          V351_SOURCE_RUN_ID: 38601681760
+        run: |
+          set -euo pipefail
+          node --check tools/v351_eye_closeup_browser_capture.cjs
+          node tools/v351_eye_closeup_browser_capture.cjs
+
+      - name: Apply controlled lighting change to temporary viewer copy
+        env:
+          V352_VIEWER_ROOT: ${{ runner.temp }}/v352-viewer
+          V352_PATCH_REPORT_PATH: ${{ github.workspace }}/artifacts/v352-browser-lighting/viewer-lighting-patch-report.json
+        run: |
+          set -euo pipefail
+          node --check tools/v352_apply_viewer_fill_lighting.cjs
+          node tools/v352_apply_viewer_fill_lighting.cjs
+          cp "$RUNNER_TEMP/v352-viewer/index.html" artifacts/v352-browser-lighting/index-v352-experimental-lighting.html
+
+      - name: Capture fill-light full-body and face views
+        env:
+          NODE_PATH: ${{ runner.temp }}/v352-playwright/node_modules
+          V352_VIEWER_ROOT: ${{ runner.temp }}/v352-viewer
+          V352_VIEWER_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/v352-browser-lighting/modified
+          V352_EXPECTED_V350_GLB_SHA256: 9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee
+          V352_SOURCE_RUN_ID: 38601681760
+        run: |
+          set -euo pipefail
+          node --check tools/v352_browser_lighting_capture.cjs
+          node tools/v352_browser_lighting_capture.cjs
+
+      - name: Compare baseline and candidate face-view pixels
+        env:
+          NODE_PATH: ${{ runner.temp }}/v352-playwright/node_modules
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const crypto = require('node:crypto');
+          const { PNG } = require('pngjs');
+          const baselinePath = 'artifacts/v352-browser-lighting/baseline/v351-eye-face-closeup-canvas.png';
+          const candidatePath = 'artifacts/v352-browser-lighting/modified/v352-eye-face-closeup-canvas.png';
+          const a = PNG.sync.read(fs.readFileSync(baselinePath));
+          const b = PNG.sync.read(fs.readFileSync(candidatePath));
+          if (a.width !== 390 || a.height !== 844 || b.width !== a.width || b.height !== a.height) {
+            throw new Error('Baseline/candidate face captures must both be 390x844.');
+          }
+          let absSum = 0, changed = 0;
+          const pixels = a.width * a.height;
+          for (let i = 0; i < a.data.length; i += 4) {
+            let maxDelta = 0;
+            for (let c = 0; c < 3; c++) {
+              const d = Math.abs(a.data[i + c] - b.data[i + c]);
+              absSum += d;
+              if (d > maxDelta) maxDelta = d;
+            }
+            if (maxDelta > 8) changed++;
+          }
+          const result = {
+            baseline: path.basename(baselinePath),
+            candidate: path.basename(candidatePath),
+            dimensions: [a.width, a.height],
+            meanAbsoluteChannelDelta: Number((absSum / (pixels * 3)).toFixed(4)),
+            pixelFractionWithMaxRGBDeltaOver8: Number((changed / pixels).toFixed(4)),
+            baselineSha256: crypto.createHash('sha256').update(fs.readFileSync(baselinePath)).digest('hex'),
+            candidateSha256: crypto.createHash('sha256').update(fs.readFileSync(candidatePath)).digest('hex'),
+            warning: 'Pixel difference measures change magnitude only; it does not rate realism or aesthetic quality.'
+          };
+          fs.writeFileSync('artifacts/v352-browser-lighting/pixel-comparison.json', JSON.stringify(result, null, 2) + '\n');
+          console.log('V352_BROWSER_FACE_LIGHTING_PIXEL_COMPARISON=' + JSON.stringify(result));
+          if (result.meanAbsoluteChannelDelta < 0.5 || result.pixelFractionWithMaxRGBDeltaOver8 < 0.02) {
+            throw new Error('The lighting experiment did not materially change the face-view pixels: ' + JSON.stringify(result));
+          }
+          NODE
+
+      - name: Validate both browser reports and capture integrity
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          base = Path("artifacts/v352-browser-lighting/baseline/v351-candidate-browser-report.json")
+          cand = Path("artifacts/v352-browser-lighting/modified/v352-candidate-browser-report.json")
+          b = json.loads(base.read_text(encoding="utf-8"))
+          c = json.loads(cand.read_text(encoding="utf-8"))
+          expected = "9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee"
+          for label, r in [("baseline", b), ("candidate", c)]:
+              assert r["status"] == "PASS_BROWSER_WEBGL_CANDIDATE_ONLY", {label: r}
+              assert r["sourceModel"]["version"] == "V350" and r["sourceModel"]["sha256"] == expected, {label: r}
+              assert r["state"]["booted"] and r["state"]["rendererReady"] and r["state"]["webgl"], {label: r}
+              assert r["state"]["activeAnimationName"] == "Lam_Idle_GentleSway" and r["state"]["animationTime"] > 0.05, {label: r}
+              assert r["faceView"]["clicked"] and r["faceView"]["buttonCount"] == 1, {label: r}
+              assert r["faceView"]["canvas"] == {"width": 390, "height": 844}, {label: r}
+              assert r["faceView"]["screenshotBytes"] > 5000 and r["faceView"]["foregroundPixels"] > 12000, {label: r}
+              assert not r["pageErrors"] and not r["consoleErrors"], {label: r}
+              fatal = [item for item in r["failedRequests"] if item not in r["ignoredBenignAborts"]]
+              assert not fatal, {"label": label, "fatal_requests": fatal}
+              assert all(item["error"] == "net::ERR_ABORTED" and item["url"].endswith("/lam-default.glb") for item in r["ignoredBenignAborts"]), {label: r}
+          patch = json.loads(Path("artifacts/v352-browser-lighting/viewer-lighting-patch-report.json").read_text(encoding="utf-8"))
+          assert patch["status"] == "V352_TEMP_VIEWER_LIGHTING_PATCH_APPLIED" and patch["replacementCount"] == 1, patch
+          assert patch["modelUnchanged"] is True and patch["originalHtmlSha256"] != patch["patchedHtmlSha256"], patch
+          comparison = json.loads(Path("artifacts/v352-browser-lighting/pixel-comparison.json").read_text(encoding="utf-8"))
+          assert comparison["meanAbsoluteChannelDelta"] >= 0.5 and comparison["pixelFractionWithMaxRGBDeltaOver8"] >= 0.02, comparison
+          print("V352_BROWSER_LIGHTING_AB_TEST=PASS_TECHNICAL_ONLY")
+          print(json.dumps({"baseline_face": b["faceView"], "candidate_face": c["faceView"], "patch": patch, "comparison": comparison}, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload V352 before/after browser evidence (no new GLB)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ly-lam-lam-v352-browser-lighting-ab-${{ github.run_id }}
+          path: artifacts/v352-browser-lighting/
+          if-no-files-found: warn
+          retention-days: 14
