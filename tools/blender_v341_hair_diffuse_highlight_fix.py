@@ -502,6 +502,7 @@ def make_darkened_hair_image(source_image):
     source_image.pixels.foreach_get(raw)
     source_pixels = raw.reshape((-1, channels))
     rgb = source_pixels[:, :3]
+    source_rgb_mean_linear = float(np.mean(rgb))
     # Texture luminance is used to compress only the bright baked highlight
     # bands. The alpha channel is deliberately left byte-for-byte unchanged.
     luminance = (0.2126 * rgb[:, 0]) + (0.7152 * rgb[:, 1]) + (0.0722 * rgb[:, 2])
@@ -531,6 +532,8 @@ def make_darkened_hair_image(source_image):
         "width": width,
         "height": height,
         "channels": channels,
+        "source_rgb_mean_linear": source_rgb_mean_linear,
+        "processed_rgb_mean_linear": float(np.mean(rgb)),
         "alpha_preserved": channels >= 4,
         "processing": "highlight scale 0.74 at dark values to 0.40 at bright values; red x0.94, green x0.80, blue x0.78; original alpha unchanged",
     }
@@ -996,6 +999,58 @@ def parse_glb_json(path):
         raise RuntimeError("Output GLB JSON chunk is invalid")
     return json.loads(data[20:20 + length].decode("utf-8").rstrip("\x00 \t\r\n"))
 
+
+
+def extract_glb_embedded_image_bytes(glb_path, gltf, image_index):
+    """Extract a GLB image payload through JSON bufferView metadata."""
+    import struct
+
+    blob = Path(glb_path).read_bytes()
+    if len(blob) < 20:
+        raise RuntimeError("GLB too small for embedded image audit")
+    magic, version, total_length = struct.unpack_from("<4sII", blob, 0)
+    if magic != b"glTF" or version != 2 or total_length != len(blob):
+        raise RuntimeError("GLB header invalid during embedded hair image audit")
+    json_length, json_kind = struct.unpack_from("<I4s", blob, 12)
+    if json_kind != b"JSON":
+        raise RuntimeError("GLB JSON chunk missing during hair image audit")
+    binary_chunk_offset = 20 + json_length
+    binary_length, binary_kind = struct.unpack_from("<I4s", blob, binary_chunk_offset)
+    if binary_kind != b"BIN\\x00":
+        raise RuntimeError("GLB binary chunk missing during hair image audit")
+    binary_payload = blob[binary_chunk_offset + 8:binary_chunk_offset + 8 + binary_length]
+    image_entry = gltf.get("images", [])[image_index]
+    if "bufferView" not in image_entry:
+        raise RuntimeError("Hair image is not embedded in the GLB bufferView")
+    view = gltf.get("bufferViews", [])[image_entry["bufferView"]]
+    start = int(view.get("byteOffset", 0))
+    length = int(view["byteLength"])
+    payload = binary_payload[start:start + length]
+    if len(payload) != length:
+        raise RuntimeError("Truncated image payload while auditing GLB hair image")
+    return payload, image_entry.get("mimeType", "image/png"), image_entry.get("name", "")
+
+
+def mean_rgb_linear_from_png_bytes(payload, output_dir):
+    """Decode embedded PNG via Blender's image loader and return its mean RGB."""
+    import numpy as np
+
+    temp_path = os.path.join(output_dir, ".v341-embedded-hair-check.png")
+    Path(temp_path).write_bytes(payload)
+    loaded = None
+    try:
+        loaded = bpy.data.images.load(temp_path, check_existing=False)
+        raw = np.empty(len(loaded.pixels), dtype=np.float32)
+        loaded.pixels.foreach_get(raw)
+        pixels = raw.reshape((-1, int(loaded.channels)))
+        return float(np.mean(pixels[:, :3])), float(np.mean(pixels[:, 3])) if loaded.channels >= 4 else 1.0
+    finally:
+        if loaded is not None:
+            bpy.data.images.remove(loaded)
+        try:
+            os.remove(temp_path)
+        except FileNotFoundError:
+            pass
 
 
 def get_active_uv_name(obj):
@@ -1533,8 +1588,27 @@ def main():
     texture_row = gltf_hair_textures[hair_texture_index] if hair_texture_index is not None and hair_texture_index < len(gltf_hair_textures) else {}
     hair_image_source_index = texture_row.get("source")
     hair_image_name = gltf_hair_images[hair_image_source_index].get("name", "") if hair_image_source_index is not None and hair_image_source_index < len(gltf_hair_images) else ""
-    if "V341_HairDiffuse_Darkened" not in hair_image_name:
-        raise RuntimeError("V341 processed hair image missing from exported GLB: " + repr(hair_image_name))
+    if hair_image_source_index is None or hair_image_source_index >= len(gltf_hair_images):
+        raise RuntimeError("V341 glTF hair texture has no valid embedded image source")
+    hair_png_payload, hair_mime_type, embedded_image_label = extract_glb_embedded_image_bytes(
+        glb_path, gltf, hair_image_source_index
+    )
+    if hair_mime_type != "image/png":
+        raise RuntimeError("V341 expected embedded PNG hair texture, got " + repr(hair_mime_type))
+    embedded_rgb_mean, embedded_alpha_mean = mean_rgb_linear_from_png_bytes(hair_png_payload, output)
+    source_rgb_mean = float(hair_material_audit["image"]["source_rgb_mean_linear"])
+    processed_rgb_mean = float(hair_material_audit["image"]["processed_rgb_mean_linear"])
+    embedded_darkening_verified = embedded_rgb_mean < source_rgb_mean * 0.90
+    if not embedded_darkening_verified:
+        raise RuntimeError(
+            "V341 embedded hair texture is not sufficiently darker than source: "
+            + repr({"source_rgb_mean": source_rgb_mean, "embedded_rgb_mean": embedded_rgb_mean})
+        )
+    if abs(embedded_rgb_mean - processed_rgb_mean) > 0.06:
+        raise RuntimeError(
+            "V341 embedded hair image pixels do not match the processed source: "
+            + repr({"processed_rgb_mean": processed_rgb_mean, "embedded_rgb_mean": embedded_rgb_mean})
+        )
     if float(gltf_hair_pbr.get("roughnessFactor", 0.0)) < 0.80:
         raise RuntimeError("V341 hair roughness was not preserved in glTF")
     gltf_hair_material_audit = {
@@ -1543,6 +1617,13 @@ def main():
         "alpha_mode": gltf_hair_material.get("alphaMode", "OPAQUE"),
         "base_color_texture_index": hair_texture_index,
         "base_color_image_name": hair_image_name,
+        "embedded_image_label": embedded_image_label,
+        "embedded_mime_type": hair_mime_type,
+        "embedded_rgb_mean_linear": embedded_rgb_mean,
+        "embedded_alpha_mean": embedded_alpha_mean,
+        "source_rgb_mean_linear": source_rgb_mean,
+        "processed_rgb_mean_linear": processed_rgb_mean,
+        "embedded_darkening_verified": embedded_darkening_verified,
     }
     if skin_count != 0:
         raise RuntimeError("V341 must export baked geometry without a skin; found " + str(skin_count))
@@ -1564,7 +1645,7 @@ def main():
         "status": "EXPERIMENTAL_V341_GLTFSKIN_FACE_ACCESSORY_CANDIDATE_NOT_APPROVED",
         "mpfb_source_commit": mpfb_source_commit,
         "version": "V341",
-        "purpose": "V341 refines V339 lower-body shaping with central-x falloff to protect arms; all other character assets and runtime behavior remain unchanged.",
+        "purpose": "V341 preserves the V340 body silhouette and tests a luminance-compressed hair diffuse texture with glTF-compatible alpha, UVs, roughness and specular settings.",
         "blender_version": bpy.app.version_string,
         "mpfb_version": list(getattr(mpfb, "VERSION", ())),
         "mpfb_user_data": LocationService.get_user_data(),
