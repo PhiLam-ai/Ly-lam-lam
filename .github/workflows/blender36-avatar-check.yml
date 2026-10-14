@@ -23,6 +23,7 @@ on:
       - "tools/blender36_v313_transform_bind_audit.py"
       - "tools/blender36_v313_rest_pose_comparison.py"
       - "tools/blender36_v313_pose_reset_experiment.py"
+      - "tools/blender36_v313_named_weight_audit.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
 
@@ -268,6 +269,29 @@ jobs:
             --input "$GITHUB_WORKSPACE/lam-default.glb" \
             --output-dir "$GITHUB_WORKSPACE/artifacts/v313-rest-pose-comparison"
           test -s artifacts/v313-rest-pose-comparison/v313-rest-pose-comparison.json
+
+      - name: Map named meshes to expected bone families (heuristic)
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/v313-named-weight-audit
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \\
+            --python tools/blender36_v313_named_weight_audit.py -- \\
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \\
+            --output-dir "$GITHUB_WORKSPACE/artifacts/v313-named-weight-audit"
+          test -s artifacts/v313-named-weight-audit/v313-named-weight-audit.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/v313-named-weight-audit/v313-named-weight-audit.json")
+          r = json.loads(p.read_text(encoding="utf-8"))
+          assert r["mesh_count"] == 85, r
+          assert r["source_sha256"] == "0aa06eb23754d72eec1e7b6db91c72014b0f4dd571dd2625d9d7e6b9c886b37a", r
+          print("V313_NAMED_WEIGHT_AUDIT=PASS_DIAGNOSTIC_ONLY")
+          print(json.dumps({"mesh_count": r["mesh_count"], "mismatch_count": r["mismatch_count"],
+            "mismatches": [{"mesh": x["mesh"], "expected": x["expected_bone_family"],
+              "dominant": x["dominant_weight_groups"][0]["bone"] if x["dominant_weight_groups"] else None}
+              for x in r["mismatches"]]}, ensure_ascii=False, indent=2))
+          PY
 
       - name: Run isolated V313 pose-reset experiment
         run: |
