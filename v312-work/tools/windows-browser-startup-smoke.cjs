@@ -155,6 +155,9 @@ function startLocalServer() {
     if (fatalFailedRequests.length) throw new Error('Failed browser requests: ' + JSON.stringify(fatalFailedRequests));
     if (report.consoleErrors.length) throw new Error('Browser console errors: ' + report.consoleErrors.join(' | '));
     report.status = 'PASS';
+    if (report.ignoredBenignAborts.length) {
+      console.log('INFO: Ignored a cancelled GLB request only after HTTP 200 and confirmed model-loaded renderer state.');
+    }
   } catch (error) {
     fatal = error;
     report.status = 'FAIL';
