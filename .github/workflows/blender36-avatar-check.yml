@@ -31,6 +31,12 @@ on:
       - "tools/blender36_v313_face_weight_experiment.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
+      - "v312-work/tools/start-windows-preview.cjs"
+      - "v312-work/START-LAM-WINDOWS.bat"
+      - "v312-work/START-HERE-WINDOWS.md"
+      - "v312-work/index.html"
+      - "v312-work/vendor/three/**"
+      - "v312-work/lam-default.glb"
 
 permissions:
   contents: read
