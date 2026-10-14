@@ -371,6 +371,7 @@ jobs:
           assert report["v319_visual_refinements"]["scalp_coverage"] is True, report
           assert report["v319_visual_refinements"]["long_hair_visible_at_waist"] is True, report
           assert report["v319_visual_refinements"]["integrated_bust_contour"] is True, report
+          assert report["v319_visual_refinements"]["blended_tee_contours"] is True, report
           assert report["v319_visual_refinements"]["longer_layered_hair"] is True, report
           assert report["v319_visual_refinements"]["integrated_bust_contour"] is True, report
           assert abs(report["candidate_bounds_m"]["size"][2] - 1.60) < 0.04, report
