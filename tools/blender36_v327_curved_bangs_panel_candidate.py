@@ -599,8 +599,11 @@ def main():
         side_ratio = abs(x) / fringe_half_width
         z_top = 1.558 - 0.030 * side_ratio
         # A soft shallow central dip prevents a rigid straight-line fringe.
-        z_bottom = 1.499 - 0.005 * __import__("math").cos(__import__("math").pi * x / fringe_half_width) \\
-                   + 0.0018 * __import__("math").sin(3.0 * __import__("math").pi * x / fringe_half_width)
+        z_bottom = (
+            1.499
+            - 0.005 * __import__("math").cos(__import__("math").pi * x / fringe_half_width)
+            + 0.0018 * __import__("math").sin(3.0 * __import__("math").pi * x / fringe_half_width)
+        )
         for row in range(row_count):
             t = row / (row_count - 1)
             z = z_top + (z_bottom - z_top) * t
