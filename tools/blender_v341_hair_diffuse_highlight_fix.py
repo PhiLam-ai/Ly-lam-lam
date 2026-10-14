@@ -1016,7 +1016,7 @@ def extract_glb_embedded_image_bytes(glb_path, gltf, image_index):
         raise RuntimeError("GLB JSON chunk missing during hair image audit")
     binary_chunk_offset = 20 + json_length
     binary_length, binary_kind = struct.unpack_from("<I4s", blob, binary_chunk_offset)
-    if binary_kind != b"BIN\\x00":
+    if binary_kind != b"BIN\x00":
         raise RuntimeError("GLB binary chunk missing during hair image audit")
     binary_payload = blob[binary_chunk_offset + 8:binary_chunk_offset + 8 + binary_length]
     image_entry = gltf.get("images", [])[image_index]
