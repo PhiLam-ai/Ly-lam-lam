@@ -1,4 +1,4 @@
-# Lý Lâm Lam avatar candidate checkpoint — V332–V357 (2026-10-14/15)
+# Lý Lâm Lam avatar candidate checkpoint — V332–V360 (2026-10-14/15)
 
 ## Release decision
 
@@ -77,11 +77,15 @@ A separate V343 run was created from the earlier V342 conversation checkpoint af
 - Visual decision: **NOT APPROVED for production**. Side-by-side close-up renders show only a very subtle change; the current face still reads as the same generic MPFB base and is not sufficiently close to the saved Lam reference. Keep V359 as the geometry-measurement baseline, not as a final appearance checkpoint.
 - Next: V360 strengthens only the same frontal cheek/jaw/chin taper to make the oval transition more visible, while retaining the same smooth front/x falloffs and preserving eyes, iris texture, nose/eye materials, hair, smile controls, clothes, necklace and body geometry. Production `v312-work/lam-default.glb` remains unchanged.## V360 — stronger cheek/jaw taper comparison (validation rerun in progress)
 - First workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38622613038 — it entered the candidate build but was superseded before completing after the CI baseline-version gate was corrected.
-- Current workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38622699975.
+- First completed workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38622699975 — GLB and renders were produced, but the gate failed on a stale `scope` description string: the report said `stronger but bounded base skin facial profile; frontal cheek/jaw/chin bands` while CI still expected the older V359 wording. The geometry measurements themselves were within the intended bounds.
+- Corrected workflow assertion in commit `11c559a6550c344fb6d1d877735f2be7b45e42a7`; current validation rerun: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38624513900.
 - Script: `tools/blender_v360_stronger_face_profile_taper.py`; workflow: `.github/workflows/v360-stronger-face-profile-taper.yml`.
 - V360 increases only the same frontal face-profile adjustment used in V359: maximum cheek lateral scale 1.035 (+3.5%), jaw 0.920 (-8%), chin 0.960 (-4%). It keeps the same soft z envelopes, front-facing falloff and central-x falloff, and still caps maximum vertex displacement at 6 mm.
 - The V360 report explicitly records `baseline_version: V359`; a stale workflow assertion expecting V358 was corrected before this rerun. The remaining gates check all three face-band measurements, all 12 morphs, idle animation, V358 iris alpha/UV/embedded pixels, V341 darkened hair, mobile WebGL errors, ZIP integrity and SHA-256.
-- Visual review pending. Compare face-closeup and eye-closeup against V358 and V359, and retain V360 only if the lower-face taper is visibly more oval and natural without pinching around the mouth or shifting the eyes. The production GLB remains unchanged.
+- Preliminary inspection of the pre-gate V360 face-closeup and eye-closeup shows a more tapered jaw and retains the warm-brown eye/iris material; no obvious mouth pinching or eye displacement is apparent in those Blender renders. Final visual decision is pending the corrected workflow's browser screenshot and artifact integrity checks. The production GLB remains unchanged.
+
+## V343 parallel smile-strength experiment — duplicate, not adopted
+- A separate V343 strength-0.30 experiment (`38624312907`) was started from the earlier V342 checkpoint after the branch already had accepted V345 closed-lip smile baseline and V360 face-profile work. It must not replace the later V345 smile baseline or be treated as the current candidate. Use the V332–V360 checkpoint's latest candidate line of work rather than version number alone.
 ## Safety and rollback
 
 - Do not copy any experimental GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
