@@ -1299,9 +1299,11 @@ def process_wardrobe_texture(source_image, role):
 
     if channels >= 4:
         alpha = source_pixels[:, 3].copy()
+        source_alpha_mean = float(np.mean(alpha))
         visible = alpha > 0.08
     else:
         alpha = None
+        source_alpha_mean = 1.0
         visible = np.ones(len(rgb), dtype=bool)
 
     blue_mask = visible & (hue >= 0.53) & (hue <= 0.78) & (saturation >= 0.18) & (value >= 0.035)
@@ -1384,6 +1386,8 @@ def process_wardrobe_texture(source_image, role):
         "alpha_preserved": alpha_preserved,
         "source_rgb_mean_linear": source_rgb_mean,
         "processed_rgb_mean_linear": float(np.mean(rgb)),
+        "source_alpha_mean": source_alpha_mean,
+        "processed_alpha_mean": float(np.mean(pixels[:, 3])) if channels >= 4 else 1.0,
         "pixel_counts": counts,
         "processing": processing,
     }
@@ -3430,7 +3434,7 @@ def main():
         "status": "EXPERIMENTAL_V367_GLTFSKIN_FACE_ACCESSORY_CANDIDATE_NOT_APPROVED",
         "mpfb_source_commit": mpfb_source_commit,
         "version": "V367",
-        "purpose": "V367 keeps the accepted V365 face, hair, necklace and body blocks while replacing only the casual T-shirt/jeans outfit with a sports clothing base and white/gray shoe asset to move toward the approved character-sheet wardrobe; styling must be visually reviewed.",
+        "purpose": "V367 preserves the V366 human, face, hair, eyes, necklace, body silhouette, morphs and animation while recoloring only the sportsuit and shoes textures/materials toward dark teal and neutral gray; geometry is unchanged.",
         "blender_version": bpy.app.version_string,
         "mpfb_version": list(getattr(mpfb, "VERSION", ())),
         "mpfb_user_data": LocationService.get_user_data(),
