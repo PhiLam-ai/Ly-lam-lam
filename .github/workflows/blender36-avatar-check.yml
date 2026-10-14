@@ -344,6 +344,10 @@ jobs:
           assert report["status"] == "EXPERIMENTAL_COHERENT_STATIC_CANDIDATE_NOT_APPROVED", report
           assert report["armature_count"] == 1, report
           assert report["armature_bone_count"] == 17, report
+          assert report["animation_clip_count"] == 1, report
+          assert "Lam_Idle_GentleSway" in report["glb_animation_names"], report
+          assert report["glb_skin_count"] == 1, report
+          assert report["max_tee_deformation_m_frame_1_to_13"] > 0.0001, report
           assert report["missing_expected_morphs"] == [], report
           assert abs(report["bounds_m"]["size"][2] - 1.60) < 0.04, report
           assert report["candidate_bytes"] > 20000, report
