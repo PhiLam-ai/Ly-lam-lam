@@ -711,7 +711,7 @@ test('V265 accepts matching SHA-512 hex and npm SRI pins before invoking npm', (
       const result=cp.spawnSync(process.execPath,[path.join(root,'tools/fetch-vendor-three.cjs')],{encoding:'utf8',env,timeout:15000});
       assert.notEqual(result.status,0,'fake npm intentionally fails after integrity validation');
       assert.match(result.stdout,/PASS: SHA-512 tarball khớp giá trị THREE_TARBALL_SHA512/);
-      assert.equal(fs.existsSync(invoked),true,'a matching pin should allow npm to be invoked');
+      assert.equal(fs.existsSync(invoked),true,'a matching pin should allow npm to be invoked; exit=' + result.status + '; stdout=' + result.stdout + '; stderr=' + result.stderr);
       assert.equal(fs.existsSync(path.join(root,'vendor','three')),false,'the fixture must never be staged as a real vendor package');
     }
   } finally {
