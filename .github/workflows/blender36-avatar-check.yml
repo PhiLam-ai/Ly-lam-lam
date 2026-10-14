@@ -19,6 +19,7 @@ on:
       - "tools/blender36_v313_coordinate_rig_audit.py"
       - "tools/blender36_v313_skin_weight_audit.py"
       - "tools/blender36_v313_bindpose_audit.py"
+      - "tools/blender36_v313_mesh_localization.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
 
@@ -234,6 +235,16 @@ jobs:
             --input "$GITHUB_WORKSPACE/lam-default.glb" \
             --output-dir "$GITHUB_WORKSPACE/artifacts/v313-bindpose-audit"
           test -s artifacts/v313-bindpose-audit/v313-bindpose-audit.json
+
+      - name: Localize V313 bind-pose anomalies per mesh
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/v313-mesh-localization
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_v313_mesh_localization.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/v313-mesh-localization"
+          test -s artifacts/v313-mesh-localization/v313-mesh-localization.json
 
       - name: Upload real-model renders, candidate GLB and reports
         if: always()
