@@ -32,6 +32,12 @@ jobs:
         run: |
           node tools/verify-startup.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node --check tools/start-windows-preview.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tools/start-windows-preview.cjs --check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (!(Test-Path "START-LAM-WINDOWS.bat")) { throw "Missing one-click Windows launcher." }
+          if (!(Test-Path "START-HERE-WINDOWS.md")) { throw "Missing Windows startup guide." }
       - name: Install Playwright without changing repository manifests
         shell: pwsh
         run: npm install --no-save --package-lock=false playwright
