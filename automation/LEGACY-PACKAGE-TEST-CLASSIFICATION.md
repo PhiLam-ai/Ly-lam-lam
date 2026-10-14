@@ -12,7 +12,7 @@ This classification does not delete or skip these tests. The raw test file and l
 
 | Failing test | Classification | Evidence / next action |
 |---|---|---|
-| 2 — V309 defaults to bundled Three.js locally | Stale behavior expectation for the current V312 entry page. The entry's import-map comment says local bundling is opt-in with `?three=local`; the test insists omitted mode means local. Keep the separate current-target test for assets and the supported import paths. |
+| 2 — V309 defaults to bundled Three.js locally | **Actual runtime-policy mismatch corrected in the current PR head, pending CI confirmation.** The previous import map sent an omitted `three` parameter to jsDelivr even though the diagnostics and prior local-first contract described bundled assets as the default. The entry page now makes `mode === null` select `./vendor/three/`, preserving explicit `?three=cdn` and `?three=unpkg` fallbacks. The current-target test now asserts the effective selection expression, not merely the presence of a vendor path. |
 | 5 — required root files and workflow | Wrong target root. It demands repository/build files such as `.nojekyll`, `module.mjs`, and `.github/workflows/deploy.yml` inside the deployed `v312-work` directory. The actual deployment uploads `v312-work`; build orchestration is not part of that payload. Current-target tests check the files needed by this actual payload. |
 | 9 — Pages workflow gates deployment | Old workflow path. It opens `v312-work/.github/workflows/deploy.yml`, which is not the repository deployment workflow. The current workflow at repository root is `.github/workflows/main.yml`. A real safety issue was confirmed: the main workflow lacked blocking tests; this branch adds core and current-target test gates before deploy. |
 | 32 — V241 local Three.js/staging tool | Mixed historical expectation and wrong target root: it expects an older default-mode policy and build-time `tools/vendor-three.cjs` inside the deployed directory. Verify the deployed asset/runtime behavior via current-target tests instead. |
@@ -30,6 +30,10 @@ This classification does not delete or skip these tests. The raw test file and l
 | 74 — V270 artifact contains runtime files only | Invokes the old artifact preparation tool from the wrong root; the expected `.nojekyll` / `module.mjs` manifest belongs to an older package format. |
 | 75 — V271 nested vendor import/symlink fixture | Fixture setup fails before testing imports because it tries to copy `v312-work/.nojekyll`, absent in the current package. Preserve the desired security property in a repository-level artifact-builder test if that builder remains supported. |
 | 76 — V272 root symlink fixture | Same setup failure caused by missing `v312-work/.nojekyll`, before the symlink-safety behavior can be meaningfully evaluated. |
+
+## Follow-up found during review (current PR head)
+
+A second read-through found that the current-target test previously passed too easily: it only searched for the vendor path string, which also appears in a ternary even when CDN is the default. The page diagnostics described local Three.js as the default, but the import-map expression did not implement that. The PR now makes local Three.js the actual default and strengthens the target-specific assertion to verify the exact selection logic and explicit pinned CDN alternatives. The previous 18-failure count is historical evidence from run `38504699669`; it must not be presented as the current result until the updated workflow reruns.
 
 ## Corrective action completed on the automation branch
 
