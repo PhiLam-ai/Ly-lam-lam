@@ -493,6 +493,11 @@ def evaluated_world_mesh(obj, depsgraph):
 
 def add_baked_root_idle_animation(root, scene):
     """Animate a common root node; body geometry remains baked and unskinned."""
+    # Preserve the source-rig action for inspection, but give it a distinct name so the
+    # exported web clip is exactly Lam_Idle_GentleSway (not Blender's .001 duplicate).
+    source_action = bpy.data.actions.get("Lam_Idle_GentleSway")
+    if source_action is not None:
+        source_action.name = "Lam_SourceRig_GentleSway_Diagnostic"
     root.rotation_mode = "XYZ"
     root.animation_data_clear()
     action = bpy.data.actions.new("Lam_Idle_GentleSway")
@@ -786,6 +791,10 @@ def main():
     if abs(character_bounds["size"][2] - 1.60) > 0.06:
         raise RuntimeError("Character height outside 1.60 m target after rig/assets: " + repr(character_bounds))
     cameras, floor = setup_studio(bpy.context.scene, character_bounds)
+    # Remove the temporary floor mesh entirely; the candidate evidence must not contain
+    # a ground-plane line that masks the lower body in an orthographic camera.
+    if floor is not None and floor.name in bpy.data.objects:
+        bpy.data.objects.remove(floor, do_unlink=True)
     renders = render_evidence(bpy.context.scene, cameras, output, character_bounds)
     bpy.context.scene.frame_set(1)
 
