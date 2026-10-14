@@ -1794,7 +1794,7 @@ def main():
         "status": "EXPERIMENTAL_V346_GLTFSKIN_FACE_ACCESSORY_CANDIDATE_NOT_APPROVED",
         "mpfb_source_commit": mpfb_source_commit,
         "version": "V346",
-        "purpose": "V346 preserves the V340 body silhouette and tests a luminance-compressed hair diffuse texture with glTF-compatible alpha, UVs, roughness and specular settings.",
+        "purpose": "V346 preserves the V340 body silhouette, V341 darkened hair and V345 gentle smile; only the high-poly eye material highlight response changes, while eye texture, UV mapping, alpha and geometry are held constant.",
         "blender_version": bpy.app.version_string,
         "mpfb_version": list(getattr(mpfb, "VERSION", ())),
         "mpfb_user_data": LocationService.get_user_data(),
