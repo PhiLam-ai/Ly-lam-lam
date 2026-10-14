@@ -68,7 +68,7 @@ jobs:
           python3 - <<'PY'
           import json
           from pathlib import Path
-          report = json.loads(Path("artifacts/v351-browser-face-audit/v351-browser-report.json").read_text(encoding="utf-8"))
+          report = json.loads(Path("artifacts/v351-browser-face-audit/v351-candidate-browser-report.json").read_text(encoding="utf-8"))
           assert report["status"] == "PASS_BROWSER_WEBGL_CANDIDATE_ONLY", report
           assert report["sourceModel"]["version"] == "V350", report
           assert report["sourceModel"]["sourceWorkflowRunId"] == "38601681760", report
