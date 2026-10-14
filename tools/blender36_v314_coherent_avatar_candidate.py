@@ -36,6 +36,41 @@ def capsule(name, a, b, radius_x, mat, radius_y=None):
     obj.rotation_quaternion = vec.to_track_quat("Z", "Y")
     return obj
 
+def curved_tapered_tube(name, rings, mat, sides=10):
+    # Each ring is (center_x, center_y, center_z, radius_x, radius_y).
+    import math
+    vertices = []
+    faces = []
+    for cx, cy, cz, rx, ry in rings:
+        for k in range(sides):
+            angle = 2.0 * math.pi * k / sides
+            vertices.append((cx + rx * math.cos(angle), cy + ry * math.sin(angle), cz))
+    for ring in range(len(rings) - 1):
+        base0 = ring * sides
+        base1 = (ring + 1) * sides
+        for k in range(sides):
+            kn = (k + 1) % sides
+            faces.append((base0 + k, base0 + kn, base1 + kn, base1 + k))
+    for ring_index in (0, len(rings) - 1):
+        center_index = len(vertices)
+        vertices.append(tuple(rings[ring_index][:3]))
+        base = ring_index * sides
+        for k in range(sides):
+            kn = (k + 1) % sides
+            if ring_index == 0:
+                faces.append((center_index, base + kn, base + k))
+            else:
+                faces.append((center_index, base + k, base + kn))
+    mesh = bpy.data.meshes.new(name + "_Mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.materials.append(mat)
+    mesh.update()
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    for poly in mesh.polygons:
+        poly.use_smooth = True
+    return obj
+
 def fuse(objects, name, voxel=0.008, smooth_iterations=5):
     objects = [obj for obj in objects if obj and obj.name in bpy.data.objects]
     if not objects:
@@ -209,7 +244,10 @@ def build_rest_pose_rig(meshes):
                 weights[f"Lam_Joint_{side}Hip"] = 1.0
             elif name.startswith("Tee_Hem_Stitch."):
                 weights["Lam_Joint_Spine"] = 1.0
-            elif name.startswith(("Hair_", "Head_Face_", "Eye_", "Iris.", "Pupil.", "Brow.", "Mouth_", "Tongue_Tip", "Shorts_Silver_Button")):
+            elif name.startswith(("Finger.", "Thumb.")):
+                side = "Left" if name.endswith("L") or ".L" in name else "Right"
+                weights[f"Lam_Joint_{side}Wrist"] = 1.0
+            elif name.startswith(("Hair_", "Head_Face_", "Eye_", "Eye_Highlight.", "Iris.", "Pupil.", "Brow.", "Mouth_", "Tongue_Tip", "Shorts_Silver_Button")):
                 weights["Lam_Joint_Head" if not name.startswith("Shorts_Silver_Button") else "Lam_Joint_Hips"] = 1.0
             elif name == "Neck":
                 weights["Lam_Joint_Neck"] = 1.0
@@ -369,8 +407,8 @@ def main():
         uv("tee_waist_volume", (0, 0, 1.055), (0.132, 0.092, 0.142), shirt),
         uv("tee_torso_volume", (0, 0, 1.185), (0.158, 0.100, 0.168), shirt),
         uv("tee_shoulders_volume", (0, 0, 1.285), (0.153, 0.092, 0.082), shirt),
-        capsule("tee_sleeve.L", (-0.115, -0.002, 1.286), (-0.194, -0.008, 1.232), 0.041, shirt, 0.052),
-        capsule("tee_sleeve.R", (0.115, -0.002, 1.286), (0.194, -0.008, 1.232), 0.041, shirt, 0.052)
+        capsule("tee_sleeve.L", (-0.115, -0.002, 1.286), (-0.194, -0.008, 1.232), 0.036, shirt, 0.046),
+        capsule("tee_sleeve.R", (0.115, -0.002, 1.286), (0.194, -0.008, 1.232), 0.036, shirt, 0.046)
     ]
     tee = fuse(trunk_parts, "Tee_Fitted_Continuous", 0.007, 5)
 
@@ -405,19 +443,21 @@ def main():
         for i in range(3):
             uv("Lace_" + side + "_" + str(i), (x, -0.067 + i * 0.023, 0.108), (0.007, 0.003, 0.0025), eye_white, 12, 8)
 
-    # Arms hang naturally at the sides and overlap sleeves/torso at the shoulder.
+    # Arms use fused arm/hand volumes; individual finger meshes preserve a readable hand silhouette.
     for sign, side in [(-1, "L"), (1, "R")]:
         arm_parts = [
             capsule("upper_arm." + side, (sign * 0.166, 0.002, 1.258), (sign * 0.232, -0.012, 0.985), 0.041, skin, 0.041),
             uv("elbow." + side, (sign * 0.232, -0.012, 0.985), (0.036, 0.037, 0.038), skin),
             capsule("forearm." + side, (sign * 0.232, -0.012, 0.985), (sign * 0.245, -0.036, 0.735), 0.032, skin, 0.033),
-            uv("hand." + side, (sign * 0.246, -0.043, 0.672), (0.040, 0.031, 0.061), skin),
-            capsule("thumb." + side, (sign * 0.218, -0.06, 0.684), (sign * 0.205, -0.07, 0.646), 0.014, skin, 0.014)
+            uv("hand." + side, (sign * 0.246, -0.043, 0.672), (0.038, 0.029, 0.057), skin)
         ]
-        for digit in range(4):
-            x = sign * (0.224 + digit * 0.014)
-            arm_parts.append(capsule("finger." + side + str(digit), (x, -0.05, 0.646), (x, -0.052, 0.612), 0.009, skin, 0.009))
         fuse(arm_parts, "Arm_Continuous_" + side, 0.004, 7)
+        capsule("Thumb." + side, (sign * 0.218, -0.057, 0.685), (sign * 0.205, -0.068, 0.651), 0.011, skin, 0.010)
+        for digit in range(4):
+            x = sign * (0.222 + digit * 0.014)
+            z_start = 0.644 - (0.004 if digit in (1, 2) else 0.0)
+            z_end = 0.614 - (0.006 if digit in (1, 2) else 0.0)
+            capsule("Finger." + side + str(digit), (x, -0.052, z_start), (x, -0.054, z_end), 0.007, skin, 0.007)
 
     # Neck, head, and face; front of face points to -Y.
     uv("Neck", (0, 0.004, 1.315), (0.050, 0.048, 0.085), skin, 36, 24)
@@ -431,7 +471,8 @@ def main():
         eye = uv("Eye_White." + side, (sign * 0.043, -0.096, 1.455), (0.018, 0.008, 0.011), eye_white, 32, 20)
         uv("Iris." + side, (sign * 0.043, -0.103, 1.455), (0.007, 0.0035, 0.008), iris, 28, 18)
         uv("Pupil." + side, (sign * 0.043, -0.105, 1.455), (0.0035, 0.0015, 0.0045), pupil, 20, 14)
-        brow = capsule("Brow." + side, (sign * 0.064, -0.096, 1.481), (sign * 0.025, -0.098, 1.484), 0.0035, hair, 0.003)
+        uv("Eye_Highlight." + side, (sign * 0.0405, -0.107, 1.459), (0.0022, 0.0012, 0.0024), eye_white, 16, 10)
+        brow = capsule("Brow." + side, (sign * 0.064, -0.096, 1.481), (sign * 0.025, -0.098, 1.484), 0.0042, hair, 0.0033)
         if side == "L":
             shape_key(eye, "blink_left", lambda co, idx: Vector((co.x, co.y, co.z * 0.08)))
         else:
@@ -462,14 +503,24 @@ def main():
     capsule("Hair_Fringes.Right", (0.037, -0.078, 1.543), (0.050, -0.098, 1.497), 0.010, hair, 0.008)
     uv("Hair_Back_Long", (0, 0.065, 1.315), (0.119, 0.080, 0.268), hair, 48, 32)
     for sign, side in [(-1, "L"), (1, "R")]:
-        capsule("Hair_Front_Lock." + side, (sign * 0.092, -0.075, 1.478), (sign * 0.101, -0.054, 1.085), 0.015, hair, 0.019)
-        capsule("Hair_Back_Lock." + side, (sign * 0.095, 0.072, 1.49), (sign * 0.118, 0.065, 1.075), 0.028, hair, 0.030)
-        capsule("Hair_Tip." + side, (sign * 0.103, -0.009, 1.10), (sign * 0.098, -0.005, 1.055), 0.024, hair, 0.029)
+        curved_tapered_tube("Hair_Front_Lock." + side, [
+            (sign * 0.087, -0.072, 1.493, 0.010, 0.012),
+            (sign * 0.100, -0.083, 1.425, 0.014, 0.016),
+            (sign * 0.105, -0.078, 1.345, 0.013, 0.015),
+            (sign * 0.101, -0.064, 1.265, 0.010, 0.012),
+            (sign * 0.089, -0.045, 1.185, 0.007, 0.009),
+            (sign * 0.078, -0.022, 1.122, 0.002, 0.003)
+        ], hair, 12)
+        capsule("Hair_Back_Lock." + side, (sign * 0.095, 0.072, 1.49), (sign * 0.118, 0.065, 1.075), 0.024, hair, 0.026)
 
-    # Simple pocket/stitch details on shorts and tee, deliberately subtle at full-body view.
+    # Small low-profile seams add a denim cue without floating decorative patches.
     for sign, side in [(-1, "L"), (1, "R")]:
-        pass # Flat pocket patches are deferred to keep the experimental silhouette clean.
-        pass # Hem stays visually clean in the low-resolution prototype.
+        capsule("Shorts_Pocket_Seam." + side,
+                (sign * 0.145, -0.061, 0.948), (sign * 0.105, -0.099, 0.908),
+                0.0023, denim_light, 0.0018)
+        capsule("Shorts_Hem_Seam." + side,
+                (sign * 0.10, -0.065, 0.774), (sign * 0.10, -0.065, 0.788),
+                0.0020, denim_light, 0.0015)
 
     meshes = [obj for obj in scene.objects if obj.type == "MESH"]
     scene.render.engine = "BLENDER_WORKBENCH"
