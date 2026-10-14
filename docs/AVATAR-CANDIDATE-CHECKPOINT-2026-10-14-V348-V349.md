@@ -1,0 +1,32 @@
+# Lý Lâm Lam avatar candidate checkpoint — V348–V349 (2026-10-14)
+
+## Release decision
+
+**No candidate here is approved as the production avatar.** Production `v312-work/lam-default.glb` is not to be replaced by this experimental eye-material branch. All work remains on `avatar/v313-repair-candidate-20261014`.
+
+## V348 — front eye surface response experiment
+
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38592942741 — **FAILED at a validation assertion after GLB export and render generation**.
+- Script: `tools/blender_v348_eye_front_surface_response.py`.
+- Artifact: [V348 diagnostic artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38592942741/artifacts/11908337440), ID `11908337440`; workflow artifact digest `sha256:0168c8b872475bce2cdb1d25eb1238364c74f718ec4c2dcb10a7833e8bb78272`.
+- The visual evidence includes `v348-eye-closeup.png`. It shows brown iris texture and eyelash detail; the front eye-shell component is assigned a restrained glTF-compatible response (roughness 0.18, specular IOR level 0.50, clearcoat 0.30, clearcoat roughness 0.14), while the base eye material and image are preserved.
+- Root cause of the failing gate: it compared `pbrMetallicRoughness.baseColorTexture.index` between the base eye and front eye materials. In glTF this is a **texture-object index**, not an image identifier. The exported GLB legitimately has two texture entries that both point to the same embedded `brown_eye` image: base texture index `5` → image source `5`, front texture index `6` → image source `5`. Thus the check rejected a valid shared-image mapping.
+- The fix must compare `gltf.textures[textureIndex].source` values, validate each source index, and record both texture and image-source indices. The evidence indicates a faulty assertion, not proof that the wrong diffuse image was used.
+
+## V349 — validate shared eye image by glTF source index (run in progress)
+
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38599437117.
+- Script: `tools/blender_v349_eye_front_surface_texture_source_fix.py`.
+- V349 carries forward the V348 front-eye material experiment, V340 body silhouette, V341 darkened hair material, and a closed-mouth gentle default smile from the later smile branch. It changes the validation/reporting of the eye's shared diffuse image; it does not increase eye size or move eye geometry.
+- New report fields include `base_color_image_source_index`, `base_color_image_name`, and `same_image_source_as_base_eye` for the two eye materials. The workflow gate verifies source-index equality, both material extensions, roughness values, transparency mode, 12 expected morphs, idle animation, mobile WebGL load, no browser/console/failed-request errors, ZIP integrity and SHA-256 sidecar.
+- Visual review is pending until the run produces its report, GLB, eye close-up and browser capture. A technical PASS would validate the export and test path; it would not by itself approve the full avatar likeness.
+
+## Separate smile-strength experiments
+
+The repo has parallel experimental tracks that reused some V34x version numbers. Use the workflow run ID and exact script path as the unique identifier rather than the version label alone. The successful closed-lip smile track reached V345 at strength 0.40; the V346 eye-material diagnostic is a separate run from the later “V346 stronger smile with lip closure” candidate. Keep these checkpoints distinct when comparing assets.
+
+## Safety and rollback
+
+- Do not copy a candidate GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
+- Record file checksums only after recomputing actual downloaded bytes and matching the sidecar.
+- Preserve the stable avatar and previous successful candidate artifacts; visual review remains mandatory after every material/geometry change.
