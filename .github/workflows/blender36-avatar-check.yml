@@ -323,7 +323,7 @@ jobs:
           }, ensure_ascii=False, indent=2))
           PY
 
-      - name: Build V316 browser-visible candidate and export rigged debug copy
+      - name: Build V317 refined browser-visible candidate and export rigged debug copy
         run: |
           set -euo pipefail
           mkdir -p artifacts/v314-coherent-avatar-candidate
@@ -346,7 +346,7 @@ jobs:
           p = Path("artifacts/v314-coherent-avatar-candidate/lam-v314-candidate-report.json")
           report = json.loads(p.read_text(encoding="utf-8"))
           assert report["status"] == "EXPERIMENTAL_VISIBLE_ROOT_ANIMATED_CANDIDATE_NOT_APPROVED", report
-          assert report["candidate_version"] == "V316", report
+          assert report["candidate_version"] == "V317", report
           assert report["candidate_skin_count"] == 0, report
           assert report["candidate_animation_count"] == 1, report
           assert "Lam_Idle_GentleSway" in report["candidate_animation_names"], report
@@ -357,7 +357,7 @@ jobs:
           assert report["missing_expected_morphs"] == [], report
           assert abs(report["candidate_bounds_m"]["size"][2] - 1.60) < 0.04, report
           assert report["candidate_bytes"] > 20000, report
-          print("V316_VISIBLE_CANDIDATE=PASS_EXPERIMENTAL_ONLY")
+          print("V317_VISIBLE_CANDIDATE=PASS_EXPERIMENTAL_ONLY")
           print(json.dumps(report, ensure_ascii=False, indent=2))
           PY
 
@@ -367,7 +367,7 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/v314-playwright" --no-save --package-lock=false playwright pngjs
           "$RUNNER_TEMP/v314-playwright/node_modules/.bin/playwright" install --with-deps chromium
 
-      - name: Load the V316 visible candidate and verify idle playback in mobile-sized Three.js viewer
+      - name: Load the V317 refined visible candidate and verify idle playback in mobile-sized Three.js viewer
         env:
           NODE_PATH: ${{ runner.temp }}/v314-playwright/node_modules
           V314_VIEWER_ROOT: ${{ runner.temp }}/v314-viewer
@@ -399,7 +399,7 @@ jobs:
           assert report["pageErrors"] == [], report
           assert report["consoleErrors"] == [], report
           assert report["visualFraming"] is not None, report
-          print("V316_BROWSER_WEBGL_AND_IDLE_PLAYBACK=PASS_EXPERIMENTAL_ONLY")
+          print("V317_BROWSER_WEBGL_AND_IDLE_PLAYBACK=PASS_EXPERIMENTAL_ONLY")
           print(json.dumps({"state": report["state"], "visualFraming": report["visualFraming"],
             "glbResponses": report["glbResponses"],
             "requiredLocalAssetResponses": report["requiredLocalAssetResponses"],
