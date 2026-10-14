@@ -1,0 +1,93 @@
+name: V351 Browser Eye/Face Quick-View Audit (V350 Model Unchanged)
+
+on:
+  push:
+    branches:
+      - avatar/v313-repair-candidate-20261014
+    paths:
+      - "tools/v351_eye_closeup_browser_capture.cjs"
+      - ".github/workflows/v351-eye-closeup-browser-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: v351-eye-face-browser-audit
+  cancel-in-progress: true
+
+jobs:
+  audit-v350-model-in-face-view:
+    name: Capture eye/face quick view in mobile WebGL
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        name: Check out candidate viewer
+
+      - uses: actions/download-artifact@v4
+        name: Download the exact validated V350 model artifact
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 38601681760
+          name: ly-lam-lam-v350-gltf-face-accessory-38601681760
+          path: artifacts/v350-source
+
+      - name: Install Playwright and Chromium
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/v351-playwright" --no-save --package-lock=false playwright pngjs
+          "$RUNNER_TEMP/v351-playwright/node_modules/.bin/playwright" install --with-deps chromium
+
+      - name: Prepare isolated viewer using V350 GLB without modifying production
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v351-viewer" artifacts/v351-browser-face-audit
+          cp -a v312-work/. "$RUNNER_TEMP/v351-viewer/"
+          source_glb="$(find artifacts/v350-source -type f -name 'lam-v350-gltf-materials-full-face-candidate.glb' -print -quit)"
+          test -n "$source_glb"
+          test -s "$source_glb"
+          cp "$source_glb" "$RUNNER_TEMP/v351-viewer/lam-default.glb"
+          printf '%s\n'             '# V351 browser face-view audit — model unchanged'             ''             'This is an evidence-only audit of the V350 GLB. It does not change the model, production GLB, or main branch.'             ''             '- Source workflow run: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38601681760'             '- Expected GLB SHA-256: 9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee'             '- New evidence: full-body view plus capture after tapping “Khuôn mặt” in the actual Three.js/WebGL viewer at 390×844.'             > artifacts/v351-browser-face-audit/README.md
+
+      - name: Run full-view and face-view browser smoke
+        env:
+          NODE_PATH: ${{ runner.temp }}/v351-playwright/node_modules
+          V351_VIEWER_ROOT: ${{ runner.temp }}/v351-viewer
+          V351_VIEWER_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/v351-browser-face-audit
+          V351_EXPECTED_V350_GLB_SHA256: 9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee
+          V351_SOURCE_RUN_ID: 38601681760
+        run: |
+          set -euo pipefail
+          node --check tools/v351_eye_closeup_browser_capture.cjs
+          node tools/v351_eye_closeup_browser_capture.cjs
+          test -s artifacts/v351-browser-face-audit/v351-eye-face-closeup-canvas.png
+          test -s artifacts/v351-browser-face-audit/v351-eye-face-closeup-browser.png
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("artifacts/v351-browser-face-audit/v351-browser-report.json").read_text(encoding="utf-8"))
+          assert report["status"] == "PASS_BROWSER_WEBGL_CANDIDATE_ONLY", report
+          assert report["sourceModel"]["version"] == "V350", report
+          assert report["sourceModel"]["sourceWorkflowRunId"] == "38601681760", report
+          assert report["sourceModel"]["sha256"] == "9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee", report
+          assert report["state"]["booted"] and report["state"]["rendererReady"] and report["state"]["webgl"], report
+          assert report["state"]["activeAnimationName"] == "Lam_Idle_GentleSway" and report["state"]["animationTime"] > 0.05, report
+          assert report["faceView"]["clicked"] is True and report["faceView"]["buttonCount"] == 1, report
+          assert report["faceView"]["canvas"] == {"width": 390, "height": 844}, report
+          assert report["faceView"]["screenshotBytes"] > 5000 and report["faceView"]["foregroundPixels"] > 12000, report
+          assert report["pageErrors"] == [] and report["consoleErrors"] == [] and report["failedRequests"] == [], report
+          print("V351_FACE_QUICK_VIEW_WEBGL=PASS_AUDIT_ONLY")
+          print(json.dumps({"sourceModel": report["sourceModel"], "state": report["state"], "faceView": report["faceView"], "visualFraming": report["visualFraming"]}, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload browser evidence only (no new GLB)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ly-lam-lam-v351-browser-face-view-audit-${{ github.run_id }}
+          path: artifacts/v351-browser-face-audit/
+          if-no-files-found: warn
+          retention-days: 14
