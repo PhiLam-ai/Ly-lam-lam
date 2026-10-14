@@ -5,7 +5,7 @@ on:
     branches:
       - avatar/v313-repair-candidate-20261014
     paths:
-      - "tools/blender_v358_warm_brown_iris_texture.py"
+      - "tools/blender_v358_chestnut_iris_tone.py"
       - ".github/workflows/v358-chestnut-iris-tone.yml"
   workflow_dispatch:
 
@@ -145,7 +145,7 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/v358-gltf-face-accessories
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
-            --python tools/blender_v358_warm_brown_iris_texture.py -- \
+            --python tools/blender_v358_chestnut_iris_tone.py -- \
             --mpfb-src "$RUNNER_TEMP/mpfb2/src" \
             --system-pack "$GITHUB_WORKSPACE/.cache/v331-mpfb-assets/makehuman_system_assets_cc0.zip" \
             --face-pack "$GITHUB_WORKSPACE/.cache/v331-mpfb-assets/faceunits01.zip" \
