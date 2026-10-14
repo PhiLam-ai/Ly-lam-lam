@@ -66,8 +66,12 @@ jobs:
         shell: pwsh
         run: |
           $package = Join-Path $env:RUNNER_TEMP "ly-lam-lam-v313-windows-preview.zip"
+          $stage = Join-Path $env:RUNNER_TEMP "ly-lam-lam-v313-package-root"
           if (Test-Path $package) { Remove-Item -Force $package }
-          Compress-Archive -Path "v312-work" -DestinationPath $package -CompressionLevel Optimal
+          if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
+          New-Item -ItemType Directory -Path $stage | Out-Null
+          Copy-Item -Path "v312-work" -Destination $stage -Recurse
+          Compress-Archive -Path (Join-Path $stage "*") -DestinationPath $package -CompressionLevel Optimal
           $hash = (Get-FileHash -Path $package -Algorithm SHA256).Hash
           "$hash  $(Split-Path -Leaf $package)" | Set-Content -Path "$package.sha256" -Encoding ascii
           Write-Host "WINDOWS_PREVIEW_ZIP=$package"
