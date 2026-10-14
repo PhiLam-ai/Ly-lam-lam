@@ -326,7 +326,7 @@ jobs:
             "gltf_hair_material_audit": report["gltf_hair_material_audit"],
             "default_face_pose": report["default_face_pose"],
             "gltf_eye_material_audit": report["gltf_eye_material_audit"],
-            "gltf_eye_front_surface_audit": report["gltf_eye_front_surface_audit"],,
+            "gltf_eye_front_surface_audit": report["gltf_eye_front_surface_audit"],
             "shared_eye_diffuse_source": {
               "base_texture_index": report["gltf_eye_material_audit"]["base_color_texture_index"],
               "base_image_source_index": report["gltf_eye_material_audit"]["base_color_image_source_index"],
