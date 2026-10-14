@@ -122,13 +122,15 @@
 - Mobile browser: `PASS_BROWSER_WEBGL_CANDIDATE_ONLY` at 390×844; GLB returned HTTP 200, WebGL loaded, `Lam_Idle_GentleSway` advanced, no page errors, console errors or failed requests, model visible in safe area.
 - Visual decision: **default gentle-smile improvement accepted for further work**. Compared with V342–V344, the mouth corners now read as a small closed-mouth smile without obvious pinching/asymmetry in the face close-up. The whole avatar remains **NOT APPROVED for production** because the face still looks generic and eye/iris realism is weak.
 
-## V346 — eye material/iris realism diagnostic (run in progress)
-- Workflow run 1: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38589801691 (superseded/cancelled by the corrected purpose-report commit).
-- Current workflow run: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38589926509.
-- Script: `tools/blender_v346_eye_material_diagnostic.py`; workflow: `.github/workflows/v346-eye-material-diagnostic.yml`.
-- V346 inherits V345's accepted default-smile strength 0.40, V340 lower-body shape and V341 darkened hair. Only the high-poly eye material highlight response changes: roughness 0.32, specular IOR level 0.38, coat weight 0.10 and coat roughness 0.24. Existing eye diffuse image, UV mapping, alpha behavior and geometry remain unchanged.
-- The report records Blender material settings plus glTF material roughness/specular/clearcoat extensions. The workflow repeats the 12-morph, idle animation, height, V341 embedded hair-pixel audit, mobile WebGL, clean console, ZIP integrity and SHA-256 checks.
-- Visual decision pending. Compare the eye-closeup/front/browser screenshots against V345 for more eye depth and natural highlights without plastic glare or washed-out iris. The full avatar remains NOT APPROVED for production until human visual review.
+## V346 — eye material/iris realism diagnostic
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38589926509 — **SUCCESS**.
+- Artifact: [V346 GitHub Actions artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38589926509/artifacts/11906878183), ID `11906878183`, 57,869,623 bytes; digest `sha256:fb285149ca468acc48e3d72b199fe51020470ea5b8b517fd00b02005f8ddc8e8`.
+- GLB `lam-v346-gltf-materials-full-face-candidate.glb`, 20,483,280 bytes; SHA-256 `2db32c9f84a79b77b913282990b541d2961f4e567039597b09b09c9cd8c2c839` independently recomputed. It retains all 12 expected morphs, `Lam_Idle_GentleSway`, V340 body shape, V341 hair material and V345 default-smile strength 0.40.
+- Eye material is `V346_GltfCompatibleAccessory_high-poly`; existing texture `brown_eye.png`, UVMap and RGBA alpha behavior are unchanged. Roughness `0.32`, specular IOR level `0.38` (glTF `KHR_materials_specular` factor `0.76`), clearcoat `0.10`, clearcoat roughness `0.24`. glTF audit confirms the image/UV link and both specular/clearcoat extensions were exported.
+- Windows ZIP `ly-lam-lam-v346-experimental-windows.zip`, 21,653,047 bytes, 81 entries, ZIP integrity passed; SHA-256 `1792e7108c8d3b7ea2a2fedb7c5b2318008dc5d7009137c8c88a2e45f20c53d7` matched the `.sha256` sidecar and was independently recomputed.
+- Mobile browser passed at 390×844: WebGL ready, HTTP 200, `Lam_Idle_GentleSway` advanced, no page/console/failed-request errors, avatar visible in safe area.
+- Visual review: compared eye crops side by side with V345. The slightly lower-roughness/clearcoat response creates a modest added eye highlight/depth without obvious plastic glare or washed-out iris. **Eye-material experiment accepted for further work; whole avatar remains NOT APPROVED** because facial likeness and overall eye prominence/detail still need improvement.
+- Next: V347 should diagnose eye mesh scale/position relative to the visible face and produce a dedicated tighter eye/face comparison capture before any geometry change. Keep texture and material values at V346 baseline during that measurement-only step; do not promote to production.
 ## Safety and rollback
 - Do not copy any candidate GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
 - Keep all builds, renders, reports, and ZIPs under versioned candidate artifacts. Record SHA-256 only after checking actual bytes against the sidecar.
