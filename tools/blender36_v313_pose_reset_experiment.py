@@ -37,6 +37,7 @@ def main():
     scene.render.resolution_x=768; scene.render.resolution_y=768; scene.render.resolution_percentage=100
     scene.render.image_settings.file_format="PNG"
     scene.render.film_transparent=False
+    if scene.world is None: scene.world=bpy.data.worlds.new("V313_ResetPose_World")
     scene.world.color=(0.06,0.06,0.06)
     # Use orthographic camera looking from front (-Y) toward model center.
     cam_data=bpy.data.cameras.new("V313_ResetPose_Camera"); cam=bpy.data.objects.new("V313_ResetPose_Camera",cam_data); scene.collection.objects.link(cam)
