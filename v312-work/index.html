@@ -340,6 +340,10 @@ loader.load(targetUrl,gltf=>{
   if(disposed) return;
   loadedAnimations=Array.isArray(gltf.animations)?gltf.animations:[];
   animationMixer=new THREE.AnimationMixer(gltf.scene);
+  const idleClip=loadedAnimations.find(clip=>clip.name==='Lam_Idle_GentleSway');
+  window.__lyLamActiveAnimationName=idleClip?idleClip.name:'';
+  window.__lyLamAnimationTime=0;
+  if(idleClip)animationMixer.clipAction(idleClip).reset().play();
   scene.add(gltf.scene);avatarScene=gltf.scene;
   const box=new THREE.Box3().setFromObject(gltf.scene), size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
   // Fit around the actual world-space center. Do not translate a skinned scene root
@@ -363,7 +367,7 @@ loader.load(targetUrl,gltf=>{
   getState();
 },progress=>{if(progress.total>0){const percent=Math.round(progress.loaded/progress.total*100);statusMessage.textContent=`Đang tải mô hình 3D… ${percent}%`;}else{statusMessage.textContent='Đang tải mô hình 3D…';}},e=>{window.__lyLamBootFailed=true;window.clearTimeout(window.__lyLamBootTimer);const xhr=e&&e.target&&typeof e.target.status==='number'?e.target:null;const httpStatus=xhr&&xhr.status>0?xhr.status:0;const detail=(e&&typeof e.message==='string'&&e.message.trim())||(xhr&&typeof xhr.statusText==='string'&&xhr.statusText.trim())||(httpStatus?`HTTP ${httpStatus}`:'trình tải không cung cấp chi tiết');const kind=httpStatus>=400?`Máy chủ từ chối hoặc không tìm thấy GLB (HTTP ${httpStatus})`:httpStatus===0||e instanceof TypeError?'Lỗi mạng, CORS hoặc quyền truy cập tài nguyên':'Lỗi đọc hoặc phân tích GLB';statusMessage.textContent=`${kind}: không tải được ${targetUrl}. Chi tiết: ${detail}. Kiểm tra URL/tệp GLB, phản hồi máy chủ, HTTPS và quyền truy cập; nếu dùng three=local, xác nhận thư mục vendor/three tồn tại. ${window.__lyLamStartupDiagnostics()}`;window.__lyLamShowRetry();console.error('GLTF load failed',e)});
 function frame(now){if(disposed)return;requestAnimationFrame(frame);const dt=Math.min(Math.max((now-last)/1000,0),0.05);last=now;const base=debugWeights===null?targets:debugWeights;const blink=blinkController.update(now, !document.hidden && debugWeights===null);// Centralized coordination replaces direct weights.blink_left / weights.blink_right writes and the legacy AvatarExpressionComposer.composeExpressionWeights(weights) call.
-const composed=globalThis.AvatarExpressionComposer.composeAvatarFrame(base,blink);const transitioned=morphTransition.update(composed,dt);apply(transitioned);controls.update();renderer.render(scene,camera)}requestAnimationFrame(frame);
+const composed=globalThis.AvatarExpressionComposer.composeAvatarFrame(base,blink);const transitioned=morphTransition.update(composed,dt);apply(transitioned);if(animationMixer){animationMixer.update(dt);window.__lyLamAnimationTime=animationMixer.time;}controls.update();renderer.render(scene,camera)}requestAnimationFrame(frame);
 function resizeRenderer(){const width=Math.max(1,stage.clientWidth||innerWidth),height=Math.max(1,stage.clientHeight||innerHeight);renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));camera.aspect=width/height;camera.updateProjectionMatrix();renderer.setSize(width,height)}
 addEventListener('resize',resizeRenderer);window.visualViewport?.addEventListener('resize',resizeRenderer);
 renderer.domElement.addEventListener('webglcontextlost',event=>{event.preventDefault();statusMessage.textContent='Đồ họa 3D tạm ngắt (WebGL). Trình duyệt đang thử khôi phục; nếu không tự hồi phục, hãy tải lại trang.';window.__lyLamShowRetry();});
