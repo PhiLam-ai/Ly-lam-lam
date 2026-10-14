@@ -1,0 +1,682 @@
+name: V369 Trouser-Surface Belt Fix Candidate
+
+on:
+  push:
+    branches:
+      - avatar/v313-repair-candidate-20261014
+    paths:
+      - "tools/blender_v369_trouser_surface_belt_fix.py"
+      - ".github/workflows/v369-trouser-surface-belt-fix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v369-gltf-face-accessory
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build V369 repaired belt/cargo candidate and test GLB
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        name: Check out Lam repository
+
+      - name: Install Blender runtime libraries
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates curl git xz-utils unzip \
+            libxi6 libxrender1 libxfixes3 libxkbcommon0 libsm6 \
+            libgl1 libegl1 libx11-6 libxxf86vm1 libxcb1 libxext6 libdbus-1-3
+          sudo rm -rf /var/lib/apt/lists/*
+
+      - name: Cache official MakeHuman CC0 asset packs
+        uses: actions/cache@v4
+        with:
+          path: .cache/v331-mpfb-assets
+          key: v331-mpfb-assets-${{ runner.os }}-system-b5421278-face-d113107b-visemes-official-v1
+
+      - name: Download and verify official MakeHuman assets
+        id: download_assets
+        run: |
+          set -euo pipefail
+          mkdir -p .cache/v331-mpfb-assets
+          get_pack() {
+            local name="$1" url1="$2" url2="$3"
+            local out=".cache/v331-mpfb-assets/$name"
+            if [ ! -s "$out" ]; then
+              if ! curl -fL --retry 2 --retry-all-errors --connect-timeout 30 --max-time 3600 --speed-time 60 --speed-limit 1024 "$url1" -o "$out"; then
+                rm -f "$out"
+                curl -fL --retry 2 --retry-all-errors --connect-timeout 30 --max-time 3600 --speed-time 60 --speed-limit 1024 "$url2" -o "$out"
+              fi
+            fi
+            test -s "$out"
+          }
+          get_pack makehuman_system_assets_cc0.zip \
+            https://files2.makehumancommunity.org/asset_packs/makehuman_system_assets/makehuman_system_assets_cc0.zip \
+            https://files.makehumancommunity.org/asset_packs/makehuman_system_assets/makehuman_system_assets_cc0.zip
+          get_pack faceunits01.zip \
+            https://files2.makehumancommunity.org/functional/faceunits01.zip \
+            https://files.makehumancommunity.org/functional/faceunits01.zip
+          get_pack visemes01.zip \
+            https://files2.makehumancommunity.org/functional/visemes01.zip \
+            https://files.makehumancommunity.org/functional/visemes01.zip
+
+          echo "b542127a8e25547c7c29c19f2d1d2adb9a664c80396ecd694095dbc8028a0107  .cache/v331-mpfb-assets/makehuman_system_assets_cc0.zip" | sha256sum -c -
+          echo "d113107bd7eb59f3af4df6fc0ec29bfcc593f496d0b336aec14f086a80ce7146  .cache/v331-mpfb-assets/faceunits01.zip" | sha256sum -c -
+          for archive in .cache/v331-mpfb-assets/*.zip; do unzip -tq "$archive"; done
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, zipfile
+          root = Path(".cache/v331-mpfb-assets")
+          report = {}
+          for path in sorted(root.glob("*.zip")):
+              with zipfile.ZipFile(path) as archive:
+                  bad = archive.testzip()
+                  if bad:
+                      raise SystemExit(f"Invalid ZIP entry in {path.name}: {bad}")
+                  names = archive.namelist()
+              report[path.name] = {
+                  "bytes": path.stat().st_size,
+                  "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                  "entries": len(names),
+                  "contains_pack_manifest": any(name.startswith("packs/") for name in names),
+              }
+          assert report["makehuman_system_assets_cc0.zip"]["bytes"] > 250_000_000, report
+          assert report["makehuman_system_assets_cc0.zip"]["contains_pack_manifest"], report
+          assert report["faceunits01.zip"]["contains_pack_manifest"], report
+          print(json.dumps(report, ensure_ascii=False, indent=2))
+          Path("artifacts-v369-provenance.tmp").write_text(json.dumps(report, indent=2), encoding="utf-8")
+          PY
+
+      - name: Persist verified asset packs even if later build steps fail
+        if: steps.download_assets.outcome == 'success'
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/v331-mpfb-assets
+          key: v331-mpfb-assets-${{ runner.os }}-system-b5421278-face-d113107b-visemes-official-v1
+
+      - name: Download Blender 4.5.3
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 \
+            https://download.blender.org/release/Blender4.5/blender-4.5.3-linux-x64.tar.xz \
+            -o "$RUNNER_TEMP/blender.tar.xz"
+          mkdir -p "$RUNNER_TEMP/blender"
+          tar -xJf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP/blender" --strip-components=1
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup --python-expr \
+            "import bpy; print('BLENDER_VERSION=' + bpy.app.version_string)"
+          echo "$RUNNER_TEMP/blender" >> "$GITHUB_PATH"
+
+      - name: Fetch MPFB source
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/makehumancommunity/mpfb2.git "$RUNNER_TEMP/mpfb2"
+          echo "MPFB_COMMIT=$(git -C "$RUNNER_TEMP/mpfb2" rev-parse HEAD)" >> "$GITHUB_ENV"
+          test -s "$RUNNER_TEMP/mpfb2/src/mpfb/blender_manifest.toml"
+          test -s "$RUNNER_TEMP/mpfb2/src/mpfb/__init__.py"
+
+      - name: Install MPFB into Blender user extension repository
+        run: |
+          set -euo pipefail
+          extension_root="$HOME/.config/blender/4.5/extensions/user_default"
+          extension_package="$extension_root/mpfb"
+          mkdir -p "$extension_root"
+          rm -rf "$extension_package"
+          cp -a "$RUNNER_TEMP/mpfb2/src/mpfb" "$extension_package"
+          test -s "$extension_package/blender_manifest.toml"
+          test -s "$extension_package/__init__.py"
+          printf 'MPFB_EXTENSION_PATH=%s\n' "$extension_package" >> "$GITHUB_ENV"
+          echo "Installed MPFB extension at $extension_package"
+
+      - name: Preflight MPFB extension namespace
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup --python-expr \
+            "import bpy, importlib.util; module='bl_ext.user_default.mpfb'; spec=importlib.util.find_spec(module); print('MPFB_EXTENSION_SPEC=', spec); assert spec is not None, 'MPFB extension is not discoverable from user_default'; result=bpy.ops.preferences.addon_enable(module=module); print('MPFB_ADDON_ENABLE=', result); assert 'FINISHED' in result; import bl_ext.user_default.mpfb as mpfb; print('MPFB_READY_VERSION=', mpfb.VERSION)"
+
+      - name: Build and bake V369 candidate and render references
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/v369-gltf-face-accessories
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender_v369_trouser_surface_belt_fix.py -- \
+            --mpfb-src "$RUNNER_TEMP/mpfb2/src" \
+            --system-pack "$GITHUB_WORKSPACE/.cache/v331-mpfb-assets/makehuman_system_assets_cc0.zip" \
+            --face-pack "$GITHUB_WORKSPACE/.cache/v331-mpfb-assets/faceunits01.zip" \
+            --viseme-pack "$GITHUB_WORKSPACE/.cache/v331-mpfb-assets/visemes01.zip" \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/v369-gltf-face-accessories" \
+            2>&1 | tee artifacts/v369-gltf-face-accessories/v369-build.log
+          if grep -q "Traceback (most recent call last)" artifacts/v369-gltf-face-accessories/v369-build.log; then
+            echo "Blender Python traceback detected in V369 builder output."
+            exit 1
+          fi
+          test -s artifacts/v369-gltf-face-accessories/lam-v369-candidate-report.json
+          test -s artifacts/v369-gltf-face-accessories/lam-v369-gltf-materials-full-face-candidate.glb
+          test -s artifacts/v369-gltf-face-accessories/lam-v369-gltf-materials-full-face-candidate.blend
+          test -s artifacts/v369-gltf-face-accessories/v369-front.png
+          test -s artifacts/v369-gltf-face-accessories/v369-three-quarter.png
+          test -s artifacts/v369-gltf-face-accessories/v369-side.png
+          test -s artifacts/v369-gltf-face-accessories/v369-face-closeup.png
+          test -s artifacts/v369-gltf-face-accessories/v369-eye-closeup.png
+          test -s artifacts/v369-gltf-face-accessories/v369-necklace-closeup.png
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("artifacts/v369-gltf-face-accessories/lam-v369-candidate-report.json").read_text(encoding="utf-8"))
+          expected = {
+            "smile", "blink_left", "blink_right", "mouth_open", "jaw_open", "jaw_hinge",
+            "brow_raise", "cheek_raise", "lip_press", "lip_fv", "lip_round", "tongue_tip"
+          }
+          assert report["status"] == "EXPERIMENTAL_V369_GLTFSKIN_FACE_ACCESSORY_CANDIDATE_NOT_APPROVED", report
+          assert report["version"] == "V369", report
+          assert report["skin_count_gltf"] == 0 and report["texture_count_gltf"] >= 1, report
+          assert report["excluded_face_accessories"] == [], report
+          expected_face_meshes = {"eyebrow001", "eyelashes01", "high-poly", "teeth_base", "tongue01"}
+          actual_face_meshes = {item["suffix"] for item in report["face_accessory_material_audits"]}
+          assert expected_face_meshes.issubset(actual_face_meshes), {"expected_face_meshes": expected_face_meshes, "actual_face_meshes": actual_face_meshes}
+          assert all(item["image_name"] and item["uv_map_name"] and item["export_material"] for item in report["face_accessory_material_audits"]), report
+          assert len(report["morph_names_gltf"]) >= 12, report
+          skin_uv = report["skin_uv_diagnostic"]
+          assert skin_uv["image_name"] and skin_uv["uv_map_name"], skin_uv
+          assert skin_uv["export_material"]["image"] == skin_uv["image_name"], skin_uv
+          assert skin_uv["export_material"]["uv_map"] == skin_uv["uv_map_name"], skin_uv
+          assert skin_uv["export_material"]["name"] == "V369_GltfCompatibleSkin", skin_uv
+          assert all(item["alpha_enabled"] in (True, False) for item in report["face_accessory_material_audits"]), report
+          assert "baked" in report["body_skinning"].lower(), report
+          assert report["material_count_gltf"] >= 1, report
+          assert set(report["morph_names_gltf"]).issuperset(expected), report
+          assert "Lam_Idle_GentleSway" in report["animation_names_gltf"], report
+          assert abs(report["character_bounds_m"]["size"][2] - 1.60) < 0.06, report
+          assert 1_000_000 < report["glb_bytes"] < 200_000_000, report
+          assert len(report["renders"]) >= 6, report
+          eye_geometry = report["eye_geometry_diagnostic"]
+          assert eye_geometry["status"] == "MEASURED_ONLY", eye_geometry
+          assert eye_geometry["geometry_changed"] is False, eye_geometry
+          assert eye_geometry["eye_object"].endswith("high-poly"), eye_geometry
+          assert eye_geometry["vertex_count"] > 100, eye_geometry
+          assert eye_geometry["eye_bounds_size_m"][0] > 0, eye_geometry
+          assert eye_geometry["eye_bounds_size_m"][1] > 0, eye_geometry
+          assert eye_geometry["eye_bounds_size_m"][2] > 0, eye_geometry
+          assert eye_geometry["head_band_width_x_m"] > 0, eye_geometry
+          assert 0 < eye_geometry["eye_pair_span_to_head_band_width_ratio"] < 1.0, eye_geometry
+          frame = report["face_framing_hair_audit"]
+          assert frame["status"] == "APPLIED", frame
+          assert frame["reference"] == "Bảng giới thiệu nhân vật Lý Lâm Lam.png", frame
+          assert frame["reference_dimensions_px"] == [1214, 1295], frame
+          assert frame["strand_count"] == 6 and len(frame["strands"]) == 6, frame
+          alignment = frame["surface_alignment"]
+          assert alignment["status"] == "APPLIED", alignment
+          assert alignment["surface_offset_m"] == 0.0012, alignment
+          assert alignment["all_points_sampled"] is True, alignment
+          assert alignment["control_point_count"] == sum(item["section_count"] for item in frame["strands"]), alignment
+          assert 0 <= alignment["max_abs_centerline_y_shift_m"] < 0.052, alignment
+          assert all(
+            len(item["surface_alignment"]) == item["section_count"]
+            and all(
+              sample["hit_object_count"] >= 1
+              and abs(sample["surface_offset_m"] - 0.0012) < 1e-6
+              and abs((sample["aligned_y_m"] - sample["surface_y_m"]) + 0.0012) < 2e-6
+              for sample in item["surface_alignment"]
+            )
+            for item in frame["strands"]
+          ), frame
+
+          assert frame["material_settings"]["radius_scale_x"] == 0.70, frame["material_settings"]
+          assert frame["material_settings"]["radius_scale_y"] == 0.72, frame["material_settings"]
+          assert frame["material_settings"]["base_color_linear_rgba"] == [0.03, 0.011, 0.006, 1.0], frame["material_settings"]
+          assert frame["material_settings"]["roughness"] == 0.80, frame["material_settings"]
+          assert frame["material_settings"]["specular_ior_level"] == 0.11, frame["material_settings"]
+          assert all(
+            item["max_half_width_source_m"] > item["max_half_width_m"]
+            and item["max_half_depth_source_m"] > item["max_half_depth_m"]
+            for item in frame["strands"]
+          ), frame
+          assert all(
+            item["vertex_count"] >= 24
+            and item["face_count"] >= 20
+            and 0 < item["max_half_width_m"] <= 0.0036
+            and 0 < item["max_half_depth_m"] <= 0.0021
+            and item["material_name"] == "V369_FaceFrameStrandMaterial"
+            for item in frame["strands"]
+          ), frame
+          gltf_frame = frame["gltf_export"]
+          assert gltf_frame["nodes_all_present"] is True, gltf_frame
+          assert len(gltf_frame["present_node_names"]) == 6, gltf_frame
+          assert gltf_frame["material_name"] == "V369_FaceFrameStrandMaterial", gltf_frame
+          assert abs(float(gltf_frame["roughness_factor"]) - 0.80) <= 0.03, gltf_frame
+          assert float(gltf_frame["metallic_factor"]) == 0.0, gltf_frame
+          expected_frame_sources = {item["name"] for item in frame["strands"]}
+          baked_frame_sources = {
+            item["source_object"] for item in report["baked_mesh_diagnostics"]
+          }
+          assert expected_frame_sources.issubset(baked_frame_sources), {
+            "expected": expected_frame_sources, "baked": baked_frame_sources
+          }
+          adjustment = report["body_shape_adjustment"]
+          assert adjustment["status"] == "APPLIED", adjustment
+          roles = {item["role"] for item in adjustment["edited_meshes"]}
+          assert {"body", "clothing"}.issubset(roles), adjustment
+          assert all(item["edited_coordinate_count"] > 0 for item in adjustment["edited_meshes"]), adjustment
+          zones = adjustment["zones"]
+          assert zones["hips"]["max_lateral_scale"] == 1.10, adjustment
+          assert zones["upper_thigh"]["max_lateral_scale"] == 1.08, adjustment
+          assert zones["mid_thigh"]["max_lateral_scale"] == 1.06, adjustment
+          assert zones["posterior_hip_projection"]["max_shift_m"] == 0.025, adjustment
+          assert zones["hips"]["central_x_falloff_m"] == [0.22, 0.30], adjustment
+          assert zones["upper_thigh"]["central_x_falloff_m"] == [0.21, 0.29], adjustment
+          assert zones["mid_thigh"]["central_x_falloff_m"] == [0.20, 0.28], adjustment
+          assert zones["posterior_hip_projection"]["x_gated"] is True, adjustment
+
+          assert report["macro_parameters"]["weight"] == 0.56, report["macro_parameters"]
+          necklace = report["necklace_accessory_audit"]
+          assert necklace["status"] == "APPLIED", necklace
+          assert necklace["style"] == "fine silver chain with a circular open pendant, concentric inner ring and restrained center motif guided by the saved Lam reference", necklace
+          assert necklace["material"]["name"] == "V369_SilverNecklace", necklace
+          assert necklace["material"]["base_color_rgba"] == [0.62, 0.66, 0.72, 1.0], necklace
+          assert necklace["material"]["metallic"] == 0.82, necklace
+          assert necklace["material"]["roughness"] == 0.23, necklace
+          assert necklace["material"]["specular_ior_level"] == 0.48, necklace
+          assert necklace["chain_bevel_depth_m"] == 0.0010, necklace
+          placement = necklace["placement_revision"]
+          assert placement["baseline_version"] == "V364", placement
+          assert placement["vertical_offset_m"] == 0.0, placement
+          assert placement["candidate_chain_z_m"] == [1.293, 1.296, 1.307, 1.326], placement
+          assert placement["pendant_center_z_m"] == 1.283, placement
+          necklace_objects = necklace["objects"]
+          assert len(necklace_objects) == 2, necklace
+          assert {item["object"] for item in necklace_objects} == {"V369_NecklaceChain", "V369_NecklacePendant"}, necklace
+          assert all(item["type"] == "MESH" and item["vertex_count"] > 0 and item["polygon_count"] > 0 for item in necklace_objects), necklace
+          chain = next(item for item in necklace_objects if item["object"] == "V369_NecklaceChain")
+          pendant = next(item for item in necklace_objects if item["object"] == "V369_NecklacePendant")
+          assert chain["vertex_count"] >= 100 and chain["polygon_count"] >= 100, chain
+          assert pendant["vertex_count"] >= 500 and pendant["polygon_count"] >= 300, pendant
+          pendant_geometry = necklace["pendant_geometry"]
+          assert pendant_geometry["joined_mesh"] is True and pendant_geometry["component_count"] == 3, pendant_geometry
+          assert pendant_geometry["outer_major_radius_m"] == 0.0085 and pendant_geometry["outer_minor_radius_m"] == 0.0009, pendant_geometry
+          assert pendant_geometry["inner_major_radius_m"] == 0.0045 and pendant_geometry["inner_minor_radius_m"] == 0.00045, pendant_geometry
+          assert pendant_geometry["orientation"] == "X-Z plane facing the camera/front (-Y)", pendant_geometry
+          assert len(necklace["chain_surface_samples"]) == 7, necklace
+          assert all(item["sample_count"] > 0 for item in necklace["chain_surface_samples"]), necklace
+          chain_z = [item["z_m"] for item in necklace["chain_surface_samples"]]
+          assert min(chain_z) >= 1.293 and max(chain_z) <= 1.326, chain_z
+          assert abs(necklace["pendant_surface_sample"]["z_m"] - 1.283) < 1e-6, necklace
+          assert necklace["pendant_surface_sample"]["sample_count"] > 0, necklace
+          junction = necklace["chain_junction_audit"]
+          assert junction["status"] == "PASS_CONTACT_GEOMETRY", junction
+          assert junction["control_point_index"] == 3, junction
+          assert abs(junction["nominal_chain_centerline_y_m"] + 0.10413) < 0.0001, junction
+          assert abs(junction["chain_centerline_y_m"] - junction["ring_forward_surface_y_m"]) <= 1e-6, junction
+          assert 0.0080 <= abs(junction["junction_depth_adjustment_m"]) <= 0.0090, junction
+          assert junction["depth_delta_to_ring_centerline_m"] <= 0.00091, junction
+          assert junction["centerline_distance_m"] < junction["combined_tube_radii_m"], junction
+          assert junction["contact_margin_m"] > 0.0001, junction
+          offsets = junction["surface_to_chain_offsets_m"]
+          assert len(offsets) == 7 and 0.011 <= offsets[3] <= 0.013, junction
+          assert all(0.0030 <= offset <= 0.0040 for i, offset in enumerate(offsets) if i != 3), junction
+          necklace_gltf = necklace["gltf_export"]
+          assert any("V369_NecklaceChain" in name for name in necklace_gltf["node_names"]), necklace_gltf
+          assert any("V369_NecklacePendant" in name for name in necklace_gltf["node_names"]), necklace_gltf
+          assert necklace_gltf["material_name"] == "V369_SilverNecklace", necklace_gltf
+          assert float(necklace_gltf["metallic_factor"]) >= 0.75, necklace_gltf
+          assert 0.18 <= float(necklace_gltf["roughness_factor"]) <= 0.30, necklace_gltf
+          hair = report["hair_material_audit"]
+          gltf_hair = report["gltf_hair_material_audit"]
+          assert hair["image"]["image_name"] == "V369_HairDiffuse_Darkened", hair
+          assert hair["image"]["alpha_preserved"] is True, hair
+          assert len(hair["hair_objects"]) >= 1, hair
+          assert all(item["uv_map_name"] and item["alpha_enabled"] for item in hair["hair_objects"]), hair
+          assert all(item["roughness"] == 0.86 and item["specular_ior_level"] == 0.12 for item in hair["hair_objects"]), hair
+          assert gltf_hair["name"] == "V369_GltfCompatibleHair", gltf_hair
+          assert gltf_hair["base_color_image_name"], gltf_hair
+          assert gltf_hair["embedded_darkening_verified"] is True, gltf_hair
+          assert gltf_hair["embedded_rgb_mean_linear"] < gltf_hair["source_rgb_mean_linear"] * 0.90, gltf_hair
+          assert abs(gltf_hair["embedded_rgb_mean_linear"] - gltf_hair["processed_rgb_mean_linear"]) <= 0.06, gltf_hair
+          assert float(gltf_hair["roughness_factor"]) >= 0.80, gltf_hair
+          assert gltf_hair["alpha_mode"] == "BLEND", gltf_hair
+          face_pose = report["default_face_pose"]
+          assert face_pose["status"] == "APPLIED", face_pose
+          assert face_pose["expression"] == "gentle_smile", face_pose
+          assert face_pose["strength"] == 0.40, face_pose
+          assert face_pose["total_vertices_adjusted"] > 0, face_pose
+          applied_face_meshes = [item for item in face_pose["objects"] if item["status"] == "APPLIED"]
+          assert len(applied_face_meshes) >= 1, face_pose
+          assert all(item["smile_endpoint_preserved"] is True for item in applied_face_meshes), face_pose
+          human_face = next((item for item in applied_face_meshes if item["object"] == "Human"), None)
+          assert human_face is not None, face_pose
+          assert human_face["max_neutral_displacement_m"] >= 0.0045, human_face
+          assert all("smile" not in item["changed_key_blocks"] for item in applied_face_meshes), face_pose
+          assert set(report["morph_names_gltf"]).issuperset({
+            "smile", "blink_left", "blink_right", "mouth_open", "jaw_open", "jaw_hinge",
+            "brow_raise", "cheek_raise", "lip_press", "lip_fv", "lip_round", "tongue_tip"
+          }), report["morph_names_gltf"]
+          eye_rows = [item for item in report["face_accessory_material_audits"] if item["suffix"] == "high-poly"]
+          assert len(eye_rows) == 1, eye_rows
+          eye_response = eye_rows[0]["material_response"]
+          assert eye_response["scope"] == "high-poly eye connected components split into base-eye and forward-surface materials", eye_response
+          assert eye_response["geometry_changed"] is False, eye_response
+          assert eye_response["component_count"] == 4, eye_response
+          assert eye_response["front_surface_component_count"] == 2, eye_response
+          assert eye_response["front_surface_face_count"] > 0 and eye_response["base_eye_face_count"] > 0, eye_response
+          assert eye_response["base_surface_settings"] == {
+            "roughness": 0.32,
+            "specular_ior_level": 0.38,
+            "coat_weight": 0.10,
+            "coat_roughness": 0.24,
+          }, eye_response
+          assert eye_response["front_surface_settings"] == {
+            "roughness": 0.18,
+            "specular_ior_level": 0.48,
+            "coat_weight": 0.30,
+            "coat_roughness": 0.14,
+          }, eye_response
+          assert eye_response["source_texture_changed_only_inside_iris_mask"] is True, eye_response
+          assert eye_response["uv_layout_unchanged"] is True, eye_response
+          assert eye_response["alpha_behavior_unchanged"] is True, eye_response
+          assert eye_response["both_surfaces_use_same_image"] is True, eye_response
+          preview = report["eye_material_preview_audit"]
+          assert preview["status"] == "APPLIED_TO_SOURCE_FOR_MATCHING_RENDER", preview
+          assert preview["render_uses_same_eye_materials_as_glb"] is True, preview
+          gltf_eye = report["gltf_eye_material_audit"]
+          assert gltf_eye["name"] == "V369_GltfCompatibleAccessory_high-poly", gltf_eye
+          assert abs(float(gltf_eye["roughness_factor"]) - 0.32) <= 0.03, gltf_eye
+          assert gltf_eye["base_color_texture_index"] is not None, gltf_eye
+          assert gltf_eye["specular_extension_present"] is True, gltf_eye
+          assert gltf_eye["clearcoat_extension_present"] is True, gltf_eye
+          assert float(gltf_eye["specular_factor"]) > 0.0, gltf_eye
+          assert float(gltf_eye["clearcoat_factor"]) > 0.0, gltf_eye
+          gltf_eye_front = report["gltf_eye_front_surface_audit"]
+          assert gltf_eye_front["name"] == "V369_GltfEyeFrontSurface", gltf_eye_front
+          assert abs(float(gltf_eye_front["roughness_factor"]) - 0.18) <= 0.03, gltf_eye_front
+          assert gltf_eye_front["base_color_image_source_index"] == gltf_eye["base_color_image_source_index"], {"base": gltf_eye, "front": gltf_eye_front}
+          assert gltf_eye_front["same_image_source_as_base_eye"] is True, gltf_eye_front
+          assert gltf_eye_front["alpha_mode"] == "BLEND" and gltf_eye_front["alpha_behavior_preserved"] is True, gltf_eye_front
+          assert gltf_eye_front["specular_extension_present"] is True and gltf_eye_front["clearcoat_extension_present"] is True, gltf_eye_front
+          assert abs(float(gltf_eye_front["specular_factor"]) - 0.96) <= 0.04, gltf_eye_front
+          assert abs(float(gltf_eye_front["clearcoat_factor"]) - 0.30) <= 0.03, gltf_eye_front
+          iris = report["iris_texture_audit"]
+          assert iris["status"] == "APPLIED", iris
+          assert "brown_eye" in iris["source_image_name"].lower(), iris
+          assert iris["processed_image_name"] == "V369_WarmBrownIris", iris
+          assert [round(float(value), 3) for value in iris["target_linear_rgb"]] == [0.13, 0.075, 0.03], iris
+          assert iris["blend_strength"] == 0.30, iris
+          assert iris["channels"] == 4 and iris["alpha_preserved"] is True, iris
+          assert iris["source_alpha_sha256_float32"] == iris["processed_alpha_sha256_float32"], iris
+          assert iris["source_datablock_unchanged"] is True, iris
+          assert 0.02 <= iris["mask_coverage"] <= 0.10, iris
+          assert iris["outside_mask_max_rgb_delta"] <= 1e-7, iris
+          source_ratios = iris["source_iris_channel_ratios"]
+          processed_ratios = iris["processed_iris_channel_ratios"]
+          assert processed_ratios["green_to_red"] > source_ratios["green_to_red"] * 1.20, iris
+          assert processed_ratios["blue_to_red"] > source_ratios["blue_to_red"] * 1.50, iris
+          gltf_iris = report["gltf_iris_texture_audit"]
+          assert gltf_iris["embedded_texture_matches_processed_iris"] is True, gltf_iris
+          assert gltf_iris["embedded_alpha_matches_source"] is True, gltf_iris
+          assert gltf_iris["max_channel_mean_error"] <= 0.015, gltf_iris
+          assert gltf_iris["embedded_alpha_mean_error"] <= 0.002, gltf_iris
+          assert gltf_iris["base_eye_image_source_index"] == report["gltf_eye_material_audit"]["base_color_image_source_index"], gltf_iris
+          assert report["gltf_eye_front_surface_audit"]["same_image_source_as_base_eye"] is True, report["gltf_eye_front_surface_audit"]
+          face = report["face_shape_refinement"]
+          assert face["status"] == "APPLIED", face
+          assert face["baseline_version"] == "V359", face
+          assert face["scope"] == "stronger but bounded base skin facial profile; frontal cheek/jaw/chin bands", face
+          assert 0.0005 < float(face["max_vertex_displacement_m"]) <= 0.006, face
+          zones = face["zones"]
+          assert zones["cheeks"]["max_lateral_scale"] == 1.035, face
+          assert zones["jaw"]["max_lateral_scale"] == 0.920, face
+          assert zones["chin"]["max_lateral_scale"] == 0.960, face
+          changes = face["measured_changes"]
+          assert 0.0 < float(changes["cheek_width_gain_fraction"]) < 0.05, face
+          assert 0.005 < float(changes["jaw_width_reduction_fraction"]) < 0.08, face
+          assert 0.002 < float(changes["chin_width_reduction_fraction"]) < 0.05, face
+          for region in ("cheeks", "jaw", "chin"):
+            before = face["before_metrics"][region]
+            after = face["after_metrics"][region]
+            assert before["status"] == "MEASURED" and after["status"] == "MEASURED", face
+            assert before["vertex_count"] >= 20 and after["vertex_count"] >= 20, face
+          assert "V358 iris pixel treatment, alpha and UVs" in face["preserved"], face
+          assert "eye geometry/materials and eye accessory meshes" in face["preserved"], face
+          details = report["wardrobe_detail_audit"]
+          assert details["status"] == "APPLIED", details
+          assert details["reference_sha256"] == "0be925c095166289727c597690b57ed31d23fcbf0a77f7f517d1928098f3c575", details
+          assert "V369_Wardrobe_BeltStrap" in details["objects_added"], details
+          assert "V369_Wardrobe_BuckleFrame" in details["objects_added"], details
+          assert "V369_Wardrobe_BucklePin" in details["objects_added"], details
+          belt = details["belt"]
+          assert belt["object"] == "V369_Wardrobe_BeltStrap", belt
+          assert belt["sample_count"] == 64 and belt["surface_hits"] >= 60, belt
+          assert belt["missing_samples"] <= 4, belt
+          assert belt["z_range_m"] == [0.87, 0.91], belt
+          assert belt["surface_source_names"] == ["Human.female_sportsuit01"], belt
+          assert belt["source_mesh_only"] == "trouser_casters", belt
+          assert belt["max_abs_x_m"] <= 0.30, belt
+          assert belt["wide_hit_guard_m"] == 0.30, belt
+          buckle = details["buckle"]
+          assert buckle["frame_object"] == "V369_Wardrobe_BuckleFrame", buckle
+          assert buckle["pin_object"] == "V369_Wardrobe_BucklePin", buckle
+          assert buckle["front_surface_hit"] is True, buckle
+          assert buckle["frame_size_m"] == [0.043, 0.027], buckle
+          cargo = details["cargo_pockets"]
+          assert {item["side"] for item in cargo} == {"left", "right"}, cargo
+          assert len(cargo) == 2, cargo
+          for item in cargo:
+            for key in ("panel", "flap"):
+              surface = item[key]
+              assert surface["vertex_count"] > 30 and surface["polygon_count"] > 20, surface
+              assert surface["ray_samples_expected"] > 0, surface
+              assert surface["hit_fraction"] >= 0.92, surface
+              assert surface["ray_samples_filled"] <= surface["ray_samples_expected"] * 0.08, surface
+              assert "Human.female_sportsuit01" in surface["surface_object_names"], surface
+          detail_gltf = details["gltf_export"]
+          assert detail_gltf["nodes_all_present"] is True, detail_gltf
+          assert set(detail_gltf["expected_node_names"]) == set(detail_gltf["present_node_names"]), detail_gltf
+          assert set(detail_gltf["expected_material_names"]) == set(detail_gltf["present_material_names"]), detail_gltf
+          assert len(details["objects_added"]) >= 7, details
+          wardrobe = report["wardrobe_reference_audit"]
+          wardrobe_colors = report["wardrobe_color_audit"]
+          assert wardrobe_colors["status"] == "APPLIED", wardrobe_colors
+          assert wardrobe_colors["reference_targets"]["top"] == "dark teal cropped athletic top", wardrobe_colors
+          assert wardrobe_colors["reference_targets"]["footwear"] == "neutral white/gray sneakers", wardrobe_colors
+          color_materials = {item["role"]: item for item in wardrobe_colors["materials"]}
+          assert set(color_materials) == {"sportsuit", "shoes"}, wardrobe_colors
+          sport = color_materials["sportsuit"]
+          assert sport["material_name"] == "V369_GltfWardrobe_sportsuit", sport
+          assert sport["image_audit"]["alpha_preserved"] is True, sport
+          assert sport["image_audit"]["pixel_counts"]["blue_pixels_recolored"] >= 100, sport
+          shoe = color_materials["shoes"]
+          assert shoe["material_name"] == "V369_GltfWardrobe_shoes", shoe
+          assert shoe["image_audit"]["alpha_preserved"] is True, shoe
+          assert shoe["image_audit"]["pixel_counts"]["blue_pixels_recolored_to_gray"] >= 100, shoe
+          gltf_wardrobe = report["gltf_wardrobe_material_audits"]
+          assert {item["role"] for item in gltf_wardrobe} == {"sportsuit", "shoes"}, gltf_wardrobe
+          assert all(item["embedded_texture_matches_processed_pixels"] is True for item in gltf_wardrobe), gltf_wardrobe
+          assert all(item["embedded_image_mime_type"] == "image/png" for item in gltf_wardrobe), gltf_wardrobe
+          assert all(abs(item["embedded_rgb_mean_linear"] - item["source_processed_rgb_mean_linear"]) <= 0.08 for item in gltf_wardrobe), gltf_wardrobe
+          assert wardrobe["status"] == "APPLIED", wardrobe
+          assert wardrobe["reference_name"] == "Bảng giới thiệu nhân vật Lý Lâm Lam.png", wardrobe
+          assert wardrobe["reference_sha256"] == "0be925c095166289727c597690b57ed31d23fcbf0a77f7f517d1928098f3c575", wardrobe
+          selected = {item["file"] for item in wardrobe["assets_selected"]}
+          assert selected == {"female_sportsuit01.mhclo", "shoes06.mhclo"}, wardrobe
+          assets = report["assets_added"]
+          added_files = {item.get("file", "").rsplit("/", 1)[-1].lower() for item in assets if item.get("status") == "ADDED"}
+          assert {"female_sportsuit01.mhclo", "shoes06.mhclo"}.issubset(added_files), assets
+          assert "female_casualsuit01.mhclo" not in added_files, assets
+          selected_names = {item.get("name") for item in assets if item.get("file", "").rsplit("/", 1)[-1].lower() in {"female_sportsuit01.mhclo", "shoes06.mhclo"}}
+          assert {"Human.female_sportsuit01", "Human.shoes06"}.issubset(selected_names), assets
+          adjusted_mesh_names = {item["object"] for item in report["body_shape_adjustment"]["edited_meshes"]}
+          assert {"Human", "Human.female_sportsuit01", "Human.shoes06"}.issubset(adjusted_mesh_names), report["body_shape_adjustment"]
+          profile = report["morphometric_audit"]
+          assert profile["vertex_count"] > 100, profile
+          assert abs(profile["height_m"] - 1.60) < 0.06, profile
+          expected_regions = {"head", "neck", "shoulders", "upper_torso", "waist", "hips", "upper_thigh", "mid_thigh"}
+          assert set(profile["regions"]) == expected_regions, profile
+          assert all(
+            region.get("status") == "MEASURED"
+            and region.get("vertex_count", 0) > 20
+            and region.get("robust_width_x_m", 0) > 0
+            and region.get("robust_depth_y_m", 0) > 0
+            for region in profile["regions"].values()
+          ), profile
+
+          print("V369_GLTFSKIN_FACE_ACCESSORY_GATE=PASS_EXPERIMENTAL_ONLY")
+          print(json.dumps({
+            "blender_version": report["blender_version"],
+            "mpfb_version": report["mpfb_version"],
+            "height_m": report["character_bounds_m"]["size"][2],
+            "mesh_count": report["mesh_count_gltf"],
+            "skin_count": report["skin_count_gltf"],
+            "texture_count": report["texture_count_gltf"],
+            "morph_count": len(report["morph_names_gltf"]),
+            "animations": report["animation_names_gltf"],
+            "glb_bytes": report["glb_bytes"],
+            "glb_sha256": report["glb_sha256"],
+            "renders": report["renders"],
+            "morphometric_audit": report["morphometric_audit"],
+            "macro_parameters": report["macro_parameters"],
+            "body_shape_adjustment": report["body_shape_adjustment"],
+            "face_shape_refinement": report["face_shape_refinement"],
+            "face_framing_hair_audit": report["face_framing_hair_audit"],
+            "necklace_accessory_audit": report["necklace_accessory_audit"],
+            "wardrobe_reference_audit": report["wardrobe_reference_audit"],
+            "assets_added": report["assets_added"],
+            "wardrobe_color_audit": report["wardrobe_color_audit"],
+            "wardrobe_detail_audit": report["wardrobe_detail_audit"],
+            "gltf_wardrobe_material_audits": report["gltf_wardrobe_material_audits"],
+            "hair_material_audit": report["hair_material_audit"],
+            "gltf_hair_material_audit": report["gltf_hair_material_audit"],
+            "default_face_pose": report["default_face_pose"],
+            "gltf_eye_material_audit": report["gltf_eye_material_audit"],
+            "gltf_eye_front_surface_audit": report["gltf_eye_front_surface_audit"],
+            "shared_eye_diffuse_source": {
+              "base_texture_index": report["gltf_eye_material_audit"]["base_color_texture_index"],
+              "base_image_source_index": report["gltf_eye_material_audit"]["base_color_image_source_index"],
+              "front_texture_index": report["gltf_eye_front_surface_audit"]["base_color_texture_index"],
+              "front_image_source_index": report["gltf_eye_front_surface_audit"]["base_color_image_source_index"],
+              "same_image_source": report["gltf_eye_front_surface_audit"]["same_image_source_as_base_eye"]
+            },
+            "eye_material_preview_audit": report["eye_material_preview_audit"],
+            "eye_geometry_diagnostic": report["eye_geometry_diagnostic"],
+            "iris_texture_audit": report["iris_texture_audit"],
+            "gltf_iris_texture_audit": report["gltf_iris_texture_audit"]
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Install browser-test dependencies
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/v314-playwright" --no-save --package-lock=false playwright pngjs
+          "$RUNNER_TEMP/v314-playwright/node_modules/.bin/playwright" install --with-deps chromium
+
+      - name: Check V369 GLB in mobile-sized Three.js viewer
+        env:
+          NODE_PATH: ${{ runner.temp }}/v314-playwright/node_modules
+          V314_VIEWER_ROOT: ${{ runner.temp }}/v369-viewer
+          V314_VIEWER_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/v369-browser-test
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v369-viewer" artifacts/v369-browser-test
+          cp -a v312-work/. "$RUNNER_TEMP/v369-viewer/"
+          cp artifacts/v369-gltf-face-accessories/lam-v369-gltf-materials-full-face-candidate.glb "$RUNNER_TEMP/v369-viewer/lam-default.glb"
+          node --check tools/v352_apply_viewer_fill_lighting.cjs
+          V352_VIEWER_ROOT="$RUNNER_TEMP/v369-viewer" \
+            V352_PATCH_REPORT_PATH="$GITHUB_WORKSPACE/artifacts/v369-browser-test/viewer-lighting-patch-report.json" \
+            node tools/v352_apply_viewer_fill_lighting.cjs
+          cp "$RUNNER_TEMP/v369-viewer/index.html" artifacts/v369-browser-test/index-v369-experimental-lighting.html
+          node --check tools/v314_candidate_webgl_smoke.cjs
+          node tools/v314_candidate_webgl_smoke.cjs
+          test -s artifacts/v369-browser-test/v314-candidate-browser-report.json
+          test -s artifacts/v369-browser-test/v314-candidate-canvas.png
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("artifacts/v369-browser-test/v314-candidate-browser-report.json").read_text(encoding="utf-8"))
+          assert report["status"] == "PASS_BROWSER_WEBGL_CANDIDATE_ONLY", report
+          assert report["state"]["booted"] is True, report
+          assert report["state"]["rendererReady"] is True, report
+          assert report["state"]["webgl"] is True, report
+          assert report["state"]["activeAnimationName"] == "Lam_Idle_GentleSway", report
+          assert report["state"]["animationTime"] > 0.05, report
+          assert report["pageErrors"] == [] and report["consoleErrors"] == [], report
+          patch = json.loads(Path("artifacts/v369-browser-test/viewer-lighting-patch-report.json").read_text(encoding="utf-8"))
+          assert patch["status"] == "V352_TEMP_VIEWER_LIGHTING_PATCH_APPLIED" and patch["replacementCount"] == 1, patch
+          assert patch["modelUnchanged"] is True and patch["originalHtmlSha256"] != patch["patchedHtmlSha256"], patch
+          patched_html = Path("artifacts/v369-browser-test/index-v369-experimental-lighting.html").read_text(encoding="utf-8")
+          assert "const faceFill=new THREE.DirectionalLight(0xfff4e8,0.45)" in patched_html, "V369 browser capture did not use the V353 lighting patch"
+          print("V369_BROWSER_WEBGL_LIGHTING_NECKLACE=PASS_EXPERIMENTAL_ONLY")
+          print(json.dumps({"state": report["state"], "avatarDiagnostics": report.get("avatarDiagnostics"), "visualFraming": report["visualFraming"]}, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Package experimental V369 Windows preview and SHA-256
+        if: success()
+        run: |
+          set -euo pipefail
+          stage="$RUNNER_TEMP/ly-lam-lam-v369-preview-stage"
+          package="$RUNNER_TEMP/ly-lam-lam-v369-experimental-windows.zip"
+          mkdir -p "$stage/v312-work"
+          cp -a "$RUNNER_TEMP/v369-viewer/." "$stage/v312-work/"
+          cp artifacts/v369-gltf-face-accessories/lam-v369-gltf-materials-full-face-candidate.glb "$stage/v312-work/lam-default.glb"
+          cat > "$stage/v312-work/V369-EXPERIMENTAL-AVATAR.md" <<'MD'
+          # V369 Experimental Real Human-Topology Avatar — Not Yet Approved
+
+          This V369 candidate preserves the V365 face, hair, eye materials, silver necklace and body silhouette. Its only intended appearance change is the wardrobe asset swap guided by the saved Lam character sheet: replace the generic casualsuit with the CC0 female sportsuit clothing asset and add a shoes06 footwear asset. Clothing colors and silhouette must be judged from the included renders; the script does not claim the base sportsuit already matches cargo pants exactly. The V352 fill-light patch is preview-only and production main branch is unchanged. This is a diagnostic candidate, not the final avatar.
+
+          - This is an experimental human-mesh candidate, not a claim of final photorealism.
+          - It includes a subtle Lam_Idle_GentleSway common-root animation and 12 base-mesh facial morph names. The five separate face accessory meshes are restored with export-safe materials so the browser image can be compared against the V335 texture-only diagnostic.
+          - Voice/chat integration is not included in this avatar-only package.
+          - The production lam-default.glb in the main branch is unchanged.
+          - Compare V369 front/side/full-body, face/eye close-ups, necklace-closeup and browser capture against V365. Check whether the sportsuit gives a shorter sleeveless top and suitable lower-body silhouette, whether shoes sit on the floor, and whether the necklace/logo and face/hair are unchanged. Do not call the outfit reference-matched until the rendered silhouette, colors and footwear are reviewed. Do not promote without visual approval.
+          - Launch on Windows by double-clicking START-LAM-WINDOWS.bat after installing Node.js LTS; keep the console open.
+          MD
+          (
+            cd "$stage/v312-work"
+            node --check tools/start-windows-preview.cjs
+            node tools/start-windows-preview.cjs --check
+          )
+          python3 - "$stage" "$package" <<'PY'
+          import hashlib, pathlib, sys, zipfile
+          stage, package = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+          with zipfile.ZipFile(package, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=8) as archive:
+              for path in sorted(stage.rglob("*")):
+                  if path.is_file():
+                      archive.write(path, path.relative_to(stage).as_posix())
+          digest = hashlib.sha256(package.read_bytes()).hexdigest()
+          package.with_suffix(package.suffix + ".sha256").write_text(f"{digest}  {package.name}\n", encoding="ascii")
+          with zipfile.ZipFile(package, "r") as archive:
+              bad = archive.testzip()
+              if bad:
+                  raise SystemExit(f"ZIP integrity failed: {bad}")
+              names = archive.namelist()
+              for required in (
+                "v312-work/START-LAM-WINDOWS.bat",
+                "v312-work/V369-EXPERIMENTAL-AVATAR.md",
+                "v312-work/lam-default.glb",
+                "v312-work/vendor/three/build/three.module.js",
+              ):
+                  if required not in names:
+                      raise SystemExit(f"Missing package file: {required}")
+              html = archive.read("v312-work/index.html").decode("utf-8")
+              if "const faceFill=new THREE.DirectionalLight(0xfff4e8,0.45)" not in html:
+                  raise SystemExit("V369 packaged preview is missing the V353/V352 fill-lighting patch")
+          print(f"V369_WINDOWS_PREVIEW_BYTES={package.stat().st_size}")
+          print(f"V369_WINDOWS_PREVIEW_SHA256={digest}")
+          print("V369_WINDOWS_PREVIEW_ZIP_INTEGRITY=PASS")
+          PY
+
+      - name: Upload V369 model, editable scene, images, reports and preview package
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ly-lam-lam-v369-gltf-face-accessory-${{ github.run_id }}
+          path: |
+            artifacts/v369-gltf-face-accessories/
+            artifacts/v369-browser-test/
+            ${{ runner.temp }}/ly-lam-lam-v369-experimental-windows.zip
+            ${{ runner.temp }}/ly-lam-lam-v369-experimental-windows.zip.sha256
+            artifacts-v369-provenance.tmp
+          if-no-files-found: warn
+          retention-days: 14
