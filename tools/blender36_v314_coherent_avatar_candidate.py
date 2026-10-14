@@ -646,7 +646,7 @@ def main():
         "purpose": "Browser-visible coherent stylized candidate with shape keys and a tiny root transform idle; the separate rigged export remains diagnostic because its imported skin deformation is currently incorrect.",
         "blender_version": bpy.app.version_string,
         "mesh_count": len(meshes),
-        "candidate_version": "V316",
+        "candidate_version": "V317",
         "candidate_glb": os.path.basename(glb),
         "candidate_bytes": os.path.getsize(glb),
         "candidate_animation_names": candidate_animation_names,
@@ -679,7 +679,7 @@ def main():
     }
     with open(os.path.join(out, "lam-v314-candidate-report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
-    print("V316_VISIBLE_CANDIDATE=" + json.dumps(report, ensure_ascii=False))
+    print("V317_VISIBLE_CANDIDATE=" + json.dumps(report, ensure_ascii=False))
     assert report["candidate_version"] == "V316", report
     assert report["candidate_skin_count"] == 0, report
     assert report["candidate_animation_count"] == 1, report
