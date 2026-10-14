@@ -486,7 +486,7 @@ jobs:
             "body_shape_adjustment": report["body_shape_adjustment"],
             "face_shape_refinement": report["face_shape_refinement"],
             "face_framing_hair_audit": report["face_framing_hair_audit"],
-            "necklace_accessory_audit": report["necklace_accessory_audit"],,
+            "necklace_accessory_audit": report["necklace_accessory_audit"],
             "wardrobe_reference_audit": report["wardrobe_reference_audit"],
             "assets_added": report["assets_added"]
             "hair_material_audit": report["hair_material_audit"],
