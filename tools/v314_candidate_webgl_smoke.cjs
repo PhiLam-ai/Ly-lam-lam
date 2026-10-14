@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { chromium } = require('playwright');
+const { PNG } = require('pngjs');
 
 const appRoot = process.env.V314_VIEWER_ROOT ? path.resolve(process.env.V314_VIEWER_ROOT) : '';
 const evidenceDir = process.env.V314_VIEWER_EVIDENCE_DIR || path.resolve('artifacts/v314-browser-test');
@@ -66,6 +67,7 @@ function startServer() {
     consoleErrors: [],
     failedRequests: [],
     ignoredBenignAborts: [],
+    visualFraming: null,
     serverLogs: null
   };
   let server = null, browser = null, fatal = null;
@@ -117,6 +119,37 @@ function startServer() {
       };
     });
     await page.screenshot({ path: path.join(evidenceDir, 'v314-candidate-browser.png'), fullPage: true });
+    const canvasPath = path.join(evidenceDir, 'v314-candidate-canvas.png');
+    await page.locator('#stage canvas').screenshot({ path: canvasPath });
+    const canvasPng = PNG.sync.read(fs.readFileSync(canvasPath));
+    const rowCounts = new Array(canvasPng.height).fill(0);
+    const background = [16, 24, 39];
+    const threshold = 18;
+    for (let y = 0; y < canvasPng.height; y++) {
+      for (let x = 0; x < canvasPng.width; x++) {
+        const index = (y * canvasPng.width + x) * 4;
+        const delta = Math.max(
+          Math.abs(canvasPng.data[index] - background[0]),
+          Math.abs(canvasPng.data[index + 1] - background[1]),
+          Math.abs(canvasPng.data[index + 2] - background[2])
+        );
+        if (canvasPng.data[index + 3] > 16 && delta > threshold) rowCounts[y]++;
+      }
+    }
+    const minPixelsInRow = Math.max(3, Math.floor(canvasPng.width * 0.01));
+    const activeRows = rowCounts.map((count, index) => ({count, index})).filter(row => row.count >= minPixelsInRow);
+    const topRow = activeRows.length ? activeRows[0].index : null;
+    const bottomRow = activeRows.length ? activeRows[activeRows.length - 1].index : null;
+    const coverage = topRow === null ? 0 : (bottomRow - topRow + 1) / canvasPng.height;
+    report.visualFraming = {
+      canvas: { width: canvasPng.width, height: canvasPng.height },
+      topRow,
+      bottomRow,
+      verticalCoverage: Number(coverage.toFixed(4)),
+      thresholdRGBDelta: threshold,
+      classification: coverage >= 0.55 ? 'VISIBLE_HEIGHT_REASONABLE' : 'CROPPED_OR_OFF_CENTER',
+      note: 'Diagnostic pixel-coverage heuristic only; review canvas screenshot for actual anatomical quality.'
+    };
 
     if (!report.state.booted || report.state.failed) throw new Error('Candidate viewer did not boot: ' + report.state.status);
     if (!report.state.rendererReady || report.state.canvasCount !== 1 || !report.state.webgl) {
@@ -159,6 +192,7 @@ function startServer() {
     process.exitCode = 1;
   } else {
     console.log('PASS: candidate GLB loaded in mobile-sized Chromium viewport with WebGL and all 12 morphs reported.');
+    console.log('VISUAL_FRAMING_DIAGNOSTIC=' + JSON.stringify(report.visualFraming));
   }
 })().catch(error => {
   console.error(error.stack || error);
