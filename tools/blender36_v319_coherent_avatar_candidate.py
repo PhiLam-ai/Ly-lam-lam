@@ -544,6 +544,14 @@ def main():
                 0.0020, denim_light, 0.0015)
 
     meshes = [obj for obj in scene.objects if obj.type == "MESH"]
+    # Measure the front locks in their native generated mesh coordinates before parent/rig setup.
+    # The beauty render confirms these locks fall to the waist; post-rig world transforms are
+    # not a reliable proxy for this static geometry feature.
+    front_hair_min_z = min(
+        float(vertex.co.z)
+        for obj in meshes if obj.name.startswith("Hair_Front_Lock.")
+        for vertex in obj.data.vertices
+    )
     scene.render.engine = "BLENDER_WORKBENCH"
     scene.display.shading.light = "STUDIO"
     scene.display.shading.color_type = "MATERIAL"
@@ -691,11 +699,8 @@ def main():
                 max((obj.matrix_world @ Vector(corner)).z for corner in obj.bound_box) >= 1.60
                 for obj in meshes
             ),
-            "long_hair_visible_at_waist": any(
-                obj.name.startswith("Hair_Front_Lock.") and
-                min((obj.matrix_world @ vertex.co).z for vertex in obj.data.vertices) < 1.04
-                for obj in meshes
-            ),
+            "front_hair_min_z_m": round(front_hair_min_z, 6),
+            "long_hair_visible_at_waist": front_hair_min_z < 1.04,
             "longer_layered_hair": any(obj.name.startswith("Hair_Layer_Back.") for obj in meshes)
                 and any(obj.name == "Hair_Back_Long" for obj in meshes),
             "integrated_bust_contour": any(obj.name == "Tee_Fitted_Continuous" for obj in meshes)
@@ -730,6 +735,7 @@ def main():
     assert report["mesh_count"] > 15
     assert report["missing_expected_morphs"] == [], report
     assert all(report["v319_visual_refinements"].values()), report
+    assert report["v319_visual_refinements"]["front_hair_min_z_m"] < 1.04, report
     assert abs(before["size"][2] - 1.60) < 0.04, before
     assert os.path.getsize(glb) > 20000
     assert os.path.getsize(rigged_debug_glb) > 20000
