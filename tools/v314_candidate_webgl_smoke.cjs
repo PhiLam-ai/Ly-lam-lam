@@ -195,7 +195,7 @@ function startServer() {
       throw new Error('Viewer did not expose projected avatar bounds for camera validation.');
     }
     const projected = report.avatarDiagnostics.framing;
-    if (!projected.fitsNdc || projected.verticalCoverage < 0.58 || projected.verticalCoverage > 0.94 ||
+    if (!projected.fitsNdc || projected.verticalCoverage < 0.58 || projected.verticalCoverage > 0.80 ||
         Math.abs(projected.verticalCenter) > 0.22) {
       throw new Error('Projected model bounds are cropped or off-center: ' + JSON.stringify(projected));
     }
