@@ -11,7 +11,7 @@ const crypto = require('node:crypto');
 const root = path.resolve(__dirname, '..');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'lylamlam-three-0.160.0-'));
 function run(command, args) {
-  const result = cp.spawnSync(command, args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: 60000, shell: process.platform === 'win32' && /\\.(?:cmd|bat)$/i.test(command) });
+  const result = cp.spawnSync(command, args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: 60000, shell: process.platform === 'win32' && /\.(?:cmd|bat)$/i.test(command) });
   if (result.error) throw new Error(`${command}: ${result.error.message}`);
   if (result.status !== 0) {
     const details = [result.stdout, result.stderr].filter(Boolean).join('\n').trim();
