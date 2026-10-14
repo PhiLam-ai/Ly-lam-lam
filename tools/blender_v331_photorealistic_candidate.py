@@ -6,12 +6,14 @@ This is an experimental candidate. It never edits the production GLB.
 """
 import argparse
 import hashlib
+import importlib.util
 import json
 import math
 import os
 import shutil
 import subprocess
 import sys
+import types
 import traceback
 import zipfile
 from pathlib import Path
@@ -489,11 +491,32 @@ def main():
     mpfb_src = os.path.abspath(args.mpfb_src)
     if not os.path.isdir(os.path.join(mpfb_src, "mpfb")):
         raise FileNotFoundError("MPFB source package was not found under " + mpfb_src)
-    sys.path.insert(0, mpfb_src)
-    import mpfb
+    package_dir = Path(mpfb_src).resolve() / "mpfb"
+    # MPFB 2 is a Blender Extension. Loading it under the plain package name
+    # "mpfb" breaks bpy.utils.extension_path_user(); give it the canonical
+    # extension namespace so MPFB can resolve its own user-data directory.
+    for namespace in ("bl_ext", "bl_ext.user_default"):
+        if namespace not in sys.modules:
+            module = types.ModuleType(namespace)
+            module.__path__ = []
+            sys.modules[namespace] = module
+            if namespace == "bl_ext.user_default":
+                setattr(sys.modules["bl_ext"], "user_default", module)
+    extension_name = "bl_ext.user_default.mpfb"
+    spec = importlib.util.spec_from_file_location(
+        extension_name,
+        package_dir / "__init__.py",
+        submodule_search_locations=[str(package_dir)],
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Could not create MPFB extension import specification")
+    mpfb = importlib.util.module_from_spec(spec)
+    sys.modules[extension_name] = mpfb
+    spec.loader.exec_module(mpfb)
+    setattr(sys.modules["bl_ext.user_default"], "mpfb", mpfb)
     mpfb.register()
 
-    from mpfb.services import AssetService, HumanService, LocationService, TargetService, FaceService, ExportService, ObjectService
+    from bl_ext.user_default.mpfb.services import AssetService, HumanService, LocationService, TargetService, FaceService, ExportService, ObjectService
 
     pack_reports = []
     for archive in (args.system_pack, args.face_pack, args.viseme_pack):
