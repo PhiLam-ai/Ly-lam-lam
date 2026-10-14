@@ -213,7 +213,7 @@ jobs:
           }
 
           Path("automation-report/autonomous-work-report.json").write_text(
-              json.dumps(report, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+              json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
           lines = [
               "# Lý Lâm Lam — Autonomous Work Mode V1", "",
@@ -232,14 +232,14 @@ jobs:
               "| Check | Status | Detail |", "|---|---|---|"
           ]
           for item in base.get("checks", []):
-              detail = item.get("detail", "").replace("|", "\\|").replace("\\n", " ")
+              detail = item.get("detail", "").replace("|", "\\|").replace("\n", " ")
               lines.append(f"| {item['check']} | {item['status']} | {detail} |")
           lines += ["", "## Recommended next action", "", next_action, "",
                     "## Acceptance boundary", "",
                     "Automated checks do not prove avatar visual quality or iPhone Safari behavior. Human visual acceptance remains required before stable promotion.", ""]
-          Path("automation-report/REPORT.md").write_text("\\n".join(lines), encoding="utf-8")
+          Path("automation-report/REPORT.md").write_text("\n".join(lines), encoding="utf-8")
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
-              summary.write("\\n".join(lines) + "\\n")
+              summary.write("\n".join(lines) + "\n")
           print(json.dumps({
               "overall_status": overall,
               "preflight": report["preflight_status"],
