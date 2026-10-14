@@ -2,7 +2,7 @@
 
 ## Decision
 
-The pre-cleanup diagnostic reported **71/88 passing and 17 failures** on workflow run [38507117893](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38507117893). The failed set mixed a real runtime-policy inconsistency with tests pinned to a retired Pages build architecture. After the fixes and archiving described below, the new CI run [38507424599](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38507424599) passed the retained diagnostic suite **72/72**, the core suite **46/46**, and the actual-target suite **6/6**.
+The pre-cleanup diagnostic reported **71/88 passing and 17 failures** on workflow run [38507117893](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38507117893). The failed set mixed a real runtime-policy inconsistency with tests pinned to a retired Pages build architecture. After the fixes and archiving described below, the new CI run [38507518716](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38507518716) passed the retained diagnostic suite **72/72**, the core suite **46/46**, and the actual-target suite **6/6**.
 
 The real runtime policy issue was fixed on this PR branch: an omitted `three` query parameter now selects the bundled `./vendor/three/` modules, matching the diagnostics and the local-first contract. The V309 test now checks this current expression, and the V241 test was rewritten to verify the effective runtime behavior plus the actual vendor files rather than a build-time tool under the deployed package directory.
 
