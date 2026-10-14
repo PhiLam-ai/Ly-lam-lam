@@ -115,6 +115,8 @@ function startServer() {
         webgl,
         status: document.querySelector('#status-message')?.textContent ||
                 document.querySelector('#status')?.textContent || '',
+        activeAnimationName: window.__lyLamActiveAnimationName || '',
+        animationTime: Number(window.__lyLamAnimationTime || 0),
         viewport: { width: window.innerWidth, height: window.innerHeight }
       };
     });
