@@ -43,14 +43,15 @@
 - Next work: V337 should target a measured visual audit first (face/hair/eyes/body proportions and browser-versus-Blender consistency), then make one isolated improvement at a time and compare renders. Keep the production GLB unchanged.
 
 
-## V337 — baseline geometry and proportion audit (run in progress)
-- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38573301972
+## V337 — baseline geometry and proportion audit (second run in progress)
+- First run: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38573301972 — the avatar build/export succeeded, but the new audit gate failed because clothing masks removed thigh vertices from the skin mesh and arm vertices distorted some upper-body slices.
+- Fix committed: the audit now samples clothing geometry for the dressed hip/thigh bands, combines skin and clothing in torso bands, and filters central x ranges to reduce arm outliers.
+- Current run: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38573867301.
 - Script: `tools/blender_v337_avatar_geometry_audit.py`.
 - V337 intentionally keeps V336's geometry, skin material, hair, clothing, five face accessory meshes, morphs, and idle animation unchanged. Its goal is to measure a reproducible baseline before changing anatomy, rather than guessing at proportion values.
-- New report field `morphometric_audit` measures the neutral base mesh in eight height bands: head, neck, shoulders, upper torso, waist, hips, upper thigh, and mid-thigh. Each band records vertex count, z range, robust x width and robust y depth. Metrics are comparative diagnostics only, not proof of likeness or natural anatomy.
+- New report field `morphometric_audit` measures the dressed neutral model in eight height bands: head, neck, shoulders, upper torso, waist, hips, upper thigh, and mid-thigh. Each band records source, vertex count, z range, robust x width, and robust y depth. Metrics are comparative diagnostics only, not proof of likeness or natural anatomy.
 - Validation repeats the GLB and mobile-browser checks, requires all eight measurements to be valid, packages the editable Blender scene and renders, and generates a ZIP with a SHA-256 sidecar.
-- Production release decision remains **NOT APPROVED**. Once V337 finishes, compare its measured profile and screenshots; use those baseline values to plan one isolated visual change for V338.
-
+- Production release decision remains **NOT APPROVED**. After the current run finishes, compare its measured profile and screenshots; use those baseline values to plan one isolated visual change for V338.
 ## Safety and rollback
 - Do not copy any candidate GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
 - Keep all builds, renders, reports, and ZIPs under versioned candidate artifacts. Record SHA-256 only after checking actual bytes against the sidecar.
