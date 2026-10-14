@@ -1,11 +1,11 @@
-name: V331 Real Human-Topology Avatar Candidate
+name: V332 Baked Human Morph Avatar Candidate
 
 on:
   push:
     branches:
       - avatar/v313-repair-candidate-20261014
     paths:
-      - "tools/blender_v331_photorealistic_candidate.py"
+      - "tools/blender_v332_baked_avatar_candidate.py"
       - ".github/workflows/v331-mpfb-human-candidate.yml"
   workflow_dispatch:
 
@@ -143,7 +143,7 @@ jobs:
       - name: Build actual human-topology Lam candidate and render references
         run: |
           set -euo pipefail
-          mkdir -p artifacts/v331-real-human-candidate
+          mkdir -p artifacts/v332-baked-human-candidate
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
             --python tools/blender_v331_photorealistic_candidate.py -- \
             --mpfb-src "$RUNNER_TEMP/mpfb2/src" \
@@ -153,16 +153,16 @@ jobs:
             --output-dir "$GITHUB_WORKSPACE/artifacts/v331-real-human-candidate" \
             2>&1 | tee artifacts/v331-real-human-candidate/v331-build.log
           if grep -q "Traceback (most recent call last)" artifacts/v331-real-human-candidate/v331-build.log; then
-            echo "Blender Python traceback detected in V331 builder output."
+            echo "Blender Python traceback detected in V332 builder output."
             exit 1
           fi
-          test -s artifacts/v331-real-human-candidate/lam-v331-candidate-report.json
-          test -s artifacts/v331-real-human-candidate/lam-v331-real-human-candidate.glb
-          test -s artifacts/v331-real-human-candidate/lam-v331-real-human-candidate.blend
-          test -s artifacts/v331-real-human-candidate/v331-front.png
-          test -s artifacts/v331-real-human-candidate/v331-three-quarter.png
-          test -s artifacts/v331-real-human-candidate/v331-side.png
-          test -s artifacts/v331-real-human-candidate/v331-face-closeup.png
+          test -s artifacts/v331-real-human-candidate/lam-v332-candidate-report.json
+          test -s artifacts/v331-real-human-candidate/lam-v332-baked-human-candidate.glb
+          test -s artifacts/v331-real-human-candidate/lam-v332-baked-human-candidate.blend
+          test -s artifacts/v331-real-human-candidate/v332-front.png
+          test -s artifacts/v331-real-human-candidate/v332-three-quarter.png
+          test -s artifacts/v331-real-human-candidate/v332-side.png
+          test -s artifacts/v331-real-human-candidate/v332-face-closeup.png
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -171,16 +171,17 @@ jobs:
             "smile", "blink_left", "blink_right", "mouth_open", "jaw_open", "jaw_hinge",
             "brow_raise", "cheek_raise", "lip_press", "lip_fv", "lip_round", "tongue_tip"
           }
-          assert report["status"] == "EXPERIMENTAL_V331_REAL_HUMAN_TOPOLOGY_CANDIDATE_NOT_APPROVED", report
-          assert report["version"] == "V331", report
-          assert report["skin_count_gltf"] >= 1 and report["texture_count_gltf"] >= 1, report
+          assert report["status"] == "EXPERIMENTAL_V332_BAKED_HUMAN_MORPH_CANDIDATE_NOT_APPROVED", report
+          assert report["version"] == "V332", report
+          assert report["skin_count_gltf"] == 0 and report["texture_count_gltf"] >= 1, report
+          assert "baked" in report["body_skinning"].lower(), report
           assert report["material_count_gltf"] >= 1, report
           assert set(report["morph_names_gltf"]).issuperset(expected), report
           assert "Lam_Idle_GentleSway" in report["animation_names_gltf"], report
           assert abs(report["character_bounds_m"]["size"][2] - 1.60) < 0.06, report
           assert 1_000_000 < report["glb_bytes"] < 200_000_000, report
           assert len(report["renders"]) >= 4, report
-          print("V331_REAL_HUMAN_GLTF_GATE=PASS_EXPERIMENTAL_ONLY")
+          print("V332_BAKED_HUMAN_GLTF_GATE=PASS_EXPERIMENTAL_ONLY")
           print(json.dumps({
             "blender_version": report["blender_version"],
             "mpfb_version": report["mpfb_version"],
@@ -202,11 +203,11 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/v314-playwright" --no-save --package-lock=false playwright pngjs
           "$RUNNER_TEMP/v314-playwright/node_modules/.bin/playwright" install --with-deps chromium
 
-      - name: Check V331 GLB in mobile-sized Three.js viewer
+      - name: Check V332 GLB in mobile-sized Three.js viewer
         env:
           NODE_PATH: ${{ runner.temp }}/v314-playwright/node_modules
           V314_VIEWER_ROOT: ${{ runner.temp }}/v331-viewer
-          V314_VIEWER_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/v331-browser-test
+          V314_VIEWER_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/v332-browser-test
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/v331-viewer" artifacts/v331-browser-test
@@ -227,26 +228,26 @@ jobs:
           assert report["state"]["activeAnimationName"] == "Lam_Idle_GentleSway", report
           assert report["state"]["animationTime"] > 0.05, report
           assert report["pageErrors"] == [] and report["consoleErrors"] == [], report
-          print("V331_BROWSER_WEBGL_AND_SKELETAL_IDLE=PASS_EXPERIMENTAL_ONLY")
+          print("V332_BROWSER_WEBGL_AND_SKELETAL_IDLE=PASS_EXPERIMENTAL_ONLY")
           print(json.dumps({"state": report["state"], "avatarDiagnostics": report.get("avatarDiagnostics"), "visualFraming": report["visualFraming"]}, ensure_ascii=False, indent=2))
           PY
 
-      - name: Package experimental V331 Windows preview and SHA-256
+      - name: Package experimental V332 Windows preview and SHA-256
         if: success()
         run: |
           set -euo pipefail
-          stage="$RUNNER_TEMP/ly-lam-lam-v331-preview-stage"
-          package="$RUNNER_TEMP/ly-lam-lam-v331-experimental-windows.zip"
+          stage="$RUNNER_TEMP/ly-lam-lam-v332-preview-stage"
+          package="$RUNNER_TEMP/ly-lam-lam-v332-experimental-windows.zip"
           mkdir -p "$stage/v312-work"
           cp -a v312-work/. "$stage/v312-work/"
           cp artifacts/v331-real-human-candidate/lam-v331-real-human-candidate.glb "$stage/v312-work/lam-default.glb"
-          cat > "$stage/v312-work/V331-EXPERIMENTAL-AVATAR.md" <<'MD'
-          # V331 Experimental Real Human-Topology Avatar — Not Yet Approved
+          cat > "$stage/v312-work/V332-EXPERIMENTAL-AVATAR.md" <<'MD'
+          # V332 Experimental Real Human-Topology Avatar — Not Yet Approved
 
-          This package uses a MakeHuman/MPFB human-topology model with CC0 system assets, a skeletal rig, and twelve composite facial targets. It replaces the stylized blockout inside this ZIP only.
+          This package uses a MakeHuman/MPFB human-topology model with CC0 system assets. The exported mesh geometry is baked in its neutral evaluated pose, without a skeleton skin, and retains twelve composite facial morph targets. It replaces the stylized blockout inside this ZIP only.
 
           - This is an experimental human-mesh candidate, not a claim of final photorealism.
-          - It includes a subtle Lam_Idle_GentleSway skeletal animation and 12 runtime-facing morph names.
+          - It includes a subtle Lam_Idle_GentleSway common-root animation and 12 runtime-facing facial morph names.
           - Voice/chat integration is not included in this avatar-only package.
           - The production lam-default.glb in the main branch is unchanged.
           - Inspect the front, side, three-quarter and face-closeup images in the Actions artifact before approving a production replacement.
@@ -273,22 +274,22 @@ jobs:
               names = archive.namelist()
               for required in (
                 "v312-work/START-LAM-WINDOWS.bat",
-                "v312-work/V331-EXPERIMENTAL-AVATAR.md",
+                "v312-work/V332-EXPERIMENTAL-AVATAR.md",
                 "v312-work/lam-default.glb",
                 "v312-work/vendor/three/build/three.module.js",
               ):
                   if required not in names:
                       raise SystemExit(f"Missing package file: {required}")
-          print(f"V331_WINDOWS_PREVIEW_BYTES={package.stat().st_size}")
-          print(f"V331_WINDOWS_PREVIEW_SHA256={digest}")
-          print("V331_WINDOWS_PREVIEW_ZIP_INTEGRITY=PASS")
+          print(f"V332_WINDOWS_PREVIEW_BYTES={package.stat().st_size}")
+          print(f"V332_WINDOWS_PREVIEW_SHA256={digest}")
+          print("V332_WINDOWS_PREVIEW_ZIP_INTEGRITY=PASS")
           PY
 
-      - name: Upload V331 model, editable scene, images, reports and preview package
+      - name: Upload V332 model, editable scene, images, reports and preview package
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ly-lam-lam-v331-real-human-candidate-${{ github.run_id }}
+          name: ly-lam-lam-v332-baked-human-candidate-${{ github.run_id }}
           path: |
             artifacts/v331-real-human-candidate/
             artifacts/v331-browser-test/
