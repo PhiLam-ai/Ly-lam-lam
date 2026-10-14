@@ -6,14 +6,14 @@ on:
       - avatar/v313-repair-candidate-20261014
     paths:
       - "tools/blender_v343_gentle_smile_strength_test.py"
-      - ".github/workflows/v343-gentle-smile-base-pose.yml"
+      - ".github/workflows/v343-gentle-smile-strength-test.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: v343-gltf-face-accessory
+  group: v343-smile-strength-test
   cancel-in-progress: true
 
 jobs:
