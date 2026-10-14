@@ -2714,7 +2714,7 @@ def main():
         "status": "EXPERIMENTAL_V359_GLTFSKIN_FACE_ACCESSORY_CANDIDATE_NOT_APPROVED",
         "mpfb_source_commit": mpfb_source_commit,
         "version": "V359",
-        "purpose": "V359 preserves the V356 shape, gentle-smile baseline, dark hair, eye front-surface response, necklace and viewer-lighting setup, and applies a bounded warm-brown RGB adjustment only inside the existing iris areas of the brown_eye texture; alpha and UVs are preserved.",
+        "purpose": "V359 preserves the V358 chestnut iris pixels, hair, eye materials, necklace, gentle-smile baseline and V340 body silhouette; it adds a bounded frontal cheek-fullness and lower-jaw/chin taper to the base skin mesh before facial morphs are generated.",
         "blender_version": bpy.app.version_string,
         "mpfb_version": list(getattr(mpfb, "VERSION", ())),
         "mpfb_user_data": LocationService.get_user_data(),
