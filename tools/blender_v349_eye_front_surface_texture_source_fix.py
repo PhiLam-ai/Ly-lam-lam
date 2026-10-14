@@ -2042,6 +2042,21 @@ def main():
     eye_texture_index = gltf_eye_pbr.get("baseColorTexture", {}).get("index")
     if eye_texture_index is None:
         raise RuntimeError("V349 eye diffuse texture link missing from exported GLB")
+    # Resolve the base eye image source before writing its audit record.
+    # Texture-object indices may differ even when their embedded image is shared.
+    gltf_textures = gltf.get("textures", [])
+    gltf_images = gltf.get("images", [])
+
+    def texture_image_source_index(texture_index, label):
+        if texture_index is None or texture_index < 0 or texture_index >= len(gltf_textures):
+            raise RuntimeError("V349 " + label + " texture index is invalid: " + repr(texture_index))
+        source_index = gltf_textures[texture_index].get("source")
+        if source_index is None or source_index < 0 or source_index >= len(gltf_images):
+            raise RuntimeError("V349 " + label + " texture has no valid image source: " + repr(gltf_textures[texture_index]))
+        return source_index
+
+    eye_image_source_index = texture_image_source_index(eye_texture_index, "base eye")
+    eye_image_name = gltf_images[eye_image_source_index].get("name", "")
     if abs(float(gltf_eye_pbr.get("roughnessFactor", 1.0)) - 0.32) > 0.03:
         raise RuntimeError("V349 eye roughness factor did not export as intended: " + repr(gltf_eye_pbr))
     gltf_eye_material_audit = {
@@ -2077,23 +2092,8 @@ def main():
     front_specular_extension = gltf_eye_front_extensions.get("KHR_materials_specular", {})
     front_clearcoat_extension = gltf_eye_front_extensions.get("KHR_materials_clearcoat", {})
     front_texture_index = gltf_eye_front_pbr.get("baseColorTexture", {}).get("index")
-    # glTF texture indices are not image identifiers. The exporter may create
-    # two texture objects that share one image source but have different sampler
-    # or material state, so compare textures[].source rather than texture indices.
-    gltf_textures = gltf.get("textures", [])
-    gltf_images = gltf.get("images", [])
-
-    def texture_image_source_index(texture_index, label):
-        if texture_index is None or texture_index < 0 or texture_index >= len(gltf_textures):
-            raise RuntimeError("V349 " + label + " texture index is invalid: " + repr(texture_index))
-        source_index = gltf_textures[texture_index].get("source")
-        if source_index is None or source_index < 0 or source_index >= len(gltf_images):
-            raise RuntimeError("V349 " + label + " texture has no valid image source: " + repr(gltf_textures[texture_index]))
-        return source_index
-
-    eye_image_source_index = texture_image_source_index(eye_texture_index, "base eye")
+    # Compare embedded image sources rather than texture-object indices.
     front_image_source_index = texture_image_source_index(front_texture_index, "front eye")
-    eye_image_name = gltf_images[eye_image_source_index].get("name", "")
     front_image_name = gltf_images[front_image_source_index].get("name", "")
     if front_image_source_index != eye_image_source_index:
         raise RuntimeError(
