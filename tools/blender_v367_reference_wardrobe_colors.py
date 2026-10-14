@@ -3278,6 +3278,56 @@ def main():
         "processed_rgb_mean_linear": processed_rgb_mean,
         "embedded_darkening_verified": embedded_darkening_verified,
     }
+
+    gltf_wardrobe_material_audits = []
+    for role in ("sportsuit", "shoes"):
+        material_name = "V367_GltfWardrobe_" + role
+        matches = [material for material in gltf.get("materials", []) if material.get("name") == material_name]
+        if len(matches) != 1:
+            raise RuntimeError("V367 expected one exported wardrobe material " + material_name)
+        wardrobe_material = matches[0]
+        wardrobe_pbr = wardrobe_material.get("pbrMetallicRoughness", {})
+        texture_index = wardrobe_pbr.get("baseColorTexture", {}).get("index")
+        gltf_textures = gltf.get("textures", [])
+        gltf_images = gltf.get("images", [])
+        if texture_index is None or texture_index >= len(gltf_textures):
+            raise RuntimeError("V367 wardrobe material has no valid base-color texture: " + material_name)
+        texture_row = gltf_textures[texture_index]
+        image_index = texture_row.get("source")
+        if image_index is None or image_index >= len(gltf_images):
+            raise RuntimeError("V367 wardrobe texture has no valid embedded image source: " + repr(texture_row))
+        payload, mime_type, image_label = extract_glb_embedded_image_bytes(glb_path, gltf, image_index)
+        if mime_type != "image/png":
+            raise RuntimeError("V367 expected PNG wardrobe texture after export: " + repr({"role": role, "mime": mime_type}))
+        embedded_rgb_mean, embedded_alpha_mean = mean_rgb_linear_from_png_bytes(payload, output)
+        source_audit = next((item["image_audit"] for item in wardrobe_color_audit["materials"] if item["role"] == role), None)
+        if source_audit is None:
+            raise RuntimeError("V367 missing source wardrobe texture audit for role " + role)
+        expected_rgb_mean = float(source_audit["processed_rgb_mean_linear"])
+        expected_alpha_mean = float(source_audit["processed_alpha_mean"])
+        if abs(embedded_rgb_mean - expected_rgb_mean) > 0.08:
+            raise RuntimeError("V367 embedded wardrobe RGB does not match processed texture: " + repr({"role": role, "expected_mean": expected_rgb_mean, "embedded_mean": embedded_rgb_mean}))
+        if abs(embedded_alpha_mean - expected_alpha_mean) > 0.03:
+            raise RuntimeError("V367 embedded wardrobe alpha changed unexpectedly: " + repr({"role": role, "expected_mean": expected_alpha_mean, "embedded_mean": embedded_alpha_mean}))
+        if float(wardrobe_pbr.get("roughnessFactor", 0.0)) < 0.70:
+            raise RuntimeError("V367 wardrobe roughness not preserved in glTF: " + repr(wardrobe_pbr))
+        gltf_wardrobe_material_audits.append({
+            "role": role,
+            "name": wardrobe_material.get("name"),
+            "roughness_factor": wardrobe_pbr.get("roughnessFactor"),
+            "texture_index": texture_index,
+            "image_index": image_index,
+            "embedded_image_label": image_label,
+            "embedded_image_mime_type": mime_type,
+            "source_processed_rgb_mean_linear": expected_rgb_mean,
+            "embedded_rgb_mean_linear": embedded_rgb_mean,
+            "source_processed_alpha_mean": expected_alpha_mean,
+            "embedded_alpha_mean": embedded_alpha_mean,
+            "embedded_texture_matches_processed_pixels": True,
+        })
+    if {item["role"] for item in gltf_wardrobe_material_audits} != {"sportsuit", "shoes"}:
+        raise RuntimeError("V367 did not export both processed wardrobe materials")
+
     eye_materials = [
         material for material in gltf.get("materials", [])
         if material.get("name") == "V367_GltfCompatibleAccessory_high-poly"
@@ -3491,6 +3541,7 @@ def main():
         "assets_added": assets_added,
         "wardrobe_reference_audit": wardrobe_reference_audit,
         "wardrobe_color_audit": wardrobe_color_audit,
+        "gltf_wardrobe_material_audits": gltf_wardrobe_material_audits,
         "skin_materials": skin_materials,
         "hair_material_audit": hair_material_audit,
         "default_face_pose": default_face_pose,
