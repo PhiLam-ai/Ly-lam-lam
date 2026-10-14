@@ -91,7 +91,7 @@ jobs:
           assert report["makehuman_system_assets_cc0.zip"]["contains_pack_manifest"], report
           assert report["faceunits01.zip"]["contains_pack_manifest"], report
           print(json.dumps(report, ensure_ascii=False, indent=2))
-          Path("artifacts-v331-provenance.tmp").write_text(json.dumps(report, indent=2), encoding="utf-8")
+          Path("artifacts-v332-provenance.tmp").write_text(json.dumps(report, indent=2), encoding="utf-8")
           PY
 
       - name: Persist verified asset packs even if later build steps fail
@@ -145,28 +145,28 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/v332-baked-human-candidate
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
-            --python tools/blender_v331_photorealistic_candidate.py -- \
+            --python tools/blender_v332_baked_avatar_candidate.py -- \
             --mpfb-src "$RUNNER_TEMP/mpfb2/src" \
             --system-pack "$GITHUB_WORKSPACE/.cache/v331-mpfb-assets/makehuman_system_assets_cc0.zip" \
             --face-pack "$GITHUB_WORKSPACE/.cache/v331-mpfb-assets/faceunits01.zip" \
             --viseme-pack "$GITHUB_WORKSPACE/.cache/v331-mpfb-assets/visemes01.zip" \
-            --output-dir "$GITHUB_WORKSPACE/artifacts/v331-real-human-candidate" \
-            2>&1 | tee artifacts/v331-real-human-candidate/v331-build.log
-          if grep -q "Traceback (most recent call last)" artifacts/v331-real-human-candidate/v331-build.log; then
+            --output-dir "$GITHUB_WORKSPACE/artifacts/v332-baked-human-candidate" \
+            2>&1 | tee artifacts/v332-baked-human-candidate/v332-build.log
+          if grep -q "Traceback (most recent call last)" artifacts/v332-baked-human-candidate/v332-build.log; then
             echo "Blender Python traceback detected in V332 builder output."
             exit 1
           fi
-          test -s artifacts/v331-real-human-candidate/lam-v332-candidate-report.json
-          test -s artifacts/v331-real-human-candidate/lam-v332-baked-human-candidate.glb
-          test -s artifacts/v331-real-human-candidate/lam-v332-baked-human-candidate.blend
-          test -s artifacts/v331-real-human-candidate/v332-front.png
-          test -s artifacts/v331-real-human-candidate/v332-three-quarter.png
-          test -s artifacts/v331-real-human-candidate/v332-side.png
-          test -s artifacts/v331-real-human-candidate/v332-face-closeup.png
+          test -s artifacts/v332-baked-human-candidate/lam-v332-candidate-report.json
+          test -s artifacts/v332-baked-human-candidate/lam-v332-baked-human-candidate.glb
+          test -s artifacts/v332-baked-human-candidate/lam-v332-baked-human-candidate.blend
+          test -s artifacts/v332-baked-human-candidate/v332-front.png
+          test -s artifacts/v332-baked-human-candidate/v332-three-quarter.png
+          test -s artifacts/v332-baked-human-candidate/v332-side.png
+          test -s artifacts/v332-baked-human-candidate/v332-face-closeup.png
           python3 - <<'PY'
           import json
           from pathlib import Path
-          report = json.loads(Path("artifacts/v331-real-human-candidate/lam-v331-candidate-report.json").read_text(encoding="utf-8"))
+          report = json.loads(Path("artifacts/v332-baked-human-candidate/lam-v332-candidate-report.json").read_text(encoding="utf-8"))
           expected = {
             "smile", "blink_left", "blink_right", "mouth_open", "jaw_open", "jaw_hinge",
             "brow_raise", "cheek_raise", "lip_press", "lip_fv", "lip_round", "tongue_tip"
@@ -206,21 +206,21 @@ jobs:
       - name: Check V332 GLB in mobile-sized Three.js viewer
         env:
           NODE_PATH: ${{ runner.temp }}/v314-playwright/node_modules
-          V314_VIEWER_ROOT: ${{ runner.temp }}/v331-viewer
+          V314_VIEWER_ROOT: ${{ runner.temp }}/v332-viewer
           V314_VIEWER_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/v332-browser-test
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/v331-viewer" artifacts/v331-browser-test
-          cp -a v312-work/. "$RUNNER_TEMP/v331-viewer/"
-          cp artifacts/v331-real-human-candidate/lam-v331-real-human-candidate.glb "$RUNNER_TEMP/v331-viewer/lam-default.glb"
+          mkdir -p "$RUNNER_TEMP/v332-viewer" artifacts/v332-browser-test
+          cp -a v312-work/. "$RUNNER_TEMP/v332-viewer/"
+          cp artifacts/v332-baked-human-candidate/lam-v332-baked-human-candidate.glb "$RUNNER_TEMP/v332-viewer/lam-default.glb"
           node --check tools/v314_candidate_webgl_smoke.cjs
           node tools/v314_candidate_webgl_smoke.cjs
-          test -s artifacts/v331-browser-test/v314-candidate-browser-report.json
-          test -s artifacts/v331-browser-test/v314-candidate-canvas.png
+          test -s artifacts/v332-browser-test/v314-candidate-browser-report.json
+          test -s artifacts/v332-browser-test/v314-candidate-canvas.png
           python3 - <<'PY'
           import json
           from pathlib import Path
-          report = json.loads(Path("artifacts/v331-browser-test/v314-candidate-browser-report.json").read_text(encoding="utf-8"))
+          report = json.loads(Path("artifacts/v332-browser-test/v314-candidate-browser-report.json").read_text(encoding="utf-8"))
           assert report["status"] == "PASS_BROWSER_WEBGL_CANDIDATE_ONLY", report
           assert report["state"]["booted"] is True, report
           assert report["state"]["rendererReady"] is True, report
@@ -240,7 +240,7 @@ jobs:
           package="$RUNNER_TEMP/ly-lam-lam-v332-experimental-windows.zip"
           mkdir -p "$stage/v312-work"
           cp -a v312-work/. "$stage/v312-work/"
-          cp artifacts/v331-real-human-candidate/lam-v331-real-human-candidate.glb "$stage/v312-work/lam-default.glb"
+          cp artifacts/v332-baked-human-candidate/lam-v332-baked-human-candidate.glb "$stage/v312-work/lam-default.glb"
           cat > "$stage/v312-work/V332-EXPERIMENTAL-AVATAR.md" <<'MD'
           # V332 Experimental Real Human-Topology Avatar — Not Yet Approved
 
@@ -291,10 +291,10 @@ jobs:
         with:
           name: ly-lam-lam-v332-baked-human-candidate-${{ github.run_id }}
           path: |
-            artifacts/v331-real-human-candidate/
-            artifacts/v331-browser-test/
-            ${{ runner.temp }}/ly-lam-lam-v331-experimental-windows.zip
-            ${{ runner.temp }}/ly-lam-lam-v331-experimental-windows.zip.sha256
-            artifacts-v331-provenance.tmp
+            artifacts/v332-baked-human-candidate/
+            artifacts/v332-browser-test/
+            ${{ runner.temp }}/ly-lam-lam-v332-experimental-windows.zip
+            ${{ runner.temp }}/ly-lam-lam-v332-experimental-windows.zip.sha256
+            artifacts-v332-provenance.tmp
           if-no-files-found: warn
           retention-days: 14
