@@ -2714,7 +2714,7 @@ def main():
         "status": "EXPERIMENTAL_V360_GLTFSKIN_FACE_ACCESSORY_CANDIDATE_NOT_APPROVED",
         "mpfb_source_commit": mpfb_source_commit,
         "version": "V360",
-        "purpose": "V360 preserves the V358 chestnut iris pixels, hair, eye materials, necklace, gentle-smile baseline and V340 body silhouette; it adds a bounded frontal cheek-fullness and lower-jaw/chin taper to the base skin mesh before facial morphs are generated.",
+        "purpose": "V360 builds on the measured V359 face-profile baseline and strengthens the same smooth frontal cheek/jaw/chin taper (cheek +3.5%, jaw -8%, chin -4% max) with a 6 mm displacement cap; V358 iris pixels/alpha/UVs, eye materials, hair, necklace, smile controls and V340 body silhouette remain unchanged.",
         "blender_version": bpy.app.version_string,
         "mpfb_version": list(getattr(mpfb, "VERSION", ())),
         "mpfb_user_data": LocationService.get_user_data(),
