@@ -35,3 +35,17 @@ Build an isolated coordinate/transform repair experiment against a copy of the V
 - SHA-256 manifest: pending
 - Visual acceptance: blocked
 - iPhone acceptance: pending
+
+
+## Latest diagnostic evidence — 2026-10-14
+
+- Per-mesh bind-pose localization workflow: [run 38497152314](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38497152314) — **workflow success**; diagnostic artifact only, not a repaired avatar.
+- Artifact contains front render of the original GLB and a separate coherent-body prototype. Original render confirms the head, arm pieces, hands, pelvis and lower legs are visibly disconnected.
+- The original GLB still has 85 mesh objects, one armature and 17 bones. Skin-weight audit reports no unweighted meshes, no meshes missing an armature modifier, and no vertex-group names missing from the armature. This narrows the issue: the visible failure is not explained by absent armature modifiers or missing bone-name mappings alone.
+- Per-mesh weighted-centroid heuristic flags facial meshes against `Lam_Joint_Hips`: left/right brows about 4.24 units, eyes about 4.06, mouth about 3.78. These are diagnostic clues only; facial meshes can have legitimate rigid weights and centroid distance is not a proof of incorrect binding.
+- The original mesh bounds span roughly Z=-2.74 at feet to Z=6.28 at hair, while torso is Z=1.5..4.4. Several body regions are not spatially connected in the render. This strongly warrants investigation of object transforms, imported coordinate basis, and skin bind matrices before changing weights.
+- The coherent-body prototype is visually connected and approximately 1.584 m tall, but it is **not releasable**: the report explicitly says the production armature and 12 facial morphs have not been transferred. Do not replace the production GLB with it.
+
+## Next safe action
+
+Build a transform/bind-matrix comparison report per mesh: object transform, armature modifier settings, skin/bind relationship, and local-vs-world bounds. Use that report to select a reversible repair on a copy. Do not move the original GLB parts or reweight production meshes based solely on centroid distance.
