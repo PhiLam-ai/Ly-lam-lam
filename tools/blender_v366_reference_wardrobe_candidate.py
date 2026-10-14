@@ -244,14 +244,24 @@ def body_profile_audit(basemesh, clothing_objects):
         z_low = z_min + height * low_fraction
         z_high = z_min + height * high_fraction
         candidates = body_points if source == "skin" else garment_points if source == "clothing" else body_points + garment_points
+        actual_source = source
         slab = [point for point in candidates if z_low <= point.z <= z_high]
         if x_limit is not None:
             slab = [point for point in slab if abs(point.x) <= x_limit]
+        # The V366 outfit is a different garment asset; if a crop hem leaves a
+        # height band uncovered, measure the visible body there instead of
+        # falsely failing due to absent clothing vertices.
+        if len(slab) < 20 and source == "clothing":
+            candidates = body_points + garment_points
+            slab = [point for point in candidates if z_low <= point.z <= z_high]
+            if x_limit is not None:
+                slab = [point for point in slab if abs(point.x) <= x_limit]
+            actual_source = "skin_or_clothing_fallback"
         if len(slab) < 20:
             regions[name] = {
                 "status": "INSUFFICIENT_VERTICES",
                 "vertex_count": len(slab),
-                "source": source,
+                "source": actual_source,
                 "central_x_limit_m": x_limit,
                 "z_band_m": [round(z_low, 5), round(z_high, 5)],
             }
