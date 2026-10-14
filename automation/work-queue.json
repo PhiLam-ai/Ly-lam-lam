@@ -27,7 +27,9 @@
       "approval_required": false,
       "automated_in_v1": true,
       "acceptance": [
-        "all tests in v312-work/tests pass"
+        "blocking core unit tests pass",
+        "GLB structural tests pass",
+        "broader package-integrity tests are run and reported separately, with any version-mismatch warnings retained"
       ]
     },
     {
@@ -70,6 +72,20 @@
         "spending cap defined",
         "branch-only patch policy",
         "tests and human review gate pass"
+      ]
+    },
+    {
+      "id": "AUTO-004",
+      "title": "Align legacy package-integrity checks with the v312-work deployment package",
+      "type": "test_harness_maintenance",
+      "priority": 3,
+      "risk": "low",
+      "approval_required": false,
+      "automated_in_v1": "diagnostic only",
+      "acceptance": [
+        "each assertion is tied to the intended package target",
+        "known missing .nojekyll/deploy.yml and import-map mismatch assumptions are either fixed or explicitly retired",
+        "no test is deleted only to hide a failure"
       ]
     }
   ]
