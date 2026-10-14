@@ -460,7 +460,7 @@ def make_composite_morphs(objects):
     return report
 
 
-def apply_default_smile_base_pose(character_objects, strength=0.12):
+def apply_default_smile_base_pose(character_objects, strength=0.20):
     """Bake a small fraction of the existing smile shape into the neutral pose.
 
     The same offset is added to Basis and every non-smile key. The smile target
