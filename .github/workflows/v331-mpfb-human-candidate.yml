@@ -123,7 +123,7 @@ jobs:
       - name: Install MPFB into Blender user extension repository
         run: |
           set -euo pipefail
-          extension_root="$HOME/.config/blender/4.5/extensions/.user/user_default"
+          extension_root="$HOME/.config/blender/4.5/extensions/user_default"
           extension_package="$extension_root/mpfb"
           mkdir -p "$extension_root"
           rm -rf "$extension_package"
