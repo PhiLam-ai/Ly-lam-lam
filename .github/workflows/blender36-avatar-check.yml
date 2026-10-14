@@ -24,6 +24,7 @@ on:
       - "tools/blender36_v313_evaluated_mesh_audit.py"
       - "tools/blender36_v313_unskinned_diagnostic.py"
       - "tools/blender36_v314_coherent_avatar_candidate.py"
+      - "tools/v314_candidate_webgl_smoke.cjs"
       - "tools/blender36_v313_rest_pose_comparison.py"
       - "tools/blender36_v313_pose_reset_experiment.py"
       - "tools/blender36_v313_named_weight_audit.py"
@@ -341,7 +342,8 @@ jobs:
           from pathlib import Path
           p = Path("artifacts/v314-coherent-avatar-candidate/lam-v314-candidate-report.json")
           report = json.loads(p.read_text(encoding="utf-8"))
-          assert report["status"] == "EXPERIMENTAL_COHERENT_STATIC_CANDIDATE_NOT_APPROVED", report
+          assert report["status"] == "EXPERIMENTAL_COHERENT_RIGGED_CANDIDATE_NOT_APPROVED", report
+          assert report["candidate_version"] == "V315", report
           assert report["armature_count"] == 1, report
           assert report["armature_bone_count"] == 17, report
           assert report["animation_clip_count"] == 1, report
@@ -353,6 +355,46 @@ jobs:
           assert report["candidate_bytes"] > 20000, report
           print("V314_COHERENT_AVATAR_CANDIDATE=PASS_EXPERIMENTAL_ONLY")
           print(json.dumps(report, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Install isolated Playwright dependencies for candidate browser test
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/v314-playwright" --no-save --package-lock=false playwright
+          "$RUNNER_TEMP/v314-playwright/node_modules/.bin/playwright" install --with-deps chromium
+
+      - name: Load the V315 candidate GLB in mobile-sized Three.js viewer
+        env:
+          NODE_PATH: ${{ runner.temp }}/v314-playwright/node_modules
+          V314_VIEWER_ROOT: ${{ runner.temp }}/v314-viewer
+          V314_VIEWER_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/v314-browser-test
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v314-viewer" artifacts/v314-browser-test
+          cp -a v312-work/. "$RUNNER_TEMP/v314-viewer/"
+          cp "$GITHUB_WORKSPACE/artifacts/v314-coherent-avatar-candidate/lam-v314-coherent-avatar-candidate.glb" "$RUNNER_TEMP/v314-viewer/lam-default.glb"
+          node --check tools/v314_candidate_webgl_smoke.cjs
+          node tools/v314_candidate_webgl_smoke.cjs
+          test -s artifacts/v314-browser-test/v314-candidate-browser-report.json
+          test -s artifacts/v314-browser-test/v314-candidate-browser.png
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/v314-browser-test/v314-candidate-browser-report.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["status"] == "PASS_BROWSER_WEBGL_CANDIDATE_ONLY", report
+          assert report["state"]["booted"] is True, report
+          assert report["state"]["rendererReady"] is True, report
+          assert report["state"]["webgl"] is True, report
+          assert report["state"]["canvasCount"] == 1, report
+          assert "12 morph" in report["state"]["status"], report
+          assert any(item["status"] == 200 for item in report["glbResponses"]), report
+          assert report["pageErrors"] == [], report
+          assert report["consoleErrors"] == [], report
+          print("V315_BROWSER_WEBGL_SMOKE=PASS_EXPERIMENTAL_ONLY")
+          print(json.dumps({"state": report["state"], "glbResponses": report["glbResponses"],
+            "requiredLocalAssetResponses": report["requiredLocalAssetResponses"],
+            "failedRequests": report["failedRequests"]}, ensure_ascii=False, indent=2))
           PY
 
       - name: Compare V313 rest pose with mesh bounds
