@@ -105,6 +105,138 @@ def render(scene, cam, path):
     scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
 
+
+def build_rest_pose_rig(meshes):
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.ops.object.armature_add(location=(0, 0, 0))
+    rig = bpy.context.object
+    rig.name = "Lam_Humanoid_Root"
+    rig.data.name = "Lam_Humanoid_Rig"
+    bpy.ops.object.mode_set(mode="EDIT")
+    for old in list(rig.data.edit_bones):
+        rig.data.edit_bones.remove(old)
+
+    bone_specs = {
+        "Lam_Joint_Hips": ((0, 0, 0.76), (0, 0, 0.93), None),
+        "Lam_Joint_Spine": ((0, 0, 0.93), (0, 0, 1.105), "Lam_Joint_Hips"),
+        "Lam_Joint_Chest": ((0, 0, 1.105), (0, 0, 1.285), "Lam_Joint_Spine"),
+        "Lam_Joint_Neck": ((0, 0, 1.285), (0, 0, 1.355), "Lam_Joint_Chest"),
+        "Lam_Joint_Head": ((0, 0, 1.355), (0, 0, 1.565), "Lam_Joint_Neck"),
+        "Lam_Joint_LeftShoulder": ((-0.145, 0, 1.278), (-0.232, -0.012, 0.985), "Lam_Joint_Chest"),
+        "Lam_Joint_LeftElbow": ((-0.232, -0.012, 0.985), (-0.245, -0.036, 0.735), "Lam_Joint_LeftShoulder"),
+        "Lam_Joint_LeftWrist": ((-0.245, -0.036, 0.735), (-0.246, -0.043, 0.65), "Lam_Joint_LeftElbow"),
+        "Lam_Joint_RightShoulder": ((0.145, 0, 1.278), (0.232, -0.012, 0.985), "Lam_Joint_Chest"),
+        "Lam_Joint_RightElbow": ((0.232, -0.012, 0.985), (0.245, -0.036, 0.735), "Lam_Joint_RightShoulder"),
+        "Lam_Joint_RightWrist": ((0.245, -0.036, 0.735), (0.246, -0.043, 0.65), "Lam_Joint_RightElbow"),
+        "Lam_Joint_LeftHip": ((-0.102, 0, 0.88), (-0.105, 0, 0.425), "Lam_Joint_Hips"),
+        "Lam_Joint_LeftKnee": ((-0.105, 0, 0.425), (-0.108, 0, 0.13), "Lam_Joint_LeftHip"),
+        "Lam_Joint_LeftAnkle": ((-0.108, 0, 0.13), (-0.108, 0, 0.045), "Lam_Joint_LeftKnee"),
+        "Lam_Joint_RightHip": ((0.102, 0, 0.88), (0.105, 0, 0.425), "Lam_Joint_Hips"),
+        "Lam_Joint_RightKnee": ((0.105, 0, 0.425), (0.108, 0, 0.13), "Lam_Joint_RightHip"),
+        "Lam_Joint_RightAnkle": ((0.108, 0, 0.13), (0.108, 0, 0.045), "Lam_Joint_RightKnee")
+    }
+    edit_bones = {}
+    for name, (head_pos, tail_pos, parent_name) in bone_specs.items():
+        bone = rig.data.edit_bones.new(name)
+        bone.head = head_pos
+        bone.tail = tail_pos
+        edit_bones[name] = bone
+    for name, (_, _, parent_name) in bone_specs.items():
+        if parent_name:
+            bone = edit_bones[name]
+            bone.parent = edit_bones[parent_name]
+            if (bone.head - bone.parent.tail).length < 1e-5:
+                bone.use_connect = True
+    bpy.ops.object.mode_set(mode="OBJECT")
+    rig.show_in_front = True
+    rig.display_type = "WIRE"
+
+    all_bone_names = list(bone_specs)
+    for obj in meshes:
+        original_world = obj.matrix_world.copy()
+        groups = {name: obj.vertex_groups.new(name=name) for name in all_bone_names}
+        name = obj.name
+        for index, vertex in enumerate(obj.data.vertices):
+            world = original_world @ vertex.co
+            x, z = float(world.x), float(world.z)
+            weights = {}
+
+            def mix(a, b, t):
+                t = max(0.0, min(1.0, t))
+                weights[a] = weights.get(a, 0.0) + (1.0 - t)
+                weights[b] = weights.get(b, 0.0) + t
+
+            if name == "Tee_Fitted_Continuous":
+                if z < 1.02:
+                    mix("Lam_Joint_Hips", "Lam_Joint_Spine", (z - 0.93) / 0.09)
+                elif z < 1.19:
+                    mix("Lam_Joint_Spine", "Lam_Joint_Chest", (z - 1.02) / 0.17)
+                else:
+                    weights["Lam_Joint_Chest"] = 1.0
+            elif name == "Denim_Shorts_Continuous":
+                side = "Lam_Joint_LeftHip" if x < 0 else "Lam_Joint_RightHip"
+                if z > 0.965:
+                    weights["Lam_Joint_Hips"] = 0.7
+                    weights[side] = 0.3
+                else:
+                    weights["Lam_Joint_Hips"] = 0.35
+                    weights[side] = 0.65
+            elif name.startswith("Leg_Continuous_"):
+                side = "Left" if name.endswith("_L") else "Right"
+                hip, knee, ankle = (f"Lam_Joint_{side}Hip", f"Lam_Joint_{side}Knee", f"Lam_Joint_{side}Ankle")
+                if z >= 0.62:
+                    weights[hip] = 1.0
+                elif z >= 0.34:
+                    mix(hip, knee, (0.62 - z) / 0.28)
+                else:
+                    mix(knee, ankle, (0.34 - z) / 0.21)
+            elif name.startswith("Arm_Continuous_"):
+                side = "Left" if name.endswith("_L") else "Right"
+                shoulder, elbow, wrist = (f"Lam_Joint_{side}Shoulder", f"Lam_Joint_{side}Elbow", f"Lam_Joint_{side}Wrist")
+                if z >= 1.02:
+                    weights[shoulder] = 1.0
+                elif z >= 0.75:
+                    mix(shoulder, elbow, (1.02 - z) / 0.27)
+                elif z >= 0.66:
+                    mix(elbow, wrist, (0.75 - z) / 0.09)
+                else:
+                    weights[wrist] = 1.0
+            elif name.startswith(("Sneaker_", "Lace_")):
+                side = "Left" if (".L" in name or "_L_" in name) else "Right"
+                weights[f"Lam_Joint_{side}Ankle"] = 1.0
+            elif name.startswith("Shorts_Pocket."):
+                side = "Left" if name.endswith(".L") else "Right"
+                weights[f"Lam_Joint_{side}Hip"] = 1.0
+            elif name.startswith("Tee_Hem_Stitch."):
+                weights["Lam_Joint_Spine"] = 1.0
+            elif name.startswith(("Hair_", "Head_Face_", "Eye_", "Iris.", "Pupil.", "Brow.", "Mouth_", "Tongue_Tip", "Shorts_Silver_Button")):
+                weights["Lam_Joint_Head" if not name.startswith("Shorts_Silver_Button") else "Lam_Joint_Hips"] = 1.0
+            elif name == "Neck":
+                weights["Lam_Joint_Neck"] = 1.0
+            elif name == "Shorts_Waist_Belt":
+                weights["Lam_Joint_Hips"] = 1.0
+            else:
+                weights["Lam_Joint_Chest" if z > 1.1 else "Lam_Joint_Hips"] = 1.0
+
+            total = sum(weights.values())
+            if total <= 0:
+                weights = {"Lam_Joint_Hips": 1.0}
+                total = 1.0
+            for bone_name, weight in weights.items():
+                if weight > 0:
+                    groups[bone_name].add([index], weight / total, "REPLACE")
+
+        obj.parent = rig
+        obj.matrix_parent_inverse = rig.matrix_world.inverted()
+        obj.matrix_world = original_world
+        modifier = obj.modifiers.new("Lam_RestPose_Skin", "ARMATURE")
+        modifier.object = rig
+        modifier.use_vertex_groups = True
+        modifier.use_deform_preserve_volume = True
+
+    bpy.context.view_layer.update()
+    return rig
+
 def main():
     args = args_after_dashdash()
     out = os.path.abspath("artifacts/v314-coherent-avatar-candidate")
@@ -271,11 +403,19 @@ def main():
     side = camera(scene, "SideCamera", (dist, 0, 0.80), target, 1.82)
     render(scene, side, os.path.join(out, "lam-v314-side.png"))
 
+    rig = build_rest_pose_rig(meshes)
+    bpy.context.view_layer.update()
+    rig_front = camera(scene, "RiggedFrontCamera", (0, -dist, 0.80), target, 1.82)
+    render(scene, rig_front, os.path.join(out, "lam-v314-rigged-front.png"))
+    rig_quarter = camera(scene, "RiggedThreeQuarterCamera", (dist * 0.68, -dist * 0.75, 0.80), target, 1.82)
+    render(scene, rig_quarter, os.path.join(out, "lam-v314-rigged-three-quarter.png"))
+
     glb = os.path.join(out, "lam-v314-coherent-avatar-candidate.glb")
     bpy.ops.object.select_all(action="DESELECT")
     for obj in meshes:
         obj.select_set(True)
-    bpy.context.view_layer.objects.active = meshes[0]
+    rig.select_set(True)
+    bpy.context.view_layer.objects.active = rig
     bpy.ops.export_scene.gltf(filepath=glb, export_format="GLB", use_selection=True)
 
     found = set()
@@ -289,16 +429,18 @@ def main():
         "blender_version": bpy.app.version_string,
         "mesh_count": len(meshes),
         "armature_count": sum(1 for obj in scene.objects if obj.type == "ARMATURE"),
+        "armature_bone_count": len(rig.data.bones),
+        "animation_clip_count": len(scene.animation_data.action if scene.animation_data and scene.animation_data.action else []),
         "materials": sorted({m.name for obj in meshes for m in obj.data.materials if m}),
         "morph_names_found": sorted(found),
         "missing_expected_morphs": sorted(set(EXPECTED_MORPHS) - found),
         "bounds_m": before,
-        "render_files": ["lam-v314-front.png", "lam-v314-three-quarter.png", "lam-v314-side.png"],
+        "render_files": ["lam-v314-front.png", "lam-v314-three-quarter.png", "lam-v314-side.png", "lam-v314-rigged-front.png", "lam-v314-rigged-three-quarter.png"],
         "candidate_glb": os.path.basename(glb),
         "candidate_bytes": os.path.getsize(glb),
         "warnings": [
             "Experimental procedural/stylized candidate, not photorealistic.",
-            "This candidate has facial shape-key controls but no armature or skeletal animation.",
+            "A basic 17-bone rest-pose rig is included; animation clips have not yet been created or approved.",
             "Review all three rendered views and browser playback before considering promotion.",
             "The current production/source GLB has not been modified."
         ]
@@ -306,7 +448,8 @@ def main():
     with open(os.path.join(out, "lam-v314-candidate-report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     print("V314_COHERENT_AVATAR_CANDIDATE=" + json.dumps(report, ensure_ascii=False))
-    assert report["armature_count"] == 0
+    assert report["armature_count"] == 1
+    assert report["armature_bone_count"] == 17
     assert report["mesh_count"] > 15
     assert report["missing_expected_morphs"] == [], report
     assert abs(before["size"][2] - 1.60) < 0.04, before
