@@ -683,6 +683,13 @@ def main():
         "rigged_debug_skin_count": debug_skin_count,
         "rigged_debug_max_tee_deformation_m_frame_1_to_13": round(max_tee_deformation, 8),
         "materials": sorted({m.name for obj in meshes for m in obj.data.materials if m}),
+        "mesh_names": sorted(obj.name for obj in meshes),
+        "v318_visual_refinements": {
+            "signature_necklace": any(obj.name == "Lam_Signature_Necklace" for obj in meshes),
+            "longer_layered_hair": any(obj.name.startswith("Hair_Layer_Back.") for obj in meshes)
+                and any(obj.name == "Hair_Back_Long" for obj in meshes),
+            "blended_tee_contours": any(obj.name == "Tee_Fitted_Continuous" for obj in meshes)
+        },
         "morph_names_found": sorted(found),
         "missing_expected_morphs": sorted(set(EXPECTED_MORPHS) - found),
         "render_files": [
@@ -712,6 +719,7 @@ def main():
     assert report["rigged_debug_max_tee_deformation_m_frame_1_to_13"] > 0.0001, report
     assert report["mesh_count"] > 15
     assert report["missing_expected_morphs"] == [], report
+    assert all(report["v318_visual_refinements"].values()), report
     assert abs(before["size"][2] - 1.60) < 0.04, before
     assert os.path.getsize(glb) > 20000
     assert os.path.getsize(rigged_debug_glb) > 20000
