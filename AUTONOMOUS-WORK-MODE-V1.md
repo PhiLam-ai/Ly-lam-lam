@@ -7,10 +7,11 @@ This is the first bounded automation layer for the project. It turns the nightly
 ## What runs automatically
 
 1. Check the application entry page, bundled Three.js dependencies, GLB file integrity, and the stable-version registry.
-2. Run the repository's Node.js regression/structural test suite without adding project dependencies.
-3. Publish a JSON and Markdown report as a GitHub Actions artifact and workflow summary.
-4. Choose the next safe recommendation from predefined rules: investigate failing checks first; otherwise continue the known avatar visual/rigging blocker.
-5. Keep every execution read-only with respect to the repository contents and stable-version pointers.
+2. Run core avatar logic and GLB structural tests as blocking checks.
+3. Run the broader package-integrity suite as a diagnostic. The current copy contains version-specific deployment assumptions that do not match the deployed `v312-work` package; those failures remain visible as warnings until the harness is reconciled.
+4. Publish JSON and Markdown reports plus the raw test logs as a GitHub Actions artifact and workflow summary.
+5. Choose the next safe recommendation from predefined rules: investigate failed blocking tests first; otherwise reconcile legacy package-test assumptions before returning to the known avatar visual/rigging blocker.
+6. Keep every execution read-only with respect to repository contents and stable-version pointers.
 
 ## Autonomy boundaries
 
@@ -29,10 +30,12 @@ Each run attaches `autonomous-work-mode-<run id>-<attempt>` containing:
 - `autonomous-work-report.json`
 - `REPORT.md`
 - `baseline-checks.json`
-- `regression-tests.log`
+- `core-regression.log`
+- `package-integrity.log`
 
 ## Next stages
 
-- V1: scheduled safety preflight, regression tests, recommendations, and durable run evidence.
+- V1: scheduled safety preflight, blocking core tests, legacy package-test diagnostics, recommendations, and durable run evidence.
+- Next low-risk task: reconcile the package-integrity suite's assumptions to the exact deploy target. This is tracked as `AUTO-004`; known failures must not be hidden or removed merely to produce a green run.
 - V2: bounded AI task execution on a disposable branch, with file/path allowlists, diff-size limits, repeatable tests, and a patch artifact; never promote automatically.
 - V3: human-reviewed merge/promotion and rollback verification. iPhone visual review remains an explicit acceptance gate until it can be reliably tested.
