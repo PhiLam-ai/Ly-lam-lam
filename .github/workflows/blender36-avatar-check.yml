@@ -323,7 +323,7 @@ jobs:
           }, ensure_ascii=False, indent=2))
           PY
 
-      - name: Build and render V314 coherent stylized Lam avatar candidate
+      - name: Build V316 browser-visible candidate and export rigged debug copy
         run: |
           set -euo pipefail
           mkdir -p artifacts/v314-coherent-avatar-candidate
@@ -334,26 +334,30 @@ jobs:
           test -s artifacts/v314-coherent-avatar-candidate/lam-v314-front.png
           test -s artifacts/v314-coherent-avatar-candidate/lam-v314-three-quarter.png
           test -s artifacts/v314-coherent-avatar-candidate/lam-v314-side.png
-          test -s artifacts/v314-coherent-avatar-candidate/lam-v314-rigged-front.png
-          test -s artifacts/v314-coherent-avatar-candidate/lam-v314-rigged-three-quarter.png
+          test -s artifacts/v314-coherent-avatar-candidate/lam-v316-root-animated-front.png
+          test -s artifacts/v314-coherent-avatar-candidate/lam-v316-root-sway-frame13.png
+          test -s artifacts/v314-coherent-avatar-candidate/lam-v315-rigged-debug-front.png
+          test -s artifacts/v314-coherent-avatar-candidate/lam-v315-rigged-debug-three-quarter.png
           test -s artifacts/v314-coherent-avatar-candidate/lam-v314-coherent-avatar-candidate.glb
+          test -s artifacts/v314-coherent-avatar-candidate/lam-v315-rigged-debug-candidate.glb
           python3 - <<'PY'
           import json
           from pathlib import Path
           p = Path("artifacts/v314-coherent-avatar-candidate/lam-v314-candidate-report.json")
           report = json.loads(p.read_text(encoding="utf-8"))
-          assert report["status"] == "EXPERIMENTAL_COHERENT_RIGGED_CANDIDATE_NOT_APPROVED", report
-          assert report["candidate_version"] == "V315", report
-          assert report["armature_count"] == 1, report
-          assert report["armature_bone_count"] == 17, report
-          assert report["animation_clip_count"] == 1, report
-          assert "Lam_Idle_GentleSway" in report["glb_animation_names"], report
-          assert report["glb_skin_count"] == 1, report
-          assert report["max_tee_deformation_m_frame_1_to_13"] > 0.0001, report
+          assert report["status"] == "EXPERIMENTAL_VISIBLE_ROOT_ANIMATED_CANDIDATE_NOT_APPROVED", report
+          assert report["candidate_version"] == "V316", report
+          assert report["candidate_skin_count"] == 0, report
+          assert report["candidate_animation_count"] == 1, report
+          assert "Lam_Idle_GentleSway" in report["candidate_animation_names"], report
+          assert report["rig_debug_armature_count"] == 1, report
+          assert report["rig_debug_bone_count"] == 17, report
+          assert report["rigged_debug_skin_count"] == 1, report
+          assert report["rigged_debug_max_tee_deformation_m_frame_1_to_13"] > 0.0001, report
           assert report["missing_expected_morphs"] == [], report
-          assert abs(report["bounds_m"]["size"][2] - 1.60) < 0.04, report
+          assert abs(report["candidate_bounds_m"]["size"][2] - 1.60) < 0.04, report
           assert report["candidate_bytes"] > 20000, report
-          print("V314_COHERENT_AVATAR_CANDIDATE=PASS_EXPERIMENTAL_ONLY")
+          print("V316_VISIBLE_CANDIDATE=PASS_EXPERIMENTAL_ONLY")
           print(json.dumps(report, ensure_ascii=False, indent=2))
           PY
 
