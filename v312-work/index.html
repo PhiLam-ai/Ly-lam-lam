@@ -281,14 +281,52 @@ if(diagnosticsEnabled){
 // Mobile-first camera controls: no backend required; controls operate on the local preview.
 const helpToggle=document.querySelector('#help-toggle'), helpPanel=document.querySelector('#help');
 helpToggle.addEventListener('click',()=>{const opening=helpPanel.hidden;helpPanel.hidden=!opening;helpToggle.setAttribute('aria-expanded',String(opening));});
+function updateAvatarViewDiagnostics(){
+  if(!avatarScene)return null;
+  const box=new THREE.Box3().setFromObject(avatarScene);
+  const size=box.getSize(new THREE.Vector3());
+  const center=box.getCenter(new THREE.Vector3());
+  camera.updateProjectionMatrix();
+  scene.updateMatrixWorld(true);
+  camera.updateMatrixWorld(true);
+  const projected=[];
+  for(const x of [box.min.x,box.max.x])for(const y of [box.min.y,box.max.y])for(const z of [box.min.z,box.max.z]){
+    projected.push(new THREE.Vector3(x,y,z).project(camera));
+  }
+  const minX=Math.min(...projected.map(p=>p.x)),maxX=Math.max(...projected.map(p=>p.x));
+  const minY=Math.min(...projected.map(p=>p.y)),maxY=Math.max(...projected.map(p=>p.y));
+  const minZ=Math.min(...projected.map(p=>p.z)),maxZ=Math.max(...projected.map(p=>p.z));
+  const framing={
+    projectedBoundsNdc:{minX:Number(minX.toFixed(4)),maxX:Number(maxX.toFixed(4)),minY:Number(minY.toFixed(4)),maxY:Number(maxY.toFixed(4)),minZ:Number(minZ.toFixed(4)),maxZ:Number(maxZ.toFixed(4))},
+    verticalCoverage:Number(((maxY-minY)/2).toFixed(4)),
+    verticalCenter:Number(((maxY+minY)/2).toFixed(4)),
+    fitsNdc:minX>=-0.98&&maxX<=0.98&&minY>=-0.98&&maxY<=0.98&&maxZ<=1&&minZ>=-1
+  };
+  window.__lyLamAvatarDiagnostics={
+    bounds:{min:box.min.toArray().map(v=>Number(v.toFixed(4))),max:box.max.toArray().map(v=>Number(v.toFixed(4))),size:size.toArray().map(v=>Number(v.toFixed(4))),center:center.toArray().map(v=>Number(v.toFixed(4)))},
+    camera:{position:camera.position.toArray().map(v=>Number(v.toFixed(4))),target:controls.target.toArray().map(v=>Number(v.toFixed(4))),fov:camera.fov,aspect:Number(camera.aspect.toFixed(4))},
+    framing
+  };
+  return window.__lyLamAvatarDiagnostics;
+}
 function setQuickView(mode){
   if(!avatarScene)return;
   const box=new THREE.Box3().setFromObject(avatarScene), size=box.getSize(new THREE.Vector3());
-  const target=new THREE.Vector3(0,0,0); let distance=cameraDistance, y=0;
-  if(mode==='face'){target.y=size.y*.28;distance=Math.max(size.y*.48, cameraDistance*.32);y=target.y+size.y*.025;}
-  else if(mode==='full'){distance=cameraDistance*1.12;y=size.y*.15;}
-  else {distance=cameraDistance;y=size.y*.15;}
-  controls.target.copy(target);camera.position.set(0,y,target.z+distance);camera.lookAt(target);controls.minDistance=Math.max(size.y*.12,.15);controls.maxDistance=Math.max(cameraDistance*3,5);controls.update();
+  const target=box.getCenter(new THREE.Vector3());
+  let distance=cameraDistance;
+  if(mode==='face'){
+    target.y=box.min.y+size.y*.875;
+    distance=Math.max(size.y*.33,cameraDistance*.34);
+  }else if(mode==='full'){
+    distance=cameraDistance*1.06;
+  }
+  controls.target.copy(target);
+  camera.position.set(target.x,target.y,target.z+distance);
+  camera.lookAt(target);
+  controls.minDistance=Math.max(size.y*.14,.15);
+  controls.maxDistance=Math.max(cameraDistance*3,5);
+  controls.update();
+  updateAvatarViewDiagnostics();
 }
 function zoomBy(factor){const offset=camera.position.clone().sub(controls.target);offset.multiplyScalar(factor);const distance=THREE.MathUtils.clamp(offset.length(),controls.minDistance,controls.maxDistance);offset.setLength(distance);camera.position.copy(controls.target).add(offset);controls.update();}
 document.querySelector('#view-face').addEventListener('click',()=>setQuickView('face'));
@@ -304,11 +342,17 @@ loader.load(targetUrl,gltf=>{
   animationMixer=new THREE.AnimationMixer(gltf.scene);
   scene.add(gltf.scene);avatarScene=gltf.scene;
   const box=new THREE.Box3().setFromObject(gltf.scene), size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
-  gltf.scene.position.sub(center);
-  const largest=Math.max(size.x,size.y,size.z,0.5);cameraDistance=Math.max(largest*2.3,2.2);
-  camera.position.set(0,Math.max(size.y*.15,.2),cameraDistance);
-  controls.target.set(0,0,0);controls.update();
+  // Fit around actual world-space bounds without translating a skinned GLB root
+  // by a world-space center vector from a different rig coordinate frame.
+  const halfFov=Math.tan(THREE.MathUtils.degToRad(camera.fov)/2);
+  const fitVertical=size.y/(2*halfFov);
+  const fitHorizontal=size.x/(2*halfFov*Math.max(camera.aspect,.1));
+  cameraDistance=Math.max(fitVertical,fitHorizontal,1.0)*1.18;
+  controls.target.copy(center);
+  camera.position.set(center.x,center.y,center.z+cameraDistance);
+  controls.update();
   bindings=collect(gltf.scene);viewerReady=true;setQuickView('reset');
+  updateAvatarViewDiagnostics();
   if(diagnosticsEnabled){
     meshEntries=globalThis.AvatarMeshInspector.collectMeshEntries(avatarScene);meshButtons.replaceChildren();
     for(const [index,entry] of meshEntries.entries()){const label=document.createElement('label'),input=document.createElement('input'),caption=document.createElement('span');input.type='checkbox';input.checked=entry.visible;input.addEventListener('change',()=>{globalThis.AvatarMeshInspector.setMeshVisibility(entry.node,input.checked);diagResult.textContent=`${input.checked?'Đang hiện':'Đã ẩn'} mesh ${entry.name}. Đây chỉ là công cụ kiểm tra, không sửa file GLB.`;});caption.textContent=`${index+1}. ${entry.name}`;label.append(input,caption);meshButtons.appendChild(label);}
