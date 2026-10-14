@@ -290,9 +290,6 @@ jobs:
           assert report["mesh_count"] == 85, report
           assert report["armature_count"] == 1, report
           assert report["missing_expected_morphs"] == [], report
-          assert report["v318_visual_refinements"]["signature_necklace"] is True, report
-          assert report["v318_visual_refinements"]["longer_layered_hair"] is True, report
-          assert report["v318_visual_refinements"]["blended_tee_contours"] is True, report
           assert all(pair["status"] == "MEASURED" for pair in report["critical_adjacency_pairs"]), report
           print("V313_EVALUATED_MESH_AUDIT=PASS_DIAGNOSTIC_ONLY")
           print(json.dumps({"mesh_count": report["mesh_count"], "source_unchanged": report["source_unchanged"],
@@ -370,6 +367,9 @@ jobs:
           assert report["rigged_debug_skin_count"] == 1, report
           assert report["rigged_debug_max_tee_deformation_m_frame_1_to_13"] > 0.0001, report
           assert report["missing_expected_morphs"] == [], report
+          assert report["v318_visual_refinements"]["signature_necklace"] is True, report
+          assert report["v318_visual_refinements"]["longer_layered_hair"] is True, report
+          assert report["v318_visual_refinements"]["blended_tee_contours"] is True, report
           assert abs(report["candidate_bounds_m"]["size"][2] - 1.60) < 0.04, report
           assert report["candidate_bytes"] > 20000, report
           print("V318_VISIBLE_CANDIDATE=PASS_EXPERIMENTAL_ONLY")
