@@ -226,7 +226,7 @@ jobs:
           face_pose = report["default_face_pose"]
           assert face_pose["status"] == "APPLIED", face_pose
           assert face_pose["expression"] == "gentle_smile", face_pose
-          assert face_pose["strength"] == 0.24, face_pose
+          assert face_pose["strength"] == 0.22, face_pose
           assert face_pose["total_vertices_adjusted"] > 0, face_pose
           applied_face_meshes = [item for item in face_pose["objects"] if item["status"] == "APPLIED"]
           assert len(applied_face_meshes) >= 1, face_pose
@@ -327,7 +327,7 @@ jobs:
           - It includes a subtle Lam_Idle_GentleSway common-root animation and 12 base-mesh facial morph names. The five separate face accessory meshes are restored with export-safe materials so the browser image can be compared against the V335 texture-only diagnostic.
           - Voice/chat integration is not included in this avatar-only package.
           - The production lam-default.glb in the main branch is unchanged.
-          - Compare V343 face close-up and mobile screenshot against V341 to confirm the stronger gentle closed-mouth smile is visible without facial distortions; verify the smile slider still reaches the original full expression and all other morphs remain present. Do not promote without visual approval.
+          - Compare V343 face close-up and mobile screenshot against V342 to confirm the stronger gentle closed-mouth smile is visible without facial distortions; verify the smile slider still reaches the original full expression and all other morphs remain present. Do not promote without visual approval.
           - Launch on Windows by double-clicking START-LAM-WINDOWS.bat after installing Node.js LTS; keep the console open.
           MD
           (
