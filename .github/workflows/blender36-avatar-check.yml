@@ -274,10 +274,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/v313-named-weight-audit
-          "$RUNNER_TEMP/blender/blender" --background --factory-startup \\
-            --python tools/blender36_v313_named_weight_audit.py -- \\
-            --input "$GITHUB_WORKSPACE/lam-default.glb" \\
-            --output-dir "$GITHUB_WORKSPACE/artifacts/v313-named-weight-audit"
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup --python tools/blender36_v313_named_weight_audit.py -- --input "$GITHUB_WORKSPACE/lam-default.glb" --output-dir "$GITHUB_WORKSPACE/artifacts/v313-named-weight-audit"
           test -s artifacts/v313-named-weight-audit/v313-named-weight-audit.json
           python3 - <<'PY'
           import json
