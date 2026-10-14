@@ -164,6 +164,7 @@ jobs:
           test -s artifacts/v364-gltf-face-accessories/v364-side.png
           test -s artifacts/v364-gltf-face-accessories/v364-face-closeup.png
           test -s artifacts/v364-gltf-face-accessories/v364-eye-closeup.png
+          test -s artifacts/v364-gltf-face-accessories/v364-necklace-closeup.png
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -193,7 +194,7 @@ jobs:
           assert "Lam_Idle_GentleSway" in report["animation_names_gltf"], report
           assert abs(report["character_bounds_m"]["size"][2] - 1.60) < 0.06, report
           assert 1_000_000 < report["glb_bytes"] < 200_000_000, report
-          assert len(report["renders"]) >= 5, report
+          assert len(report["renders"]) >= 6, report
           eye_geometry = report["eye_geometry_diagnostic"]
           assert eye_geometry["status"] == "MEASURED_ONLY", eye_geometry
           assert eye_geometry["geometry_changed"] is False, eye_geometry
@@ -536,13 +537,13 @@ jobs:
           cat > "$stage/v312-work/V364-EXPERIMENTAL-AVATAR.md" <<'MD'
           # V364 Experimental Real Human-Topology Avatar — Not Yet Approved
 
-          This package builds on V362 and preserves the V340 body silhouette, V341 darkened source hair, V345 smile, V350 eye response, V352 browser fill lighting, V356 necklace placement, warm-brown iris and V360 face profile. V364 keeps the six V362 strand paths, reduced radii and warm-brown material, and changes only their Y depth by ray-casting to the actual front surface of the existing head/hair at each x/z control point. Each strand centerline is placed 1.2 mm in front of the frontmost sampled surface. The original hair mesh/texture, face geometry, eyes, necklace, body, morphs and animation remain unchanged. The local viewer carries the V352 fill-light patch (temporary preview only); production main branch is unchanged. This is a diagnostic candidate, not the final avatar.
+          This package builds on the accepted V363 surface-aligned face-framing hair strands, V360 face profile, V341 darkened source hair, V345 gentle smile, V350 eye response, V352 browser fill lighting, warm-brown iris and V340 body silhouette. V364 changes only necklace styling: a fine silver chain, thin circular open pendant, concentric inner ring and restrained central motif; attachment points are sampled against the existing skin/clothing surfaces. The face, eyes, six hair strands, clothes, body, morphs and animation remain unchanged. The local viewer carries the V352 fill-light patch (temporary preview only); production main branch is unchanged. This is a diagnostic candidate, not the final avatar.
 
           - This is an experimental human-mesh candidate, not a claim of final photorealism.
           - It includes a subtle Lam_Idle_GentleSway common-root animation and 12 base-mesh facial morph names. The five separate face accessory meshes are restored with export-safe materials so the browser image can be compared against the V335 texture-only diagnostic.
           - Voice/chat integration is not included in this avatar-only package.
           - The production lam-default.glb in the main branch is unchanged.
-          - Compare V364 face-closeup, front/three-quarter renders and browser capture against V362. Confirm the ray-sampled centerlines sit close to the hair/skin surface without floating or being buried, all six strands stay visible, and eye/brow clearance and V352 lighting are unchanged. Reject if any strand shifts over 5.2 cm or any control point lacks a surface hit. Do not promote without visual approval.
+          - Compare V364 front/side, face-closeup, necklace-closeup and browser capture against V363. Confirm the silver finish, open circular pendant, inner ring, chain attachment and collar/logo clearance. Verify all six face-framing strands, eye materials, 12 morphs and idle animation remain intact. Do not promote without visual approval.
           - Launch on Windows by double-clicking START-LAM-WINDOWS.bat after installing Node.js LTS; keep the console open.
           MD
           (
