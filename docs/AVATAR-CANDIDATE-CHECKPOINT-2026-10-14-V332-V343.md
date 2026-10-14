@@ -104,12 +104,21 @@
 - Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38582896994 — FAILURE because the workflow called the stale script path `tools/blender_v343_gentle_smile_base_pose.py`, which does not exist. This is a workflow path fault, not an avatar or morph failure. No valid candidate package was produced from this run.
 - To avoid two experiments with the same version number, the `0.24` attempt is tracked as **V344** below.
 
-## V344 — stronger default gentle smile, strength 0.24 (run in progress)
-- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38583341070.
-- Script: `tools/blender_v344_gentle_smile_strength.py`.
-- Only intended change relative to V343: default smile-base strength increases from `0.20` to `0.24` (relative to V342's initial `0.12`). It preserves V340 central-gated hip/thigh geometry, V341 processed hair texture/material, the existing clothes and face meshes, `Lam_Idle_GentleSway`, all 12 morph names and the full-smile endpoint.
-- The validation requires strength exactly `0.24`, the base human neutral displacement at least `0.0025 m`, all 12 morphs, endpoint preservation, V341 embedded hair-pixel verification, body height, mobile WebGL/browser success, zero page/console errors, ZIP integrity and matching SHA-256 sidecar.
-- Visual decision pending. Compare V344 face close-up and mobile screenshot with V342/V343. If the lips are pinched/asymmetric or the expression still reads neutral, do not approve; production GLB remains unchanged.
+## V344 — stronger default gentle smile, strength 0.24
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38583341070 — **SUCCESS**.
+- Artifact: [V344 GitHub Actions artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38583341070/artifacts/11903488722), ID `11903488722`, 57,867,391 bytes; digest `sha256:2fb1f333cbd3f5425d7ad87fa64fa352188b3936f46c034481c6e855e63f4da2`.
+- GLB `lam-v344-gltf-materials-full-face-candidate.glb`, 20,483,064 bytes; SHA-256 `7357baab143e891620a9e54af72002a1b7f29ae371efe05351747d26476cb7ce`. It retains 0 glTF skins, 9 images, all 12 expected morphs, `Lam_Idle_GentleSway`, V340 central-gated body shape and V341's embedded hair pixel verification.
+- Default-smile factor `0.24`; max neutral head displacement `0.00317227 m` (about 3.17 mm). The original full-smile endpoint was preserved. Hair source/processed/embedded mean RGB values remain `0.10221/0.06316/0.06321`; alpha mode is `BLEND` and roughness `0.86`.
+- Windows ZIP `ly-lam-lam-v344-experimental-windows.zip`, 21,652,928 bytes, 81 entries, integrity passed. SHA-256 `9ae81acb2a22fb2d0dbf5a3f9cbd16660e1b4c6ce7dce2e73b211f60783cabc2` matched the sidecar and was independently recomputed.
+- Mobile browser passed at 390×844: WebGL/renderer ready, idle animation advanced, no page/console errors, visible within safe area.
+- Visual decision: **TECHNICAL PASS, SMILE VISUAL STILL NOT APPROVED**. The close-up still looks near-neutral and the mouth-corner lift is hard to see. V344 remains a stable technical checkpoint, not a production-ready avatar.
+
+## V345 — visible gentle-smile strength (run in progress)
+- Workflow: `.github/workflows/v345-gentle-smile-visible.yml`.
+- Script: `tools/blender_v345_gentle_smile_visible.py`.
+- The only intended change versus V344 is to raise the baked neutral-smile fraction from `0.24` to `0.40`. The helper's allowed range is widened to 0.45 solely so this experiment can be tested; no other parameter is being tuned.
+- The workflow requires neutral displacement of at least `0.0045 m`, original full-smile endpoint preserved, all 12 morph names present, unchanged V340 body shape/V341 hair audit, body-height tolerance, mobile WebGL/browser checks, zero page/console errors, ZIP integrity and a matching SHA-256 sidecar.
+- Visual decision pending. Inspect close-up and phone-sized browser screenshot for a gentle visible smile without a pinched/asymmetric mouth; production GLB remains untouched.
 ## Safety and rollback
 - Do not copy any candidate GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
 - Keep all builds, renders, reports, and ZIPs under versioned candidate artifacts. Record SHA-256 only after checking actual bytes against the sidecar.
