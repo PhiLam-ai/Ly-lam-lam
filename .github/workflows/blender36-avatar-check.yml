@@ -18,6 +18,7 @@ on:
       - "tools/blender36_coherent_body_candidate.py"
       - "tools/blender36_v313_coordinate_rig_audit.py"
       - "tools/blender36_v313_skin_weight_audit.py"
+      - "tools/blender36_v313_bindpose_audit.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
 
@@ -223,6 +224,16 @@ jobs:
               "groups_missing_bones": {m["name"]: m["group_names_missing_matching_bone"] for m in report["meshes"] if m["group_names_missing_matching_bone"]}
           }, ensure_ascii=False, indent=2))
           PY
+
+      - name: Run V313 bind-pose spatial diagnostic
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/v313-bindpose-audit
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_v313_bindpose_audit.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/v313-bindpose-audit"
+          test -s artifacts/v313-bindpose-audit/v313-bindpose-audit.json
 
       - name: Upload real-model renders, candidate GLB and reports
         if: always()
