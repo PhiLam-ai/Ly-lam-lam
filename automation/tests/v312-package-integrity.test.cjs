@@ -61,6 +61,18 @@ test('deployed V312 entry page uses bundled runtime assets that exist in the pac
   }
 });
 
+test('actual Pages payload contains no symbolic links', () => {
+  const inspect = (directory) => {
+    for (const name of fs.readdirSync(directory)) {
+      const item = path.join(directory, name);
+      const stat = fs.lstatSync(item);
+      assert.equal(stat.isSymbolicLink(), false, 'deployed payload must not contain symlinks: ' + path.relative(app, item));
+      if (stat.isDirectory()) inspect(item);
+    }
+  };
+  inspect(app);
+});
+
 test('deployed V312 page has iPhone-safe viewport and accessible avatar controls', () => {
   assert.match(html, /viewport-fit=cover/);
   assert.match(html, /height:\s*100dvh/);
