@@ -3074,7 +3074,7 @@ def main():
         "status": "EXPERIMENTAL_V364_GLTFSKIN_FACE_ACCESSORY_CANDIDATE_NOT_APPROVED",
         "mpfb_source_commit": mpfb_source_commit,
         "version": "V364",
-        "purpose": "V364 preserves the measured V360 face profile and adds six small tapered solid-color forehead/temple hair strands guided by the saved Lam character sheet; existing hair texture, face, eyes, iris, necklace, smile and V340 body silhouette remain unchanged.",
+        "purpose": "V364 preserves the accepted V363 surface-aligned face-framing strands and restyles only the necklace as a fine silver chain with a circular open pendant and small central motif; body, face, eyes, hair, morphs and animation remain unchanged.",
         "blender_version": bpy.app.version_string,
         "mpfb_version": list(getattr(mpfb, "VERSION", ())),
         "mpfb_user_data": LocationService.get_user_data(),
