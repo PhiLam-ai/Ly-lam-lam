@@ -10,6 +10,7 @@ import json
 import math
 import os
 import shutil
+import subprocess
 import sys
 import traceback
 import zipfile
@@ -664,8 +665,16 @@ def main():
     if "Lam_Idle_GentleSway" not in animation_names:
         raise RuntimeError("The exported GLB is missing Lam_Idle_GentleSway animation")
 
+    mpfb_repo = Path(mpfb_src).resolve().parent
+    mpfb_commit_result = subprocess.run(
+        ["git", "-C", str(mpfb_repo), "rev-parse", "HEAD"],
+        check=True, capture_output=True, text=True,
+    )
+    mpfb_source_commit = mpfb_commit_result.stdout.strip()
+
     report = {
         "status": "EXPERIMENTAL_V331_REAL_HUMAN_TOPOLOGY_CANDIDATE_NOT_APPROVED",
+        "mpfb_source_commit": mpfb_source_commit,
         "version": "V331",
         "purpose": "Real human-topology candidate built with MPFB/MakeHuman asset packs; candidate only, not yet photorealism-approved.",
         "blender_version": bpy.app.version_string,
