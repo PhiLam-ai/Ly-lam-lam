@@ -860,7 +860,6 @@ def create_face_framing_hair_strands(scene):
         "strands": audits,
         "gltf_expected_nodes": ["V361_Baked_" + item["name"] for item in audits],
     }
-}
 
 
 def find_hair_diffuse_image(hair_objects):
