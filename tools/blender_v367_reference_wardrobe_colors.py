@@ -218,13 +218,17 @@ def body_profile_audit(basemesh, clothing_objects):
         if obj.type == "MESH":
             garment_points.extend(_world_mesh_points(obj))
             garment_sources.append(obj.name)
-    if len(body_points) < 100:
-        raise RuntimeError("Too few base-mesh vertices for V367 morphometric audit")
-    z_min = min(point.z for point in body_points)
-    z_max = max(point.z for point in body_points)
+    profile_points = body_points + garment_points
+    if len(body_points) < 100 or len(profile_points) < 100:
+        raise RuntimeError("Too few body/clothing vertices for V367 dressed-profile audit")
+    # Wardrobe/mask helpers can hide lower-body skin vertices. Use the union of
+    # base skin plus clothing/shoes for z bounds, otherwise thigh bands drift
+    # upward when the exposed skin mesh ends at the shorts/trouser hem.
+    z_min = min(point.z for point in profile_points)
+    z_max = max(point.z for point in profile_points)
     height = z_max - z_min
     if height <= 0:
-        raise RuntimeError("Invalid base-mesh height in V367 morphometric audit")
+        raise RuntimeError("Invalid dressed-character height in V367 morphometric audit")
 
     # z bands are fractions of measured human height. For upper body, sample
     # both skin and clothing around the central torso; lower bands use clothing
@@ -271,7 +275,7 @@ def body_profile_audit(basemesh, clothing_objects):
         regions[name] = {
             "status": "MEASURED",
             "vertex_count": len(slab),
-            "source": source,
+            "source": actual_source,
             "central_x_limit_m": x_limit,
             "z_band_m": [round(z_low, 5), round(z_high, 5)],
             "robust_width_x_m": round(2.0 * _linear_quantile(abs_x, 0.85), 5),
@@ -283,6 +287,7 @@ def body_profile_audit(basemesh, clothing_objects):
         "method": "neutral world-space height bands; region-specific skin/garment sources; central x filtering; width=2*P85(abs(x)); depth=P95(y)-P05(y)",
         "measurement_warning": "Comparative dressed-mesh metrics only; not a replacement for visual review or a likeness check.",
         "vertex_count": len(body_points),
+        "height_method": "union of body skin plus wardrobe/shoe mesh world-space bounds; needed because garment masks hide portions of lower-body skin",
         "garment_vertex_count": len(garment_points),
         "garment_objects": garment_sources,
         "height_m": round(height, 5),
