@@ -2,13 +2,13 @@ import bpy, json, os, sys, hashlib
 from collections import defaultdict
 
 EXPECTED = [
-    (("brow", "eye", "mouth", "nose", "ear", "hair", "head", "teeth", "tongue", "eyelid"), ("Lam_Joint_Head",)),
+    (("brow", "eye", "mouth", "nose", "hair", "head", "teeth", "tongue", "eyelid", "left_ear", "right_ear"), ("Lam_Joint_Head",)),
     (("hand", "finger", "thumb", "palm"), ("Lam_Joint_LeftWrist", "Lam_Joint_RightWrist")),
     (("foot", "toe"), ("Lam_Joint_LeftAnkle", "Lam_Joint_RightAnkle")),
     (("calf", "shin", "patella", "knee"), ("Lam_Joint_LeftKnee", "Lam_Joint_RightKnee", "Lam_Joint_LeftAnkle", "Lam_Joint_RightAnkle")),
-    (("thigh", "upper_leg"), ("Lam_Joint_LeftHip", "Lam_Joint_RightHip", "Lam_Joint_Hips")),
-    (("forearm", "elbow", "wrist"), ("Lam_Joint_LeftElbow", "Lam_Joint_RightElbow", "Lam_Joint_LeftWrist", "Lam_Joint_RightWrist")),
-    (("upper_arm", "shoulder", "clavicle"), ("Lam_Joint_LeftShoulder", "Lam_Joint_RightShoulder", "Lam_Joint_Chest")),
+    (("thigh", "upper_leg"), ("Lam_Joint_LeftHip", "Lam_Joint_RightHip", "Lam_Joint_Hips", "Lam_Joint_LeftKnee", "Lam_Joint_RightKnee")),
+    (("forearm", "elbow", "wrist"), ("Lam_Joint_LeftElbow", "Lam_Joint_RightElbow", "Lam_Joint_LeftWrist", "Lam_Joint_RightWrist", "Lam_Joint_LeftShoulder", "Lam_Joint_RightShoulder")),
+    (("upper_arm", "shoulder", "clavicle"), ("Lam_Joint_LeftShoulder", "Lam_Joint_RightShoulder", "Lam_Joint_Chest", "Lam_Joint_LeftElbow", "Lam_Joint_RightElbow")),
     (("torso", "chest", "abdomen", "waist", "pelvis", "spine"), ("Lam_Joint_Hips", "Lam_Joint_Spine", "Lam_Joint_Chest")),
 ]
 
