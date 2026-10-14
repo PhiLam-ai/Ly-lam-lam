@@ -1,12 +1,12 @@
-name: V337 glTF Face Accessory Candidate
+name: V337 Avatar Geometry Audit Candidate
 
 on:
   push:
     branches:
       - avatar/v313-repair-candidate-20261014
     paths:
-      - "tools/blender_v337_gltf_face_accessory_candidate.py"
-      - ".github/workflows/v337-gltf-face-accessory.yml"
+      - "tools/blender_v337_avatar_geometry_audit.py"
+      - ".github/workflows/v337-avatar-geometry-audit.yml"
   workflow_dispatch:
 
 permissions:
@@ -145,7 +145,7 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/v337-gltf-face-accessories
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
-            --python tools/blender_v337_gltf_face_accessory_candidate.py -- \
+            --python tools/blender_v337_avatar_geometry_audit.py -- \
             --mpfb-src "$RUNNER_TEMP/mpfb2/src" \
             --system-pack "$GITHUB_WORKSPACE/.cache/v331-mpfb-assets/makehuman_system_assets_cc0.zip" \
             --face-pack "$GITHUB_WORKSPACE/.cache/v331-mpfb-assets/faceunits01.zip" \
