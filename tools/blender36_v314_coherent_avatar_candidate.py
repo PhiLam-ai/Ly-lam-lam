@@ -281,6 +281,40 @@ def evaluated_world_vertices(obj, scene, frame):
     finally:
         evaluated.to_mesh_clear()
 
+
+def create_root_idle_animation(root):
+    scene = bpy.context.scene
+    action = bpy.data.actions.new("Lam_Idle_GentleSway")
+    root.animation_data_create()
+    root.animation_data.action = action
+    root.rotation_mode = "XYZ"
+    scene.frame_start = 1
+    scene.frame_end = 49
+    scene.render.fps = 24
+    # A tiny parent-space sway is a visual fallback, not skeletal articulation.
+    # The root pivot is near the body's center (0, 0, 0.80m).
+    keys = [
+        (1, 0.0, 0.0),
+        (13, 0.012, 0.003),
+        (25, 0.0, 0.0),
+        (37, -0.012, -0.003),
+        (49, 0.0, 0.0),
+    ]
+    for frame, sway_y, bob_z in keys:
+        scene.frame_set(frame)
+        root.rotation_euler = (0.0, sway_y, 0.0)
+        root.location = (0.0, 0.0, 0.80 + bob_z)
+        root.keyframe_insert(data_path="rotation_euler", frame=frame, group=root.name)
+        root.keyframe_insert(data_path="location", frame=frame, group=root.name)
+    scene.frame_set(1)
+    bpy.context.view_layer.update()
+    return action
+
+def matrix_delta(a, b):
+    loc_delta = (a.translation - b.translation).length
+    rot_delta = a.to_quaternion().rotation_difference(b.to_quaternion()).angle
+    return {"translation_m": round(loc_delta, 8), "rotation_rad": round(rot_delta, 8)}
+
 def measure_animation_deformation(meshes, scene):
     tee = next((obj for obj in meshes if obj.name == "Tee_Fitted_Continuous"), None)
     if tee is None:
@@ -462,78 +496,152 @@ def main():
     side = camera(scene, "SideCamera", (dist, 0, 0.80), target, 1.82)
     render(scene, side, os.path.join(out, "lam-v314-side.png"))
 
-    rig = build_rest_pose_rig(meshes)
-    action = create_idle_animation(rig)
-    max_tee_deformation = measure_animation_deformation(meshes, scene)
-    if max_tee_deformation <= 0.0001:
-        raise RuntimeError("Idle animation is present but evaluated torso deformation is below tolerance.")
+    # FIRST export a browser-visible control candidate without skinning.
+    # Prior rig export made the browser show only the lower body even though Blender's
+    # evaluated rest-pose render looked complete. Keep a rigged copy for debugging,
+    # but don't use it as the web candidate until imported skin deformation is fixed.
+    root = bpy.data.objects.new("Lam_Avatar_Root", None)
+    root.empty_display_type = "PLAIN_AXES"
+    root.location = (0.0, 0.0, 0.80)
+    scene.collection.objects.link(root)
+    for obj in meshes:
+        world = obj.matrix_world.copy()
+        obj.parent = root
+        obj.matrix_parent_inverse = root.matrix_world.inverted()
+        obj.matrix_world = world
+
+    root_action = create_root_idle_animation(root)
+    root_at_rest = root.matrix_world.copy()
+    scene.frame_set(13)
+    bpy.context.view_layer.update()
+    root_at_motion = root.matrix_world.copy()
+    root_motion = matrix_delta(root_at_rest, root_at_motion)
+    if root_motion["translation_m"] <= 0.0001 and root_motion["rotation_rad"] <= 0.0001:
+        raise RuntimeError("Root idle clip does not create measurable transform change.")
     scene.frame_set(1)
     bpy.context.view_layer.update()
-    rig_front = camera(scene, "RiggedFrontCamera", (0, -dist, 0.80), target, 1.82)
-    render(scene, rig_front, os.path.join(out, "lam-v314-rigged-front.png"))
-    rig_quarter = camera(scene, "RiggedThreeQuarterCamera", (dist * 0.68, -dist * 0.75, 0.80), target, 1.82)
-    render(scene, rig_quarter, os.path.join(out, "lam-v314-rigged-three-quarter.png"))
+    root_front = camera(scene, "RootAnimatedFrontCamera", (0, -dist, 0.80), target, 1.82)
+    render(scene, root_front, os.path.join(out, "lam-v316-root-animated-front.png"))
+    scene.frame_set(13)
+    bpy.context.view_layer.update()
+    root_sway = camera(scene, "RootAnimatedSwayCamera", (0, -dist, 0.80), target, 1.82)
+    render(scene, root_sway, os.path.join(out, "lam-v316-root-sway-frame13.png"))
+    scene.frame_set(1)
+    bpy.context.view_layer.update()
 
     glb = os.path.join(out, "lam-v314-coherent-avatar-candidate.glb")
     bpy.ops.object.select_all(action="DESELECT")
     for obj in meshes:
         obj.select_set(True)
+    root.select_set(True)
+    bpy.context.view_layer.objects.active = root
+    bpy.ops.export_scene.gltf(filepath=glb, export_format="GLB", use_selection=True)
+    candidate_doc = read_glb_json(glb)
+    candidate_animation_names = [item.get("name", "") for item in candidate_doc.get("animations", [])]
+    candidate_skin_count = len(candidate_doc.get("skins", []))
+    if "Lam_Idle_GentleSway" not in candidate_animation_names:
+        raise RuntimeError("The visible unskinned candidate GLB does not contain the Lam_Idle_GentleSway clip.")
+    if candidate_skin_count != 0:
+        raise RuntimeError("The browser-visible control candidate must not contain a skin/armature.")
+
+    # Restore the original world-space geometry and create a separate rigged debug GLB.
+    scene.frame_set(1)
+    bpy.context.view_layer.update()
+    for obj in meshes:
+        world = obj.matrix_world.copy()
+        obj.parent = None
+        obj.matrix_parent_inverse.identity()
+        obj.matrix_world = world
+    bpy.data.objects.remove(root, do_unlink=True)
+    if root_action.name in bpy.data.actions:
+        bpy.data.actions.remove(root_action)
+    scene.frame_set(1)
+    bpy.context.view_layer.update()
+
+    rig = build_rest_pose_rig(meshes)
+    rig_action = create_idle_animation(rig)
+    max_tee_deformation = measure_animation_deformation(meshes, scene)
+    if max_tee_deformation <= 0.0001:
+        raise RuntimeError("Rig debug animation is present but evaluated torso deformation is below tolerance.")
+    scene.frame_set(1)
+    bpy.context.view_layer.update()
+    rig_front = camera(scene, "RiggedFrontCamera", (0, -dist, 0.80), target, 1.82)
+    render(scene, rig_front, os.path.join(out, "lam-v315-rigged-debug-front.png"))
+    rig_quarter = camera(scene, "RiggedThreeQuarterCamera", (dist * 0.68, -dist * 0.75, 0.80), target, 1.82)
+    render(scene, rig_quarter, os.path.join(out, "lam-v315-rigged-debug-three-quarter.png"))
+
+    rigged_debug_glb = os.path.join(out, "lam-v315-rigged-debug-candidate.glb")
+    bpy.ops.object.select_all(action="DESELECT")
+    for obj in meshes:
+        obj.select_set(True)
     rig.select_set(True)
     bpy.context.view_layer.objects.active = rig
-    bpy.ops.export_scene.gltf(filepath=glb, export_format="GLB", use_selection=True)
-    glb_doc = read_glb_json(glb)
-    glb_animation_names = [item.get("name", "") for item in glb_doc.get("animations", [])]
-    glb_skin_count = len(glb_doc.get("skins", []))
-    if "Lam_Idle_GentleSway" not in glb_animation_names:
-        raise RuntimeError("The exported GLB does not contain the Lam_Idle_GentleSway animation clip.")
-    if glb_skin_count != 1:
-        raise RuntimeError("Expected one exported glTF skin/armature; got " + str(glb_skin_count))
+    bpy.ops.export_scene.gltf(filepath=rigged_debug_glb, export_format="GLB", use_selection=True)
+    debug_doc = read_glb_json(rigged_debug_glb)
+    debug_animation_names = [item.get("name", "") for item in debug_doc.get("animations", [])]
+    debug_skin_count = len(debug_doc.get("skins", []))
+    if "Lam_Idle_GentleSway" not in debug_animation_names:
+        raise RuntimeError("The rig debug GLB does not contain the idle animation clip.")
+    if debug_skin_count != 1:
+        raise RuntimeError("Expected one skin in the rig debug export; got " + str(debug_skin_count))
+
 
     found = set()
     for obj in meshes:
         if obj.data.shape_keys:
             found.update(key.name for key in obj.data.shape_keys.key_blocks if key.name != "Basis")
-    after_hash = None
     report = {
-        "status": "EXPERIMENTAL_COHERENT_RIGGED_CANDIDATE_NOT_APPROVED",
-        "purpose": "A coherent stylized adult female avatar candidate with a 17-bone rig, 12 facial morph names and one verified idle animation clip.",
+        "status": "EXPERIMENTAL_VISIBLE_ROOT_ANIMATED_CANDIDATE_NOT_APPROVED",
+        "purpose": "Browser-visible coherent stylized candidate with shape keys and a tiny root transform idle; the separate rigged export remains diagnostic because its imported skin deformation is currently incorrect.",
         "blender_version": bpy.app.version_string,
         "mesh_count": len(meshes),
-        "armature_count": sum(1 for obj in scene.objects if obj.type == "ARMATURE"),
-        "armature_bone_count": len(rig.data.bones),
-        "animation_clip_names": [item.name for item in bpy.data.actions],
-        "animation_clip_count": len(bpy.data.actions),
-        "max_tee_deformation_m_frame_1_to_13": round(max_tee_deformation, 8),
-        "glb_animation_names": glb_animation_names,
-        "glb_skin_count": glb_skin_count,
+        "candidate_version": "V316",
+        "candidate_glb": os.path.basename(glb),
+        "candidate_bytes": os.path.getsize(glb),
+        "candidate_animation_names": candidate_animation_names,
+        "candidate_animation_count": len(candidate_animation_names),
+        "candidate_root_motion": root_motion,
+        "candidate_skin_count": candidate_skin_count,
+        "candidate_bounds_m": before,
+        "rigged_debug_glb": os.path.basename(rigged_debug_glb),
+        "rigged_debug_bytes": os.path.getsize(rigged_debug_glb),
+        "rig_debug_armature_count": sum(1 for obj in scene.objects if obj.type == "ARMATURE"),
+        "rig_debug_bone_count": len(rig.data.bones),
+        "rigged_debug_animation_names": debug_animation_names,
+        "rigged_debug_skin_count": debug_skin_count,
+        "rigged_debug_max_tee_deformation_m_frame_1_to_13": round(max_tee_deformation, 8),
         "materials": sorted({m.name for obj in meshes for m in obj.data.materials if m}),
         "morph_names_found": sorted(found),
         "missing_expected_morphs": sorted(set(EXPECTED_MORPHS) - found),
-        "bounds_m": before,
-        "render_files": ["lam-v314-front.png", "lam-v314-three-quarter.png", "lam-v314-side.png", "lam-v314-rigged-front.png", "lam-v314-rigged-three-quarter.png"],
-        "candidate_glb": os.path.basename(glb),
-        "candidate_version": "V315",
-        "candidate_bytes": os.path.getsize(glb),
+        "render_files": [
+            "lam-v314-front.png", "lam-v314-three-quarter.png", "lam-v314-side.png",
+            "lam-v316-root-animated-front.png", "lam-v316-root-sway-frame13.png",
+            "lam-v315-rigged-debug-front.png", "lam-v315-rigged-debug-three-quarter.png"
+        ],
         "warnings": [
-            "Experimental procedural/stylized candidate; not the photorealistic final avatar.",
-            "One subtle Lam_Idle_GentleSway clip was exported and its actual torso deformation was measured; naturalness still needs visual review.",
-            "Browser/WebGL playback must pass before this candidate can be considered for promotion.",
-            "The current production/source GLB has not been modified."
+            "The browser candidate intentionally has no skeletal skin because skinning the prior GLB collapsed most of the body in Three.js.",
+            "Lam_Idle_GentleSway on the browser candidate is a subtle whole-root sway/bob, not joint articulation.",
+            "A separate 17-bone GLB is retained for diagnosis; it is not approved for browser use until Three.js imported skinning preserves the full figure.",
+            "The model remains a stylized procedural prototype, not the final photorealistic avatar.",
+            "The original production/source GLB has not been modified."
         ]
     }
     with open(os.path.join(out, "lam-v314-candidate-report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
-    print("V314_COHERENT_AVATAR_CANDIDATE=" + json.dumps(report, ensure_ascii=False))
-    assert report["armature_count"] == 1
-    assert report["armature_bone_count"] == 17
-    assert report["animation_clip_count"] == 1, report
-    assert "Lam_Idle_GentleSway" in report["glb_animation_names"], report
-    assert report["glb_skin_count"] == 1, report
-    assert report["max_tee_deformation_m_frame_1_to_13"] > 0.0001, report
+    print("V316_VISIBLE_CANDIDATE=" + json.dumps(report, ensure_ascii=False))
+    assert report["candidate_version"] == "V316", report
+    assert report["candidate_skin_count"] == 0, report
+    assert report["candidate_animation_count"] == 1, report
+    assert "Lam_Idle_GentleSway" in report["candidate_animation_names"], report
+    assert report["rig_debug_armature_count"] == 1, report
+    assert report["rig_debug_bone_count"] == 17, report
+    assert report["rigged_debug_skin_count"] == 1, report
+    assert report["rigged_debug_max_tee_deformation_m_frame_1_to_13"] > 0.0001, report
     assert report["mesh_count"] > 15
     assert report["missing_expected_morphs"] == [], report
     assert abs(before["size"][2] - 1.60) < 0.04, before
     assert os.path.getsize(glb) > 20000
+    assert os.path.getsize(rigged_debug_glb) > 20000
 
 if __name__ == "__main__":
     main()
