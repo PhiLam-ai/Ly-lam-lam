@@ -36,6 +36,6 @@ Each run attaches `autonomous-work-mode-<run id>-<attempt>` containing:
 ## Next stages
 
 - V1: scheduled safety preflight, blocking core tests, legacy package-test diagnostics, recommendations, and durable run evidence.
-- Completed on the automation branch: `AUTO-004` reconciles current tests to the active Pages target. Sixteen old-pipeline assertions are preserved verbatim in a non-executable archive; the current test set passes 72/72, core tests 46/46, and target-specific tests 6/6 in run [38507424599](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38507424599). These changes are still in draft PR #3 and are not active on `main` until reviewed and merged.
+- Completed on the automation branch: `AUTO-004` reconciles current tests to the active Pages target. Sixteen old-pipeline assertions are preserved verbatim in a non-executable archive; the current test set passes 72/72, core tests 46/46, and target-specific tests 6/6 in run [38507518716](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38507518716). These changes are still in draft PR #3 and are not active on `main` until reviewed and merged.
 - V2: bounded AI task execution on a disposable branch, with file/path allowlists, diff-size limits, repeatable tests, and a patch artifact; never promote automatically.
 - V3: human-reviewed merge/promotion and rollback verification. iPhone visual review remains an explicit acceptance gate until it can be reliably tested.
