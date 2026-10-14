@@ -495,8 +495,8 @@ def main():
             found.update(key.name for key in obj.data.shape_keys.key_blocks if key.name != "Basis")
     after_hash = None
     report = {
-        "status": "EXPERIMENTAL_COHERENT_STATIC_CANDIDATE_NOT_APPROVED",
-        "purpose": "Rebuild the current fragmented blockout as a connected, correctly sized, stylized adult female avatar candidate.",
+        "status": "EXPERIMENTAL_COHERENT_RIGGED_CANDIDATE_NOT_APPROVED",
+        "purpose": "A coherent stylized adult female avatar candidate with a 17-bone rig, 12 facial morph names and one verified idle animation clip.",
         "blender_version": bpy.app.version_string,
         "mesh_count": len(meshes),
         "armature_count": sum(1 for obj in scene.objects if obj.type == "ARMATURE"),
@@ -512,11 +512,12 @@ def main():
         "bounds_m": before,
         "render_files": ["lam-v314-front.png", "lam-v314-three-quarter.png", "lam-v314-side.png", "lam-v314-rigged-front.png", "lam-v314-rigged-three-quarter.png"],
         "candidate_glb": os.path.basename(glb),
+        "candidate_version": "V315",
         "candidate_bytes": os.path.getsize(glb),
         "warnings": [
-            "Experimental procedural/stylized candidate, not photorealistic.",
-            "A basic 17-bone rest-pose rig is included; animation clips have not yet been created or approved.",
-            "Review all three rendered views and browser playback before considering promotion.",
+            "Experimental procedural/stylized candidate; not the photorealistic final avatar.",
+            "One subtle Lam_Idle_GentleSway clip was exported and its actual torso deformation was measured; naturalness still needs visual review.",
+            "Browser/WebGL playback must pass before this candidate can be considered for promotion.",
             "The current production/source GLB has not been modified."
         ]
     }
