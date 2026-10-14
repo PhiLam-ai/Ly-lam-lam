@@ -13,14 +13,14 @@
 - Root cause of the failing gate: it compared `pbrMetallicRoughness.baseColorTexture.index` between the base eye and front eye materials. In glTF this is a **texture-object index**, not an image identifier. The exported GLB legitimately has two texture entries that both point to the same embedded `brown_eye` image: base texture index `5` → image source `5`, front texture index `6` → image source `5`. Thus the check rejected a valid shared-image mapping.
 - The fix must compare `gltf.textures[textureIndex].source` values, validate each source index, and record both texture and image-source indices. The evidence indicates a faulty assertion, not proof that the wrong diffuse image was used.
 
-## V349 — validate shared eye image by glTF source index (run in progress)
-
-- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38599437117.
+## V349 — validate shared eye image by glTF source index (rerun in progress)
+- First workflow attempt: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38599437117 — **FAILED** in the audit/report code after successful GLB export and eye-closeup render. The GLB had the expected source-image mapping (base texture index 5 → image source 5; front texture index 6 → image source 5), but the new report tried to read `eye_image_source_index` before it had been initialized.
+- Fix commit: `9a9f0306a6be5b68bf22882baa55e4c7ef9aa75c` moves base-image source resolution before building the base-eye report. It changes no geometry or material values.
+- Current validation rerun: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38600138150.
 - Script: `tools/blender_v349_eye_front_surface_texture_source_fix.py`.
-- V349 carries forward the V348 front-eye material experiment, V340 body silhouette, V341 darkened hair material, and a closed-mouth gentle default smile from the later smile branch. It changes the validation/reporting of the eye's shared diffuse image; it does not increase eye size or move eye geometry.
+- V349 carries forward the V348 front-eye material experiment, V340 body silhouette, V341 darkened hair material, and a closed-mouth gentle default smile from the later smile branch. It changes only validation/reporting of the eye's shared diffuse image; it does not increase eye size or move eye geometry.
 - New report fields include `base_color_image_source_index`, `base_color_image_name`, and `same_image_source_as_base_eye` for the two eye materials. The workflow gate verifies source-index equality, both material extensions, roughness values, transparency mode, 12 expected morphs, idle animation, mobile WebGL load, no browser/console/failed-request errors, ZIP integrity and SHA-256 sidecar.
-- Visual review is pending until the run produces its report, GLB, eye close-up and browser capture. A technical PASS would validate the export and test path; it would not by itself approve the full avatar likeness.
-
+- Visual review is pending until the rerun produces its report, GLB, eye close-up and browser capture. A technical PASS would validate the export and test path; it would not by itself approve the full avatar likeness.
 ## Separate smile-strength experiments
 
 The repo has parallel experimental tracks that reused some V34x version numbers. Use the workflow run ID and exact script path as the unique identifier rather than the version label alone. The successful closed-lip smile track reached V345 at strength 0.40; the V346 eye-material diagnostic is a separate run from the later “V346 stronger smile with lip closure” candidate. Keep these checkpoints distinct when comparing assets.
