@@ -91,7 +91,7 @@
         "current-target suite checks runtime assets, mobile controls, GLB morphs and absence of symlinks",
         "real browser and iPhone visual verification remain separate release gates"
       ],
-      "notes": "Completed on automation/autonomous-work-mode-v1. CI run 38507424599: core 46/46, actual V312 deploy target 6/6, retained package-integrity diagnostic 72/72. Sixteen tests for the retired deploy.yml/dist builder are preserved in automation/legacy/legacy-package-integrity-tests.md. PR #3 is still draft/unmerged; none of these changes are live on main.",
+      "notes": "Completed and verified on automation/autonomous-work-mode-v1. Latest full CI run 38507518716 (head d9be57ae33cc7a2e20144936edc008c7a72051be): core 46/46, actual V312 deploy-target 6/6, retained current package-integrity tests 72/72. Sixteen obsolete pipeline tests remain preserved in automation/legacy/legacy-package-integrity-tests.md. PR #3 is still draft/unmerged; the fix is not yet active on main.",
       "status": "completed_on_branch_pending_review_merge"
     }
   ]
