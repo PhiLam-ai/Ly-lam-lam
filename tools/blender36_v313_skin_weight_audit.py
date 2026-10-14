@@ -81,3 +81,5 @@ def main():
                       "groups_missing_bones": {m["name"]: m["group_names_missing_matching_bone"] for m in report["meshes"] if m["group_names_missing_matching_bone"]}}, ensure_ascii=False))
 if __name__ == "__main__":
     main()
+
+# Trigger rerun after fixing the workflow shell continuations; diagnostic remains read-only.
