@@ -539,26 +539,31 @@ def bake_character_to_morph_meshes(character_objects, scene):
         baked = bpy.data.objects.new("V332_Baked_" + source.name, neutral_mesh)
         scene.collection.objects.link(baked)
 
-        if available_morphs:
-            if baked.data.shape_keys:
-                key_blocks = baked.data.shape_keys.key_blocks
-                basis = key_blocks[0]
-                for old_key in list(key_blocks)[1:]:
-                    baked.shape_key_remove(old_key)
-            else:
-                basis = baked.shape_key_add(name="Basis", from_mix=False)
+        basis = None
+        if baked.data.shape_keys:
+            key_blocks = baked.data.shape_keys.key_blocks
+            basis = key_blocks[0]
+            for old_key in list(key_blocks)[1:]:
+                baked.shape_key_remove(old_key)
+            for index, co in enumerate(neutral_world_vertices):
+                basis.data[index].co = co
+        elif available_morphs:
+            basis = baked.shape_key_add(name="Basis", from_mix=False)
             if len(basis.data) != len(neutral_world_vertices):
                 raise RuntimeError("Baked Basis vertex count mismatch: " + source.name)
             for index, co in enumerate(neutral_world_vertices):
                 basis.data[index].co = co
 
+        if available_morphs:
+            if basis is None:
+                raise RuntimeError("Could not initialize morph Basis for " + source.name)
             for morph_name in available_morphs:
                 for block in source_keys:
                     if block.name != "Basis":
                         block.value = 0.0
                 source.data.shape_keys.key_blocks[morph_name].value = 1.0
                 depsgraph.update()
-                _target_mesh, target_world_vertices = evaluated_world_mesh(source, depsgraph)
+                target_mesh, target_world_vertices = evaluated_world_mesh(source, depsgraph)
                 try:
                     if len(target_world_vertices) != len(neutral_world_vertices):
                         raise RuntimeError("Morph vertex count changed while baking " + source.name + "/" + morph_name)
@@ -571,9 +576,7 @@ def bake_character_to_morph_meshes(character_objects, scene):
                         target.data[index].co = co
                     target.value = 0.0
                 finally:
-                    # The evaluated copy is no longer needed; its vertex positions were copied above.
-                    # _target_mesh was produced by an evaluated object temporary, cleared internally.
-                    pass
+                    bpy.data.meshes.remove(target_mesh)
 
             for block in source_keys:
                 if block.name != "Basis":
