@@ -2852,15 +2852,15 @@ def main():
         raise RuntimeError("V364 necklace pendant was not exported to glTF nodes: " + repr(necklace_nodes))
     necklace_materials = [
         material for material in gltf.get("materials", [])
-        if material.get("name") == "V364_GoldNecklace"
+        if material.get("name") == "V364_SilverNecklace"
     ]
     if len(necklace_materials) != 1:
-        raise RuntimeError("V364 expected exactly one exported gold necklace material")
+        raise RuntimeError("V364 expected exactly one exported silver necklace material")
     necklace_pbr = necklace_materials[0].get("pbrMetallicRoughness", {})
     necklace_metallic = float(necklace_pbr.get("metallicFactor", 0.0))
     necklace_roughness = float(necklace_pbr.get("roughnessFactor", 1.0))
-    if necklace_metallic < 0.45 or not (0.18 <= necklace_roughness <= 0.42):
-        raise RuntimeError("V364 gold necklace PBR did not export as expected: " + repr(necklace_pbr))
+    if necklace_metallic < 0.75 or not (0.18 <= necklace_roughness <= 0.30):
+        raise RuntimeError("V364 silver necklace PBR did not export as expected: " + repr(necklace_pbr))
     necklace_accessory_audit["gltf_export"] = {
         "node_names": necklace_nodes,
         "material_name": necklace_materials[0].get("name"),
