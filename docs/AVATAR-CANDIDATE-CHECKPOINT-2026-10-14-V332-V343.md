@@ -113,12 +113,21 @@
 - Mobile browser passed at 390×844: WebGL/renderer ready, idle animation advanced, no page/console errors, visible within safe area.
 - Visual decision: **TECHNICAL PASS, SMILE VISUAL STILL NOT APPROVED**. The close-up still looks near-neutral and the mouth-corner lift is hard to see. V344 remains a stable technical checkpoint, not a production-ready avatar.
 
-## V345 — visible gentle-smile strength (run in progress)
-- Workflow: `.github/workflows/v345-gentle-smile-visible.yml`.
-- Script: `tools/blender_v345_gentle_smile_visible.py`.
-- The only intended change versus V344 is to raise the baked neutral-smile fraction from `0.24` to `0.40`. The helper's allowed range is widened to 0.45 solely so this experiment can be tested; no other parameter is being tuned.
-- The workflow requires neutral displacement of at least `0.0045 m`, original full-smile endpoint preserved, all 12 morph names present, unchanged V340 body shape/V341 hair audit, body-height tolerance, mobile WebGL/browser checks, zero page/console errors, ZIP integrity and a matching SHA-256 sidecar.
-- Visual decision pending. Inspect close-up and phone-sized browser screenshot for a gentle visible smile without a pinched/asymmetric mouth; production GLB remains untouched.
+## V345 — visible gentle smile, strength 0.40
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38584422127 — **SUCCESS**.
+- Artifact: [V345 GitHub Actions artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38584422127/artifacts/11904701856), ID `11904701856`, 57,868,450 bytes; digest `sha256:eef74e13cc8c9e1d7cf5579354f33c0f399493fbee1f8bd0c0431b39b71417d1`.
+- GLB `lam-v345-gltf-materials-full-face-candidate.glb`, 20,483,060 bytes; SHA-256 `a365be787131cbfefe5da33687e61c5f2df5aab8f1b3ee333e17c799d617752a` independently recomputed and matched report.
+- Default smile factor `0.40`; maximum neutral displacement on the main head mesh `0.00528712 m` (about 5.3 mm). The original full-smile endpoint is preserved. All 12 expected morph names remain exported.
+- Windows ZIP `ly-lam-lam-v345-experimental-windows.zip`, 21,653,007 bytes, 81 entries, ZIP integrity passed. SHA-256 `3fd5d90d1386c08ab82dcb954e2fd31279f2944684cca701e0eee65fc332548f` matched the sidecar and was independently recomputed.
+- Mobile browser: `PASS_BROWSER_WEBGL_CANDIDATE_ONLY` at 390×844; GLB returned HTTP 200, WebGL loaded, `Lam_Idle_GentleSway` advanced, no page errors, console errors or failed requests, model visible in safe area.
+- Visual decision: **default gentle-smile improvement accepted for further work**. Compared with V342–V344, the mouth corners now read as a small closed-mouth smile without obvious pinching/asymmetry in the face close-up. The whole avatar remains **NOT APPROVED for production** because the face still looks generic and eye/iris realism is weak.
+
+## V346 — eye material/iris realism diagnostic (run in progress)
+- Workflow: `.github/workflows/v346-eye-material-diagnostic.yml`.
+- Script: `tools/blender_v346_eye_material_diagnostic.py`.
+- V346 inherits V345's accepted default-smile strength, V340 lower-body shape and V341 darkened hair. The only intended visual change is limited to the `high-poly` eye meshes: lower roughness and a carefully increased specular response, with existing diffuse image, UV map and alpha behavior unchanged. No body, hair, clothing or face geometry changes are included.
+- New report fields record the glTF eye material's roughness/specular/coat values and its linked image/UV. The workflow repeats the 12-morph, animation, height, V341 hair pixel audit, mobile WebGL, clean console, ZIP integrity and SHA-256 gates.
+- Visual decision pending. Compare V346 eye-closeup and browser screenshot against V345 for improved eye depth/highlights without plastic glare or washed-out iris; full avatar remains NOT APPROVED for production.
 ## Safety and rollback
 - Do not copy any candidate GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
 - Keep all builds, renders, reports, and ZIPs under versioned candidate artifacts. Record SHA-256 only after checking actual bytes against the sidecar.
