@@ -69,12 +69,15 @@
 - Mobile browser: PASS at 390×844, WebGL/renderer ready, idle animation advanced, no page/console errors.
 - Measured versus V337: hips width `0.31450 → 0.34010 m` (+8.1%) and depth `0.21384 → 0.23561 m` (+10.2%); upper-thigh width `0.33139 → 0.35563 m` (+7.3%); mid-thigh width `0.35003 → 0.37215 m` (+6.3%); waist width `0.28790 → 0.29599 m` (+2.8%).
 - Visual decision: **NOT APPROVED**. The intended lower-body fullness is visible, but the vertical-only deformation also widened portions of the arms that happened to occupy the same height bands. This unintended silhouette change needs correction before using the model.
-- Next: V340 adds central-x falloff to the same lower-body adjustment so arms remain outside the deformation zone. Production remains unchanged.## V340 — central-x falloff refinement (run in progress)
-- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38577074765.
-- Script: `tools/blender_v340_targeted_shape_central_gate.py`.
-- V340 retains V339's lower-body shape parameters but adds central-x falloff for each height band: hips `[0.22, 0.30] m`, upper thigh `[0.21, 0.29] m`, mid-thigh `[0.20, 0.28] m`. This aims to keep the same lateral expansion on the central hip/leg silhouette while leaving arms outside the gate unchanged.
-- The posterior hip projection is gated by the same hip falloff. Macro parameters remain at the V337 baseline (`weight=0.56`), and the hair/face/material/morph/animation setup is unchanged.
-- Technical and browser checks repeat unchanged. The visual decision will depend on the generated front/side renders and browser screenshot, especially whether the arm silhouette stays stable and the hip/leg seams remain continuous.
+- Next: V340 adds central-x falloff to the same lower-body adjustment so arms remain outside the deformation zone. Production remains unchanged.## V340 — central-x falloff refinement
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38577074765 — **SUCCESS**.
+- Artifact: [V340 GitHub Actions artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38577074765/artifacts/11900737119), ID `11900737119`, 54,039,693 bytes; digest `sha256:f230a768023fae13aada182440981580a8352500c4aca20517b68a8f78e8107b`.
+- GLB: `lam-v340-gltf-materials-full-face-candidate.glb`, 20,168,940 bytes; SHA-256 `29ea7881708a78995d7f63156a1832af1e1e1d93c58de671c68ec892203fee89` (verified against downloaded bytes). Macro weight remains `0.56`; 0 glTF skins, 9 images, 12 morphs, `Lam_Idle_GentleSway`.
+- Windows preview ZIP: `ly-lam-lam-v340-experimental-windows.zip`, 21,346,135 bytes, 81 entries; integrity passed. SHA-256 `43aa41619e299be0dca9a3590fe3b884a5c860fd625271c1f2983ac143dcb1d4` matched its sidecar and was independently recomputed.
+- Mobile browser passed at 390×844: WebGL/renderer ready, animation advanced, no page or console errors; avatar visible in safe area.
+- Profile compared with V337: hips width `0.31450 → 0.34010 m` (+8.1%) and depth `0.21384 → 0.23561 m` (+10.2%); upper-thigh width `0.33139 → 0.35563 m` (+7.3%); mid-thigh width `0.35003 → 0.37215 m` (+6.3%); waist width `0.28790 → 0.29599 m` (+2.8%). The outer character width returned to `0.983713 m` (V337 baseline) after adding central-x falloff, whereas V339 reached `1.051008 m` because arm vertices were also widened.
+- Visual review: central hips/thighs are fuller than V337, while the arm spread is back near baseline and no obvious clothing gap is visible in the supplied front/browser/side images. **Shape experiment accepted for further work; whole avatar NOT APPROVED for production** because face likeness and hair rim remain unresolved.
+- Next isolated target: audit and correct the bright hair rim at the material/lighting level without changing the accepted V340 lower-body geometry. Keep production `v312-work/lam-default.glb` unchanged.
 ## Safety and rollback
 - Do not copy any candidate GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
 - Keep all builds, renders, reports, and ZIPs under versioned candidate artifacts. Record SHA-256 only after checking actual bytes against the sidecar.
