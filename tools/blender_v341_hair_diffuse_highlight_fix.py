@@ -1528,8 +1528,11 @@ def main():
     gltf_hair_material = gltf_hair_materials[0]
     gltf_hair_pbr = gltf_hair_material.get("pbrMetallicRoughness", {})
     hair_texture_index = gltf_hair_pbr.get("baseColorTexture", {}).get("index")
+    gltf_hair_textures = gltf.get("textures", [])
     gltf_hair_images = gltf.get("images", [])
-    hair_image_name = gltf_hair_images[hair_texture_index].get("name", "") if hair_texture_index is not None and hair_texture_index < len(gltf_hair_images) else ""
+    texture_row = gltf_hair_textures[hair_texture_index] if hair_texture_index is not None and hair_texture_index < len(gltf_hair_textures) else {}
+    hair_image_source_index = texture_row.get("source")
+    hair_image_name = gltf_hair_images[hair_image_source_index].get("name", "") if hair_image_source_index is not None and hair_image_source_index < len(gltf_hair_images) else ""
     if "V341_HairDiffuse_Darkened" not in hair_image_name:
         raise RuntimeError("V341 processed hair image missing from exported GLB: " + repr(hair_image_name))
     if float(gltf_hair_pbr.get("roughnessFactor", 0.0)) < 0.80:
