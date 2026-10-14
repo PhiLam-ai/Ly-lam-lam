@@ -14,7 +14,7 @@ permissions:
 
 concurrency:
   group: v331-mpfb-human-candidate
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-and-test:
