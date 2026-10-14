@@ -343,7 +343,7 @@ jobs:
           assert report["gltf_eye_front_surface_audit"]["same_image_source_as_base_eye"] is True, report["gltf_eye_front_surface_audit"]
           face = report["face_shape_refinement"]
           assert face["status"] == "APPLIED", face
-          assert face["baseline_version"] == "V358", face
+          assert face["baseline_version"] == "V359", face
           assert face["scope"] == "base skin facial profile only; frontal cheek/jaw/chin bands", face
           assert 0.0005 < float(face["max_vertex_displacement_m"]) <= 0.006, face
           zones = face["zones"]
