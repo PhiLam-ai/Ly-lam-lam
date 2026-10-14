@@ -5,7 +5,7 @@ on:
     branches:
       - avatar/v313-repair-candidate-20261014
     paths:
-      - "tools/blender_v343_gentle_smile_base_pose.py"
+      - "tools/blender_v343_gentle_smile_strength_020.py"
       - ".github/workflows/v343-gentle-smile-strength-020.yml"
   workflow_dispatch:
 
@@ -145,7 +145,7 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/v343-gltf-face-accessories
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
-            --python tools/blender_v343_gentle_smile_base_pose.py -- \
+            --python tools/blender_v343_gentle_smile_strength_020.py -- \
             --mpfb-src "$RUNNER_TEMP/mpfb2/src" \
             --system-pack "$GITHUB_WORKSPACE/.cache/v331-mpfb-assets/makehuman_system_assets_cc0.zip" \
             --face-pack "$GITHUB_WORKSPACE/.cache/v331-mpfb-assets/faceunits01.zip" \
