@@ -38,7 +38,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/v331-mpfb-assets
-          key: v331-mpfb-assets-\${{ runner.os }}-system-b5421278-face-d113107b-visemes-official-v1
+          key: v331-mpfb-assets-${{ runner.os }}-system-b5421278-face-d113107b-visemes-official-v1
 
       - name: Download and verify official MakeHuman assets
         run: |
@@ -176,9 +176,9 @@ jobs:
 
       - name: Check V331 GLB in mobile-sized Three.js viewer
         env:
-          NODE_PATH: \${{ runner.temp }}/v314-playwright/node_modules
-          V314_VIEWER_ROOT: \${{ runner.temp }}/v331-viewer
-          V314_VIEWER_EVIDENCE_DIR: \${{ github.workspace }}/artifacts/v331-browser-test
+          NODE_PATH: ${{ runner.temp }}/v314-playwright/node_modules
+          V314_VIEWER_ROOT: ${{ runner.temp }}/v331-viewer
+          V314_VIEWER_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/v331-browser-test
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/v331-viewer" artifacts/v331-browser-test
@@ -260,12 +260,12 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ly-lam-lam-v331-real-human-candidate-\${{ github.run_id }}
+          name: ly-lam-lam-v331-real-human-candidate-${{ github.run_id }}
           path: |
             artifacts/v331-real-human-candidate/
             artifacts/v331-browser-test/
-            \${{ runner.temp }}/ly-lam-lam-v331-experimental-windows.zip
-            \${{ runner.temp }}/ly-lam-lam-v331-experimental-windows.zip.sha256
+            ${{ runner.temp }}/ly-lam-lam-v331-experimental-windows.zip
+            ${{ runner.temp }}/ly-lam-lam-v331-experimental-windows.zip.sha256
             artifacts-v331-provenance.tmp
           if-no-files-found: warn
           retention-days: 14
