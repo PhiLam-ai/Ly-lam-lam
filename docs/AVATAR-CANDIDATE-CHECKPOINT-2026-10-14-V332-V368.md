@@ -157,12 +157,18 @@ A separate V343 run was created from the earlier V342 conversation checkpoint af
 - Visual review: **NOT APPROVED for wardrobe**. The belt geometry is visibly wrong: it stretches horizontally out from the waist toward both hands. Root cause: belt ring rays used the combined body+clothing caster set, so the horizontal arms at the same height could be selected as the nearest surfaces. Cargo-pocket panels are visible but simple; pale ankle patches also remain.
 - Next correction: V369 samples belt points only against `Human.female_sportsuit01` via `trouser_casters` and records hit sources/max lateral extent. The workflow must fail if the strap spreads beyond the waist or if any sample comes from another object.
 
-## V369 — trouser-surface belt fix (run in progress)
-- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38656914759.
-- Script: `tools/blender_v369_trouser_surface_belt_fix.py`; workflow `.github/workflows/v369-trouser-surface-belt-fix.yml`.
-- Preserves V368's outfit colors, buckle and cargo pockets; changes only the belt's raycast source from the combined body/garment set to the garment mesh. Adds hard guards requiring all belt hits to come from `Human.female_sportsuit01` and the maximum absolute x coordinate to remain at or below `0.30 m`.
-- Existing GLB, morph, idle animation, wardrobe texture pixel checks, mobile WebGL/browser errors, ZIP integrity and SHA-256 tests remain active.
-- Visual decision pending. Inspect V369 front/side and phone-browser screenshots before accepting the fix; do not promote the candidate into production.
+## V369 — trouser-surface belt fix (diagnostic failed safely)
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38656914759 — **FAILURE during build**; no avatar package was produced.
+- Artifact contains the build log: [V369 failure artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38656914759/artifacts/11937008321), 1,713 bytes.
+- Failure reason: using only the clothing caster at the original belt height `0.87–0.91 m` produced 0/64 valid pairs. This confirms the old V368 belt ring was above the actual clothing waistband and was being propped up by invalid body/arm hits.
+- This is an expected fail-closed diagnostic, not a regression to the production avatar. The production GLB remains unchanged.
+
+## V370 — dynamic waist belt (run in progress)
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38657218078.
+- Script: `tools/blender_v370_dynamic_waist_belt.py`; workflow `.github/workflows/v370-dynamic-waist-belt.yml`.
+- V370 searches 23 candidate belt center heights between `0.780 m` and `0.890 m` at 5 mm increments. At each height it samples both belt edges against only the `Human.female_sportsuit01` garment mesh, requires at least 60/64 complete angular pairs, rejects any hit outside `0.30 m` from the centerline, and selects the highest eligible ring.
+- The silver buckle is sampled and positioned at the chosen center height. The report includes every candidate height, valid sample count, source object names, lateral extent, selected height and eligible-height set; workflow gates require the chosen ring to be the highest eligible one.
+- V370 preserves the V368 pocket geometry and previous face, hair, necklace, wardrobe color, morph and animation work. Visual decision pending: review front/side/browser captures to ensure the belt follows the trouser waist and never extends toward the hands.
 ## Safety and rollback
 
 - Do not copy any experimental GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
