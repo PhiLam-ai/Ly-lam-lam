@@ -658,7 +658,7 @@ test('V263 verifies a supplied local Three.js tarball against an optional SHA-51
 
 
 test('V264 rejects a mismatched SHA-512 tarball pin before invoking npm or staging vendor files', () => {
-  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'lylamlam-v264-tarball-pin-'));
+  const temp=fs.mkdtempSync(path.join(root,'.lylamlam-v264-tarball-pin-'));
   const bin=path.join(temp,'bin'); fs.mkdirSync(bin);
   const npm=path.join(bin,process.platform==='win32'?'npm.cmd':'npm');
   const invoked=path.join(temp,'npm-was-invoked');
@@ -688,7 +688,7 @@ test('V264 rejects a mismatched SHA-512 tarball pin before invoking npm or stagi
 
 test('V265 accepts matching SHA-512 hex and npm SRI pins before invoking npm', () => {
   const crypto=require('node:crypto');
-  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'lylamlam-v265-tarball-pin-positive-'));
+  const temp=fs.mkdtempSync(path.join(root,'.lylamlam-v265-tarball-pin-positive-'));
   const bin=path.join(temp,'bin'); fs.mkdirSync(bin);
   const npm=path.join(bin,process.platform==='win32'?'npm.cmd':'npm');
   const invoked=path.join(temp,'npm-was-invoked');
