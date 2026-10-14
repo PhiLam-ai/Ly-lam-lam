@@ -43,15 +43,16 @@
 - Next work: V337 should target a measured visual audit first (face/hair/eyes/body proportions and browser-versus-Blender consistency), then make one isolated improvement at a time and compare renders. Keep the production GLB unchanged.
 
 
-## V337 — baseline geometry and proportion audit (second run in progress)
-- First run: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38573301972 — the avatar build/export succeeded, but the new audit gate failed because clothing masks removed thigh vertices from the skin mesh and arm vertices distorted some upper-body slices.
-- Fix committed: the audit now samples clothing geometry for the dressed hip/thigh bands, combines skin and clothing in torso bands, and filters central x ranges to reduce arm outliers.
-- Current run: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38573867301.
-- Script: `tools/blender_v337_avatar_geometry_audit.py`.
-- V337 intentionally keeps V336's geometry, skin material, hair, clothing, five face accessory meshes, morphs, and idle animation unchanged. Its goal is to measure a reproducible baseline before changing anatomy, rather than guessing at proportion values.
-- New report field `morphometric_audit` measures the dressed neutral model in eight height bands: head, neck, shoulders, upper torso, waist, hips, upper thigh, and mid-thigh. Each band records source, vertex count, z range, robust x width, and robust y depth. Metrics are comparative diagnostics only, not proof of likeness or natural anatomy.
-- Validation repeats the GLB and mobile-browser checks, requires all eight measurements to be valid, packages the editable Blender scene and renders, and generates a ZIP with a SHA-256 sidecar.
-- Production release decision remains **NOT APPROVED**. After the current run finishes, compare its measured profile and screenshots; use those baseline values to plan one isolated visual change for V338.
+## V337 — baseline geometry and proportion audit
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38573867301 — **SUCCESS**.
+- First run `38573301972` failed only the new measurement gate: skin topology was masked under clothes at the thighs, and arm vertices inflated some torso slices. V337 was fixed to sample garment geometry for dressed lower-body bands and central x windows for torso bands; second run passed.
+- Artifact: [V337 GitHub Actions artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38573867301/artifacts/11899850651), artifact ID `11899850651`, 54,023,804 bytes, digest `sha256:4be2ca01ef828a8cc8cfc9890b59908115e539d0d0dbb436462b54ec6aeb2f42`.
+- GLB: `lam-v337-gltf-materials-full-face-candidate.glb`, 20,168,936 bytes; SHA-256 `4210fb9bc1a874424e0704e4ecc26aca9ed5365c04f18397d0cc8c8c9e38c040` (recomputed from downloaded artifact). The model's base-body height is 1.600 m; whole character bounds are about 1.609 m. It contains 0 glTF skins, 9 images, 12 expected morphs and `Lam_Idle_GentleSway`.
+- Windows preview ZIP: `ly-lam-lam-v337-experimental-windows.zip`, 21,346,079 bytes, 81 entries; integrity test passed. SHA-256 `81f2cc1dbebe9847eeb00e2488102a88329525c75f722afcc9cb8367e0ff57bc` matched the `.sha256` sidecar and was independently recomputed.
+- Mobile browser: `PASS_BROWSER_WEBGL_CANDIDATE_ONLY` at 390×844; WebGL/renderer ready, `Lam_Idle_GentleSway` advanced, no page or console errors; model was visible inside the tested safe area.
+- Measurement baseline (robust widths/depths in metres): head `0.138/0.146`; neck `0.212/0.113`; shoulders `0.495/0.190`; upper torso `0.415/0.186`; waist `0.288/0.217`; hips `0.315/0.214`; upper thigh `0.331/0.156`; mid-thigh `0.350/0.129`. The metric is a comparative proxy using defined mesh bands and filters, not precise anatomy or a likeness score.
+- Visual decision: **NOT APPROVED for production**. The V337 render is still essentially the V336 base appearance: a generic MPFB human, conspicuous pale hair rim, and body/face proportions that do not yet match the chosen Lam reference. V337 adds measurement and repeatability, not an appearance improvement.
+- Next: V338 isolates a modest MPFB body-weight parameter change from `0.56` to `0.62`, reports the parameter value and repeats the same metrics/tests. All other geometry/material settings remain unchanged so we can judge whether the thighs/hips/body silhouette improve. Production `v312-work/lam-default.glb` stays untouched.
 ## Safety and rollback
 - Do not copy any candidate GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
 - Keep all builds, renders, reports, and ZIPs under versioned candidate artifacts. Record SHA-256 only after checking actual bytes against the sidecar.
