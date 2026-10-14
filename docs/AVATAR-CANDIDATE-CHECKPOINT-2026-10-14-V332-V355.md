@@ -32,12 +32,13 @@ A separate V343 run was created from the earlier V342 conversation checkpoint af
 - Corrected build GLB: `lam-v354-gltf-materials-full-face-candidate.glb`, 20,558,512 bytes; SHA-256 `cc4c255639ff96d9ac3716362b7030c71400723c27581efe09b200dd05062a3b` (per this run's actual bytes). Browser test passed: WebGL ready, 12 morphs present, animation advanced, no page/console errors.
 - Visual decision remains **NOT APPROVED for necklace placement**: the gold pendant is still centered directly over the shirt's orange logo. The corrected fill lighting is in place, but it does not change the necklace/model geometry.
 
-## V355 — necklace logo-clearance experiment (run in progress)
-- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38609383368.
-- Script: `tools/blender_v355_necklace_logo_clearance.py`; workflow: `.github/workflows/v355-necklace-logo-clearance.yml`.
-- V355 changes one parameter family only: all seven chain centerline z positions and the pendant center move upward by `0.06 m`, from the V354 chain z values `[1.183, 1.188, 1.202, 1.226]` to `[1.243, 1.248, 1.262, 1.286]`; pendant center z becomes `1.243 m`. Every point is still placed using a measured front-surface sample, so the chain remains fitted to the shirt/skin rather than using a guessed Y coordinate.
-- All body/face/hair/clothing/eye geometry, materials, smile/morph controls, idle animation and the gold necklace PBR values remain unchanged. The V352 fill-light patch is included in the temporary browser test and Windows preview package.
-- Gates verify necklace mesh export, the exact z adjustment, seven valid chain samples, pendant sample, all 12 morphs, eye/hair audits, mobile WebGL, no browser/console errors, fill-light patch presence, ZIP integrity and SHA-256. Visual decision pending: inspect front/face-closeup/browser captures to verify it clears the shirt graphic without floating or clipping.
+## V355 — necklace logo-clearance experiment
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38609383368 — **SUCCESS**.
+- Artifact: [V355 tested model/preview](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38609383368/artifacts/11916744125), ID `11916744125`, 58,960,107 bytes; digest `sha256:841489998ebb0e32e35b3c44392d949e1e4dfaa7302fc8f9313c7c8a24489cd0`.
+- GLB `lam-v355-gltf-materials-full-face-candidate.glb`: 20,558,512 bytes; SHA-256 `bad4e0dbc81d76f9745455576a79f54adc693a8af54a8f3ecf6a842218b2002b`. It retains the 12 morphs, `Lam_Idle_GentleSway`, V340 body silhouette, V341 dark hair, V345 closed-lip smile and V350 eye material response.
+- Windows ZIP `ly-lam-lam-v355-experimental-windows.zip`: 21,698,158 bytes, 81 entries; integrity passed. SHA-256 `1a9949099f651977c5a7a998136b97cb81b1ee5c6ac5c3c739d662c16b708b47` matched the sidecar and was independently recomputed. Packaged viewer contains the V352 fill-light patch.
+- Placement audit: chain z values are `[1.243, 1.248, 1.262, 1.286]` metres; pendant center is at `1.243 m`, all surface sample counts are nonzero, and both necklace mesh nodes/material passed export. Mobile browser passed at 390×844, animation advanced, no page/console errors.
+- Visual decision: **POSITION IMPROVED, NOT YET APPROVED**. The gold pendant now sits above the shirt icon's head, but the chain/pendant still intersects the white circular outline around the logo. V356 will move the same chain shape and pendant a further `0.04 m` upward; no other model property should change.
 ## Safety and rollback
 
 - Do not copy any experimental GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
