@@ -1,4 +1,4 @@
-# Lý Lâm Lam avatar candidate checkpoint — 2026-10-14 (V332–V343)
+# Lý Lâm Lam avatar candidate checkpoint — 2026-10-14 (V332–V344)
 
 ## Release decision
 
@@ -93,13 +93,23 @@
 - Hair audit passed: source mean linear RGB `0.10221`, processed image `0.06316`, embedded GLB image `0.06321`; RGBA alpha retained, roughness `0.86`, `alphaMode=BLEND`.
 - Windows preview ZIP: `ly-lam-lam-v342-experimental-windows.zip`, 21,652,678 bytes, 81 entries; integrity passed. SHA-256 `236952a3892b15c793c6b312546a6c64adb66ee712f9aa710c8f40a5117e01f3` matched its `.sha256` sidecar and was independently recomputed.
 - Mobile browser: PASS at 390×844, WebGL/renderer ready, `Lam_Idle_GentleSway` advanced, no page/console errors, visible avatar within safe area.
-- Visual decision: **technical PASS; smile effect too subtle for final approval**. Side-by-side face close-ups show only a small lift at the mouth corners. Keep this version as the verified baseline; V343 will use strength `0.20` while preserving the same full-smile endpoint and all other settings. Full avatar remains NOT APPROVED for production.## V343 — gentle smile strength tuning (run in progress)
-- Workflow: `.github/workflows/v343-gentle-smile-tuning.yml`.
-- Script: `tools/blender_v343_gentle_smile_tuning.py`.
-- The only intended change from V342 is default smile-base strength `0.20` instead of `0.12`. The same fraction of the existing smile target is baked into Basis and all non-smile keys, while the full-smile endpoint is left unchanged. This is still a small fraction of the original composite smile and should read more clearly without becoming a broad grin.
-- V343 preserves the V340 central-gated hip/thigh shape, V341 darkened hair with embedded pixel verification, clothes/materials, 12 expected morph names and `Lam_Idle_GentleSway`.
-- The workflow validates the exact smile strength, endpoint preservation, all 12 morphs, hair texture pixel audit, body height, mobile WebGL/browser errors, ZIP integrity and SHA-256 sidecar.
-- Visual decision pending. Compare V343/V342 face closeups and mobile screenshot; if the mouth appears pinched, asymmetric or unnatural, do not approve this strength. Production remains unchanged.
+- Visual decision: **technical PASS; smile effect too subtle for final approval**. Side-by-side face close-ups show only a small lift at the mouth corners. Keep this version as the verified baseline; V343 will use strength `0.20` while preserving the same full-smile endpoint and all other settings. Full avatar remains NOT APPROVED for production.## V343 — gentle smile tuning, strength 0.20
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38582318943 — **SUCCESS**.
+- Artifact: [V343 tuning artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38582318943/artifacts/11902964067), ID `11902964067`, 57,868,154 bytes; digest `sha256:5f2296773fb5704b4cc0a885d66bc3913cbb0123343aca920c170fbd00d9e765`.
+- GLB `lam-v343-gltf-materials-full-face-candidate.glb`, 20,483,064 bytes; SHA-256 `ace103c54dde6cb9f6d16ab32a73357ba67e24a939758537420fcb8a1d5aa6b5`.
+- The neutral smile factor is `0.20`; all 12 morphs and the original full-smile endpoint are retained. Windows ZIP: `ly-lam-lam-v343-experimental-windows.zip`, 21,652,907 bytes, 81 entries, integrity passed; SHA-256 `6b87d04ebd961fe1d720cf8b7bf1db2aacec12a319f31c35619cd9d28097eb14` matched the sidecar.
+- Visual review: the mouth corners lift only slightly and the default face still reads close to neutral in the full-face crop. **Technical PASS; default-smile visual improvement insufficient for approval.** Keep V343 as baseline and test a stronger amount.
+
+## V343-strength alternate attempt — 0.24 (failed before model build)
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38582896994 — FAILURE because the workflow called the stale script path `tools/blender_v343_gentle_smile_base_pose.py`, which does not exist. This is a workflow path fault, not an avatar or morph failure. No valid candidate package was produced from this run.
+- To avoid two experiments with the same version number, the `0.24` attempt is tracked as **V344** below.
+
+## V344 — stronger default gentle smile, strength 0.24 (run in progress)
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38583341070.
+- Script: `tools/blender_v344_gentle_smile_strength.py`.
+- Only intended change relative to V343: default smile-base strength increases from `0.20` to `0.24` (relative to V342's initial `0.12`). It preserves V340 central-gated hip/thigh geometry, V341 processed hair texture/material, the existing clothes and face meshes, `Lam_Idle_GentleSway`, all 12 morph names and the full-smile endpoint.
+- The validation requires strength exactly `0.24`, the base human neutral displacement at least `0.0025 m`, all 12 morphs, endpoint preservation, V341 embedded hair-pixel verification, body height, mobile WebGL/browser success, zero page/console errors, ZIP integrity and matching SHA-256 sidecar.
+- Visual decision pending. Compare V344 face close-up and mobile screenshot with V342/V343. If the lips are pinched/asymmetric or the expression still reads neutral, do not approve; production GLB remains unchanged.
 ## Safety and rollback
 - Do not copy any candidate GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
 - Keep all builds, renders, reports, and ZIPs under versioned candidate artifacts. Record SHA-256 only after checking actual bytes against the sidecar.
