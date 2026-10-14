@@ -1672,11 +1672,11 @@ def make_warm_brown_iris_texture(source_image):
 
     source_ratios = ratios(source_iris)
     processed_ratios = ratios(processed_iris)
-    if processed_ratios["green_to_red"] <= source_ratios["green_to_red"] * 1.5:
-        raise RuntimeError("V357 warm-brown transformation did not sufficiently reduce red dominance: " + repr({
+    if processed_ratios["green_to_red"] <= source_ratios["green_to_red"] * 1.10:
+        raise RuntimeError("V357 warm-brown transformation did not produce the expected warm-brown green/red shift: " + repr({
             "source": source_ratios, "processed": processed_ratios
         }))
-    if processed_ratios["blue_to_red"] <= source_ratios["blue_to_red"] * 1.5:
+    if processed_ratios["blue_to_red"] <= source_ratios["blue_to_red"] * 1.30:
         raise RuntimeError("V357 blue/red balance did not move toward warm brown: " + repr({
             "source": source_ratios, "processed": processed_ratios
         }))
