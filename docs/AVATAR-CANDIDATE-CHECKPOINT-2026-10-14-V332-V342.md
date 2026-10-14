@@ -93,12 +93,16 @@
 - Browser: PASS at 390×844; WebGL/renderer ready, animation advanced, no page/console errors, avatar visible within safe area.
 - Default-pose transform is present on 19,532 vertices across the body/eyebrow/lash meshes. Smile strength was `0.12`, max base-face displacement only about `0.001586 m` (1.6 mm). All 12 morph names and full-smile target remain available.
 - Visual decision: **NOT APPROVED as a visible smile improvement yet**. Rendered face still reads neutral/stiff at full-body and close-up scale. The base-pose adjustment is too subtle; next V343 changes only the smile-base strength from `0.12` to `0.24`, leaving geometry/material/body/hair and all other workflow settings fixed for a direct comparison.
-## V343 — stronger gentle-smile comparison (run in progress)
-- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38594051250.
-- Script: `tools/blender_v343_gentle_smile_base_pose_stronger.py`; workflow: `.github/workflows/v343-gentle-smile-stronger.yml`. Both are now verified on the isolated candidate branch; temporary copies on `main` were removed.
-- Only change versus V342: default smile-base strength `0.12 → 0.24`. The code continues to shift Basis and every non-smile morph by the same fraction while preserving the original smile shape-key endpoint; all twelve morphs remain required by the workflow gate.
-- Initial preparation and MPFB preflight passed; the run is currently installing browser dependencies after building the V343 candidate. Await visual evidence before deciding whether the stronger default smile is appropriate.
-- Cleanup side effect: the brief add/remove commits on `main` triggered GitHub Pages/backup workflows. The first Pages deployment was cancelled, and a latest deployment for the cleaned `main` tree is in progress. No production GLB or application source file was intentionally edited; verify deployment completion and the main tree remains free of the two temporary V343 files.
+## V343 — stronger gentle-smile comparison
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38594051250 — **SUCCESS** (18/18 steps).
+- Artifact: [V343 GitHub Actions artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38594051250/artifacts/11908642974), ID `11908642974`, 57,867,059 bytes; digest `sha256:e4e7bd8fe3f30e29c037a0023218c4cf67984a28363e2b9b560179a7491a36e6`.
+- GLB `lam-v343-gltf-materials-full-face-candidate.glb`: 20,483,064 bytes, SHA-256 `adefd31d68a2cef8af943bf5a434d9649534bacd9776fb3902d468cdc4510009`; 0 glTF skins, 9 images, all 12 morphs and `Lam_Idle_GentleSway` retained.
+- Windows ZIP `ly-lam-lam-v343-experimental-windows.zip`: 21,652,917 bytes, 81 entries, integrity passed; SHA-256 `3dff34fceb237506b04b52102d61366f7150fe77c609368c99011a32f182645c` matched the sidecar and was independently recomputed.
+- Mobile browser passed at 390×844: WebGL/renderer ready, idle animation advanced, no page/console errors and avatar visible within safe area.
+- Only change versus V342: default smile-base strength `0.12 → 0.24`; max neutral face displacement rose from about `1.59 mm` to `3.17 mm`.
+- Visual decision: **NOT APPROVED as default expression**. Direct crop comparison shows the lips become more parted, but the face still doesn't read as a relaxed closed-mouth smile. This indicates the current `smile` composite (mouthSmileLeft+mouthSmileRight) needs a mouth-closure component, rather than simply more strength.
+- V343 accidental branch issue is resolved: both files were copied to the isolated candidate branch and removed from `main`; main tree confirms both paths absent. The interim Pages deployment was cancelled and the latest clean-main deployment finished **SUCCESS**. No production avatar file was replaced.
+- Next V344 changes only the smile composite recipe by adding a small `mouthClose` contribution while returning default strength to V342's `0.12`; compare the face close-up to ensure the mouth looks softer and less open.
 ## Safety and rollback
 - Do not copy any candidate GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
 - Keep all builds, renders, reports, and ZIPs under versioned candidate artifacts. Record SHA-256 only after checking actual bytes against the sidecar.
