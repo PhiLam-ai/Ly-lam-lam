@@ -47,6 +47,8 @@ test('current GitHub Pages workflow deploys the v312-work directory', () => {
 test('deployed V312 entry page uses bundled runtime assets that exist in the package', () => {
   assert.ok(html.length > 1000, 'application entry page exists');
   assert.match(html, /<html lang="vi">/i);
+  assert.ok(html.includes("const local=mode==='local'||mode===null;"), 'missing explicit local-first default for the bundled runtime');
+  assert.ok(html.includes("const base=local?'./vendor/three/':mode==='unpkg'?'https://unpkg.com/three@0.160.0/':'https://cdn.jsdelivr.net/npm/three@0.160.0/';"), 'local is default; pinned CDN paths remain explicit fallbacks');
   assert.match(html, /\.\/vendor\/three\//, 'runtime should use locally bundled Three.js assets');
   const assets = [
     'vendor/three/build/three.module.js',
