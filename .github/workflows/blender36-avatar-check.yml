@@ -17,6 +17,7 @@ on:
       - "tools/blender36_geometry_gap_audit.py"
       - "tools/blender36_coherent_body_candidate.py"
       - "tools/blender36_v313_coordinate_rig_audit.py"
+      - "tools/blender36_v313_skin_weight_audit.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
 
@@ -195,6 +196,31 @@ jobs:
               "found_expected_morph_names": report["found_expected_morph_names"],
               "missing_expected_morph_names": report["missing_expected_morph_names"],
               "source_sha256": report["source_sha256"]
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Run V313 vertex-weight and bone mapping diagnostic
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/v313-skin-weight-audit
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \\
+            --python tools/blender36_v313_skin_weight_audit.py -- \\
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \\
+            --output-dir "$GITHUB_WORKSPACE/artifacts/v313-skin-weight-audit"
+          test -s artifacts/v313-skin-weight-audit/v313-skin-weight-audit.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/v313-skin-weight-audit/v313-skin-weight-audit.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["mesh_count"] > 0, report
+          print("V313_SKIN_WEIGHT_DIAGNOSTIC=PASS_DIAGNOSTIC_ONLY")
+          print(json.dumps({
+              "mesh_count": len(report["meshes"]),
+              "bone_count": report["bone_count"],
+              "unweighted_meshes": [m["name"] for m in report["meshes"] if m["unweighted_vertex_count"] > 0],
+              "meshes_without_armature_modifier": [m["name"] for m in report["meshes"] if not m["armature_modifiers"]],
+              "groups_missing_bones": {m["name"]: m["group_names_missing_matching_bone"] for m in report["meshes"] if m["group_names_missing_matching_bone"]}
           }, ensure_ascii=False, indent=2))
           PY
 
