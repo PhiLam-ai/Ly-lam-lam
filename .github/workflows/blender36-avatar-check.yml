@@ -16,6 +16,7 @@ on:
       - "tools/blender36_arm_alignment_candidate.py"
       - "tools/blender36_geometry_gap_audit.py"
       - "tools/blender36_coherent_body_candidate.py"
+      - "tools/blender36_v313_coordinate_rig_audit.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
 
@@ -170,6 +171,32 @@ jobs:
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
             --python "${{ inputs.builder_script }}" -- \
             --output-dir "$GITHUB_WORKSPACE/artifacts/builder"
+
+      - name: Run V313 coordinate, skin and morph diagnostic
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/v313-coordinate-audit
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_v313_coordinate_rig_audit.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/v313-coordinate-audit"
+          test -s artifacts/v313-coordinate-audit/v313-coordinate-rig-audit.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/v313-coordinate-audit/v313-coordinate-rig-audit.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["mesh_count"] > 0, report
+          assert report["all_vertex_coordinates_finite"] is True, report
+          print("V313_STRUCTURAL_AUDIT=PASS")
+          print(json.dumps({
+              "mesh_count": report["mesh_count"],
+              "armature_count": report["armature_count"],
+              "found_expected_morph_names": report["found_expected_morph_names"],
+              "missing_expected_morph_names": report["missing_expected_morph_names"],
+              "source_sha256": report["source_sha256"]
+          }, ensure_ascii=False, indent=2))
+          PY
 
       - name: Upload real-model renders, candidate GLB and reports
         if: always()
