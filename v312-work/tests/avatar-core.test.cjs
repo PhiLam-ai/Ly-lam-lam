@@ -405,7 +405,7 @@ test('V299 local app-module errors do not trigger an irrelevant Three.js CDN fal
 
 test('V298 WebGL context restoration hides stale startup recovery controls after avatar is ready', () => {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-  const listener = html.match(/addEventListener\('webglcontextrestored',[\s\S]*?\);\n/);
+  const listener = html.match(/addEventListener\('webglcontextrestored',[\s\S]*?\}\);\n/);
   assert.ok(listener, 'renderer must handle WebGL context restoration');
   assert.match(listener[0], /if\(viewerReady\)/);
   assert.match(listener[0], /querySelector\('#retry-startup'\)/);
