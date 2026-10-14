@@ -6,6 +6,7 @@ on:
       - avatar/v313-repair-candidate-20261014
     paths:
       - "tools/blender_v331_photorealistic_candidate.py"
+      - ".github/workflows/v331-mpfb-human-candidate.yml"
   workflow_dispatch:
 
 permissions:
