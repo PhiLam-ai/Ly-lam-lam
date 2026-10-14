@@ -134,6 +134,12 @@ jobs:
           printf 'MPFB_EXTENSION_PATH=%s\n' "$extension_package" >> "$GITHUB_ENV"
           echo "Installed MPFB extension at $extension_package"
 
+      - name: Preflight MPFB extension namespace
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup --python-expr \
+            "import bpy, importlib.util; module='bl_ext.user_default.mpfb'; spec=importlib.util.find_spec(module); print('MPFB_EXTENSION_SPEC=', spec); assert spec is not None, 'MPFB extension is not discoverable from user_default'; result=bpy.ops.preferences.addon_enable(module=module); print('MPFB_ADDON_ENABLE=', result); assert 'FINISHED' in result; import bl_ext.user_default.mpfb as mpfb; print('MPFB_READY_VERSION=', mpfb.VERSION)"
+
       - name: Build actual human-topology Lam candidate and render references
         run: |
           set -euo pipefail
