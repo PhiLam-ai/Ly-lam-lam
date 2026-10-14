@@ -544,6 +544,13 @@ def main():
                 0.0020, denim_light, 0.0015)
 
     meshes = [obj for obj in scene.objects if obj.type == "MESH"]
+    # Capture fused fitted-tee topology before rig setup adds armature modifiers.
+    tee_mesh_before_rig = next((obj for obj in meshes if obj.name == "Tee_Fitted_Continuous"), None)
+    tee_mesh_vertex_count_before_rig = len(tee_mesh_before_rig.data.vertices) if tee_mesh_before_rig else 0
+    blended_tee_contours_before_rig = bool(
+        tee_mesh_before_rig and tee_mesh_vertex_count_before_rig > 0 and
+        len(tee_mesh_before_rig.modifiers) == 0
+    )
     # Measure the front locks in their native generated mesh coordinates before parent/rig setup.
     # The beauty render confirms these locks fall to the waist; post-rig world transforms are
     # not a reliable proxy for this static geometry feature.
@@ -705,12 +712,8 @@ def main():
                 and any(obj.name == "Hair_Back_Long" for obj in meshes),
             "integrated_bust_contour": any(obj.name == "Tee_Fitted_Continuous" for obj in meshes),
             # Structural proxy only: one fused remeshed tee mesh, not an automated judgment of visual anatomy.
-            "blended_tee_contours": any(
-                obj.name == "Tee_Fitted_Continuous" and
-                len(obj.data.vertices) >= 1000 and
-                len(obj.modifiers) == 0
-                for obj in meshes
-            )
+            "blended_tee_contours": blended_tee_contours_before_rig,
+            "tee_mesh_vertex_count_before_rig": tee_mesh_vertex_count_before_rig
         },
         "morph_names_found": sorted(found),
         "missing_expected_morphs": sorted(set(EXPECTED_MORPHS) - found),
