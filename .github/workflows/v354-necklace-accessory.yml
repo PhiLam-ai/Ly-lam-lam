@@ -374,6 +374,11 @@ jobs:
           mkdir -p "$RUNNER_TEMP/v354-viewer" artifacts/v354-browser-test
           cp -a v312-work/. "$RUNNER_TEMP/v354-viewer/"
           cp artifacts/v354-gltf-face-accessories/lam-v354-gltf-materials-full-face-candidate.glb "$RUNNER_TEMP/v354-viewer/lam-default.glb"
+          node --check tools/v352_apply_viewer_fill_lighting.cjs
+          V352_VIEWER_ROOT="$RUNNER_TEMP/v354-viewer" \
+            V352_PATCH_REPORT_PATH="$GITHUB_WORKSPACE/artifacts/v354-browser-test/viewer-lighting-patch-report.json" \
+            node tools/v352_apply_viewer_fill_lighting.cjs
+          cp "$RUNNER_TEMP/v354-viewer/index.html" artifacts/v354-browser-test/index-v354-experimental-lighting.html
           node --check tools/v314_candidate_webgl_smoke.cjs
           node tools/v314_candidate_webgl_smoke.cjs
           test -s artifacts/v354-browser-test/v314-candidate-browser-report.json
@@ -389,7 +394,12 @@ jobs:
           assert report["state"]["activeAnimationName"] == "Lam_Idle_GentleSway", report
           assert report["state"]["animationTime"] > 0.05, report
           assert report["pageErrors"] == [] and report["consoleErrors"] == [], report
-          print("V354_BROWSER_WEBGL_AND_MORPHS=PASS_EXPERIMENTAL_ONLY")
+          patch = json.loads(Path("artifacts/v354-browser-test/viewer-lighting-patch-report.json").read_text(encoding="utf-8"))
+          assert patch["status"] == "V352_TEMP_VIEWER_LIGHTING_PATCH_APPLIED" and patch["replacementCount"] == 1, patch
+          assert patch["modelUnchanged"] is True and patch["originalHtmlSha256"] != patch["patchedHtmlSha256"], patch
+          patched_html = Path("artifacts/v354-browser-test/index-v354-experimental-lighting.html").read_text(encoding="utf-8")
+          assert "const faceFill=new THREE.DirectionalLight(0xfff4e8,0.45)" in patched_html, "V354 browser capture did not use the V353 lighting patch"
+          print("V354_BROWSER_WEBGL_LIGHTING_NECKLACE=PASS_EXPERIMENTAL_ONLY")
           print(json.dumps({"state": report["state"], "avatarDiagnostics": report.get("avatarDiagnostics"), "visualFraming": report["visualFraming"]}, ensure_ascii=False, indent=2))
           PY
 
@@ -400,12 +410,12 @@ jobs:
           stage="$RUNNER_TEMP/ly-lam-lam-v354-preview-stage"
           package="$RUNNER_TEMP/ly-lam-lam-v354-experimental-windows.zip"
           mkdir -p "$stage/v312-work"
-          cp -a v312-work/. "$stage/v312-work/"
+          cp -a "$RUNNER_TEMP/v354-viewer/." "$stage/v312-work/"
           cp artifacts/v354-gltf-face-accessories/lam-v354-gltf-materials-full-face-candidate.glb "$stage/v312-work/lam-default.glb"
           cat > "$stage/v312-work/V354-EXPERIMENTAL-AVATAR.md" <<'MD'
           # V354 Experimental Real Human-Topology Avatar — Not Yet Approved
 
-          This package preserves the V340 body silhouette, V341 darkened hair, V345 closed-lip gentle smile and V350 eye-front surface response. V354 adds a thin gold necklace chain and small oval pendant as two glTF-safe mesh accessories attached using measured front-surface samples on the existing shirt/skin geometry. Body, clothing, face, hair, eye geometry/materials, morph targets and animation remain unchanged. This is a diagnostic candidate, not the final avatar.
+          This package preserves the V340 body silhouette, V341 darkened hair, V345 closed-lip gentle smile and V350 eye-front surface response. V354 adds a thin gold necklace chain and small oval pendant as two glTF-safe mesh accessories attached using measured front-surface samples on the existing shirt/skin geometry. The local viewer also carries the V352 fill-light patch (temporary preview only); the source repository HTML and production main branch are unchanged. Body, clothing, face, hair, eye geometry/materials, morph targets and animation remain unchanged. This is a diagnostic candidate, not the final avatar.
 
           - This is an experimental human-mesh candidate, not a claim of final photorealism.
           - It includes a subtle Lam_Idle_GentleSway common-root animation and 12 base-mesh facial morph names. The five separate face accessory meshes are restored with export-safe materials so the browser image can be compared against the V335 texture-only diagnostic.
@@ -441,6 +451,9 @@ jobs:
               ):
                   if required not in names:
                       raise SystemExit(f"Missing package file: {required}")
+              html = archive.read("v312-work/index.html").decode("utf-8")
+              if "const faceFill=new THREE.DirectionalLight(0xfff4e8,0.45)" not in html:
+                  raise SystemExit("V354 packaged preview is missing the V353/V352 fill-lighting patch")
           print(f"V354_WINDOWS_PREVIEW_BYTES={package.stat().st_size}")
           print(f"V354_WINDOWS_PREVIEW_SHA256={digest}")
           print("V354_WINDOWS_PREVIEW_ZIP_INTEGRITY=PASS")
