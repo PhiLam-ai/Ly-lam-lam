@@ -50,9 +50,9 @@ jobs:
             local name="$1" url1="$2" url2="$3"
             local out=".cache/v331-mpfb-assets/$name"
             if [ ! -s "$out" ]; then
-              if ! curl -fL --retry 2 --retry-all-errors --connect-timeout 30 --max-time 3600 "$url1" -o "$out"; then
+              if ! curl -fL --retry 2 --retry-all-errors --connect-timeout 30 --max-time 3600 --speed-time 60 --speed-limit 1024 "$url1" -o "$out"; then
                 rm -f "$out"
-                curl -fL --retry 2 --retry-all-errors --connect-timeout 30 --max-time 3600 "$url2" -o "$out"
+                curl -fL --retry 2 --retry-all-errors --connect-timeout 30 --max-time 3600 --speed-time 60 --speed-limit 1024 "$url2" -o "$out"
               fi
             fi
             test -s "$out"
