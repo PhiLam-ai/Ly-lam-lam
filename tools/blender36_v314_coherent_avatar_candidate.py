@@ -227,8 +227,8 @@ def main():
     shape_key(mouth, "lip_round", lambda co, idx: Vector((co.x * 0.62, co.y - 0.002, co.z)))
     tongue = uv("Tongue_Tip", (0, -0.105, 1.388), (0.015, 0.005, 0.004), lip, 24, 14)
     shape_key(tongue, "tongue_tip", lambda co, idx: Vector((co.x, co.y - 0.004, co.z + 0.003)))
-    shape_key(head, "jaw_open", lambda co, idx: Vector((co.x, co.y - (0.002 if co.z < -0.045 and co.y < -0.025 else 0), co.z - (0.006 if co.z < -0.045 and co.y < -0.025 else 0)))
-    shape_key(head, "jaw_hinge", lambda co, idx: Vector((co.x, co.y - (0.003 if co.z < -0.045 and co.y < -0.025 else 0), co.z - (0.004 if co.z < -0.045 and co.y < -0.025 else 0)))
+    shape_key(head, "jaw_open", lambda co, idx: Vector((co.x, co.y - (0.002 if co.z < -0.045 and co.y < -0.025 else 0), co.z - (0.006 if co.z < -0.045 and co.y < -0.025 else 0))))
+    shape_key(head, "jaw_hinge", lambda co, idx: Vector((co.x, co.y - (0.003 if co.z < -0.045 and co.y < -0.025 else 0), co.z - (0.004 if co.z < -0.045 and co.y < -0.025 else 0))))
     shape_key(head, "mouth_open", lambda co, idx: Vector((co.x, co.y - (0.002 if co.z < -0.035 and co.y < -0.025 else 0), co.z - (0.003 if co.z < -0.035 and co.y < -0.025 else 0))))
     shape_key(head, "cheek_raise", lambda co, idx: Vector((co.x, co.y, co.z + (0.004 if -0.045 < co.z < 0.0 and co.y < -0.03 else 0))))
 
