@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "title": "Lý Lâm Lam autonomous work queue",
+  "policy": "Read-only automated tasks may run unattended. AI/API calls, source edits, deploys, stable promotion, destructive actions, and material costs require explicit authorization.",
+  "tasks": [
+    {
+      "id": "AUTO-001",
+      "title": "Preflight application files, bundled runtime and GLB integrity",
+      "type": "deterministic_check",
+      "priority": 1,
+      "risk": "low",
+      "approval_required": false,
+      "automated_in_v1": true,
+      "acceptance": [
+        "entry page exists",
+        "local Three.js files exist",
+        "GLB 2.0 header and declared length match",
+        "stable registry is valid JSON"
+      ]
+    },
+    {
+      "id": "AUTO-002",
+      "title": "Run Node.js regression and structural tests",
+      "type": "test",
+      "priority": 2,
+      "risk": "low",
+      "approval_required": false,
+      "automated_in_v1": true,
+      "acceptance": [
+        "all tests in v312-work/tests pass"
+      ]
+    },
+    {
+      "id": "AUTO-003",
+      "title": "Continue avatar rig/geometry diagnosis without replacing source GLB",
+      "type": "diagnostic",
+      "priority": 3,
+      "risk": "low",
+      "approval_required": false,
+      "automated_in_v1": "evidence linkage only",
+      "acceptance": [
+        "separate experiment artifacts",
+        "source hash unchanged",
+        "12 expected morph names retained",
+        "visual inspection before acceptance"
+      ]
+    },
+    {
+      "id": "HUMAN-001",
+      "title": "Confirm real iPhone Safari viewport, WebGL and avatar appearance",
+      "type": "manual_acceptance",
+      "priority": 4,
+      "risk": "medium",
+      "approval_required": true,
+      "automated_in_v1": false,
+      "acceptance": [
+        "real-device evidence reviewed"
+      ]
+    },
+    {
+      "id": "AUTH-001",
+      "title": "Enable a bounded AI coding agent for unattended code changes",
+      "type": "external_service_integration",
+      "priority": 5,
+      "risk": "high",
+      "approval_required": true,
+      "automated_in_v1": false,
+      "acceptance": [
+        "provider and credential explicitly approved",
+        "spending cap defined",
+        "branch-only patch policy",
+        "tests and human review gate pass"
+      ]
+    }
+  ]
+}
