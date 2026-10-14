@@ -1850,7 +1850,8 @@ def tune_eye_material_response(material):
     return {
         "scope": "high-poly eye mesh material only",
         "settings": settings,
-        "source_diffuse_texture_and_uv_unchanged": True,
+        "source_texture_changed_only_inside_iris_mask": True,
+        "uv_layout_unchanged": True,
         "alpha_behavior_unchanged": True,
         "material_node_names": [node.name for node in material.node_tree.nodes],
     }
@@ -2468,7 +2469,9 @@ def main():
         "clearcoat_extension_present": bool(clearcoat_extension),
         "clearcoat_factor": clearcoat_extension.get("clearcoatFactor"),
         "clearcoat_roughness_factor": clearcoat_extension.get("clearcoatRoughnessFactor"),
-        "source_image_uv_alpha_preserved": True,
+        "uv_layout_preserved": True,
+        "alpha_preserved": True,
+        "processed_iris_image_used": True,
     }
     if not specular_extension or not clearcoat_extension:
         raise RuntimeError("V357 expected glTF specular and clearcoat material extensions: " + repr(gltf_eye_material_audit))
