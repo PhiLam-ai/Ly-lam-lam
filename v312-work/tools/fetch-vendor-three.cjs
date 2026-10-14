@@ -11,7 +11,7 @@ const crypto = require('node:crypto');
 const root = path.resolve(__dirname, '..');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'lylamlam-three-0.160.0-'));
 function run(command, args) {
-  const result = cp.spawnSync(command, args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: 60000 });
+  const result = cp.spawnSync(command, args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: 60000, shell: process.platform === 'win32' && /\\.(?:cmd|bat)$/i.test(command) });
   if (result.error) throw new Error(`${command}: ${result.error.message}`);
   if (result.status !== 0) {
     const details = [result.stdout, result.stderr].filter(Boolean).join('\n').trim();
@@ -51,7 +51,7 @@ try {
     // Prefer an already cached official package so deployments can succeed during a registry outage.
     // An offline cache miss is expected; retry online and classify only that final failure.
     console.log('Đang thử lấy three@0.160.0 từ bộ nhớ đệm npm ngoại tuyến...');
-    const offline = cp.spawnSync(npm, [...installArgs.slice(0, 1), '--offline', ...installArgs.slice(1), 'three@0.160.0'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: 5000 });
+    const offline = cp.spawnSync(npm, [...installArgs.slice(0, 1), '--offline', ...installArgs.slice(1), 'three@0.160.0'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: 5000, shell: process.platform === 'win32' });
     if (!offline.error && offline.status === 0) {
       console.log('PASS: npm cache có sẵn three@0.160.0; không cần truy cập registry.');
     } else {
