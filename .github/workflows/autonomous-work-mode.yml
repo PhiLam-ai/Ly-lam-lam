@@ -11,6 +11,7 @@ on:
     paths:
       - "AUTONOMOUS-WORK-MODE-V1.md"
       - "automation/**"
+      - "v312-work/**"
       - ".github/workflows/autonomous-work-mode.yml"
 
 permissions:
