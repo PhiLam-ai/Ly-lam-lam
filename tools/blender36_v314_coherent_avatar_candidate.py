@@ -680,7 +680,7 @@ def main():
     with open(os.path.join(out, "lam-v314-candidate-report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
     print("V317_VISIBLE_CANDIDATE=" + json.dumps(report, ensure_ascii=False))
-    assert report["candidate_version"] == "V316", report
+    assert report["candidate_version"] == "V317", report
     assert report["candidate_skin_count"] == 0, report
     assert report["candidate_animation_count"] == 1, report
     assert "Lam_Idle_GentleSway" in report["candidate_animation_names"], report
