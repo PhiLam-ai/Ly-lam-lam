@@ -1,4 +1,4 @@
-import bpy, os, sys, json, hashlib
+import bpy, os, sys, json, hashlib, struct
 from mathutils import Vector
 
 EXPECTED_MORPHS = [
@@ -237,6 +237,73 @@ def build_rest_pose_rig(meshes):
     bpy.context.view_layer.update()
     return rig
 
+
+def create_idle_animation(rig):
+    scene = bpy.context.scene
+    action = bpy.data.actions.new("Lam_Idle_GentleSway")
+    rig.animation_data_create()
+    rig.animation_data.action = action
+    scene.frame_start = 1
+    scene.frame_end = 49
+    scene.render.fps = 24
+
+    chest = rig.pose.bones.get("Lam_Joint_Chest")
+    head = rig.pose.bones.get("Lam_Joint_Head")
+    if chest is None or head is None:
+        raise RuntimeError("Required Chest/Head bones are missing for the idle clip.")
+
+    chest.rotation_mode = "XYZ"
+    head.rotation_mode = "XYZ"
+    keys = [
+        (1, 0.0, 0.0),
+        (13, 0.018, 0.012),
+        (25, 0.0, 0.0),
+        (37, -0.018, -0.012),
+        (49, 0.0, 0.0),
+    ]
+    for frame, chest_y, head_x in keys:
+        scene.frame_set(frame)
+        chest.rotation_euler = (0.0, chest_y, 0.0)
+        chest.keyframe_insert(data_path="rotation_euler", frame=frame, group=chest.name)
+        head.rotation_euler = (head_x, 0.0, 0.0)
+        head.keyframe_insert(data_path="rotation_euler", frame=frame, group=head.name)
+    scene.frame_set(1)
+    return action
+
+def evaluated_world_vertices(obj, scene, frame):
+    scene.frame_set(frame)
+    bpy.context.view_layer.update()
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    evaluated = obj.evaluated_get(depsgraph)
+    mesh = evaluated.to_mesh()
+    try:
+        return [evaluated.matrix_world @ vertex.co for vertex in mesh.vertices]
+    finally:
+        evaluated.to_mesh_clear()
+
+def measure_animation_deformation(meshes, scene):
+    tee = next((obj for obj in meshes if obj.name == "Tee_Fitted_Continuous"), None)
+    if tee is None:
+        raise RuntimeError("Tee_Fitted_Continuous was not found to verify skeletal deformation.")
+    at_rest = evaluated_world_vertices(tee, scene, 1)
+    at_motion = evaluated_world_vertices(tee, scene, 13)
+    if len(at_rest) != len(at_motion) or not at_rest:
+        raise RuntimeError("Cannot compare evaluated torso vertices at the two animation frames.")
+    return max((at_motion[i] - at_rest[i]).length for i in range(len(at_rest)))
+
+def read_glb_json(glb_path):
+    with open(glb_path, "rb") as f:
+        data = f.read()
+    if len(data) < 20:
+        raise RuntimeError("Exported GLB is too short to contain the JSON chunk.")
+    magic, version, total_length = struct.unpack_from("<4sII", data, 0)
+    if magic != b"glTF" or version != 2 or total_length != len(data):
+        raise RuntimeError("Exported GLB header is invalid.")
+    chunk_length, chunk_type = struct.unpack_from("<II", data, 12)
+    if chunk_type != 0x4E4F534A or 20 + chunk_length > len(data):
+        raise RuntimeError("Exported GLB does not start with a valid JSON chunk.")
+    return json.loads(data[20:20 + chunk_length].decode("utf-8").rstrip("\\x00 \\t\\r\\n"))
+
 def main():
     args = args_after_dashdash()
     out = os.path.abspath("artifacts/v314-coherent-avatar-candidate")
@@ -396,6 +463,11 @@ def main():
     render(scene, side, os.path.join(out, "lam-v314-side.png"))
 
     rig = build_rest_pose_rig(meshes)
+    action = create_idle_animation(rig)
+    max_tee_deformation = measure_animation_deformation(meshes, scene)
+    if max_tee_deformation <= 0.0001:
+        raise RuntimeError("Idle animation is present but evaluated torso deformation is below tolerance.")
+    scene.frame_set(1)
     bpy.context.view_layer.update()
     rig_front = camera(scene, "RiggedFrontCamera", (0, -dist, 0.80), target, 1.82)
     render(scene, rig_front, os.path.join(out, "lam-v314-rigged-front.png"))
@@ -409,6 +481,13 @@ def main():
     rig.select_set(True)
     bpy.context.view_layer.objects.active = rig
     bpy.ops.export_scene.gltf(filepath=glb, export_format="GLB", use_selection=True)
+    glb_doc = read_glb_json(glb)
+    glb_animation_names = [item.get("name", "") for item in glb_doc.get("animations", [])]
+    glb_skin_count = len(glb_doc.get("skins", []))
+    if "Lam_Idle_GentleSway" not in glb_animation_names:
+        raise RuntimeError("The exported GLB does not contain the Lam_Idle_GentleSway animation clip.")
+    if glb_skin_count != 1:
+        raise RuntimeError("Expected one exported glTF skin/armature; got " + str(glb_skin_count))
 
     found = set()
     for obj in meshes:
@@ -422,7 +501,11 @@ def main():
         "mesh_count": len(meshes),
         "armature_count": sum(1 for obj in scene.objects if obj.type == "ARMATURE"),
         "armature_bone_count": len(rig.data.bones),
-        "animation_clip_count": len(scene.animation_data.action if scene.animation_data and scene.animation_data.action else []),
+        "animation_clip_names": [item.name for item in bpy.data.actions],
+        "animation_clip_count": len(bpy.data.actions),
+        "max_tee_deformation_m_frame_1_to_13": round(max_tee_deformation, 8),
+        "glb_animation_names": glb_animation_names,
+        "glb_skin_count": glb_skin_count,
         "materials": sorted({m.name for obj in meshes for m in obj.data.materials if m}),
         "morph_names_found": sorted(found),
         "missing_expected_morphs": sorted(set(EXPECTED_MORPHS) - found),
@@ -442,6 +525,10 @@ def main():
     print("V314_COHERENT_AVATAR_CANDIDATE=" + json.dumps(report, ensure_ascii=False))
     assert report["armature_count"] == 1
     assert report["armature_bone_count"] == 17
+    assert report["animation_clip_count"] == 1, report
+    assert "Lam_Idle_GentleSway" in report["glb_animation_names"], report
+    assert report["glb_skin_count"] == 1, report
+    assert report["max_tee_deformation_m_frame_1_to_13"] > 0.0001, report
     assert report["mesh_count"] > 15
     assert report["missing_expected_morphs"] == [], report
     assert abs(before["size"][2] - 1.60) < 0.04, before
