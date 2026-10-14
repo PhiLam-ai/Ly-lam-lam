@@ -845,6 +845,7 @@ def create_face_framing_hair_strands(scene):
         "status": "APPLIED",
         "reference": "Bảng giới thiệu nhân vật Lý Lâm Lam.png",
         "reference_dimensions_px": [1214, 1295],
+        "reference_sha256": "0be925c095166289727c597690b57ed31d23fcbf0a77f7f517d1928098f3c575",
         "strand_count": len(objects),
         "material_name": material.name,
         "material_settings": {
@@ -2922,7 +2923,7 @@ def main():
         "status": "EXPERIMENTAL_V361_GLTFSKIN_FACE_ACCESSORY_CANDIDATE_NOT_APPROVED",
         "mpfb_source_commit": mpfb_source_commit,
         "version": "V361",
-        "purpose": "V361 builds on the measured V359 face-profile baseline and strengthens the same smooth frontal cheek/jaw/chin taper (cheek +3.5%, jaw -8%, chin -4% max) with a 6 mm displacement cap; V358 iris pixels/alpha/UVs, eye materials, hair, necklace, smile controls and V340 body silhouette remain unchanged.",
+        "purpose": "V361 preserves the measured V360 face profile and adds six small tapered solid-color forehead/temple hair strands guided by the saved Lam character sheet; existing hair texture, face, eyes, iris, necklace, smile and V340 body silhouette remain unchanged.",
         "blender_version": bpy.app.version_string,
         "mpfb_version": list(getattr(mpfb, "VERSION", ())),
         "mpfb_user_data": LocationService.get_user_data(),
