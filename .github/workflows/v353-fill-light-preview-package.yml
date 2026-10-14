@@ -1,0 +1,159 @@
+name: V353 Experimental WebGL Fill-Light Preview Package (V350 Model)
+
+on:
+  push:
+    branches:
+      - avatar/v313-repair-candidate-20261014
+    paths:
+      - "tools/v352_apply_viewer_fill_lighting.cjs"
+      - "tools/v352_browser_lighting_capture.cjs"
+      - ".github/workflows/v353-fill-light-preview-package.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: v353-fill-light-preview-package
+  cancel-in-progress: true
+
+jobs:
+  build-and-test-lighting-preview:
+    name: Build Windows preview with V352 fill lighting and V350 GLB
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        name: Check out experimental viewer sources
+
+      - uses: actions/download-artifact@v4
+        name: Download exact V350 avatar model
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 38601681760
+          name: ly-lam-lam-v350-gltf-face-accessory-38601681760
+          path: artifacts/v350-source
+
+      - name: Install Playwright and Chromium
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/v353-playwright" --no-save --package-lock=false playwright pngjs
+          "$RUNNER_TEMP/v353-playwright/node_modules/.bin/playwright" install --with-deps chromium
+
+      - name: Assemble isolated V353 viewer with unmodified V350 GLB
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v353-viewer" artifacts/v353-browser-test
+          cp -a v312-work/. "$RUNNER_TEMP/v353-viewer/"
+          source_glb="$(find artifacts/v350-source -type f -name 'lam-v350-gltf-materials-full-face-candidate.glb' -print -quit)"
+          test -n "$source_glb"
+          test -s "$source_glb"
+          cp "$source_glb" "$RUNNER_TEMP/v353-viewer/lam-default.glb"
+          printf '%s\n'             '# V353 Experimental Fill-Light Preview — Model V350'             ''             'This Windows package keeps the V350 GLB unchanged and carries the V352 browser-lighting adjustment only in its local viewer index.html copy.'             ''             '- Exact V350 GLB SHA-256: 9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee'             '- The local viewer uses a slightly gentler key light and low-intensity side/front fill lights to lift facial shadow detail.'             '- No changes were made to production main, the repository v312-work/index.html or the V350 GLB.'             '- This is an experimental candidate preview, not a production release.'             '- Launch on Windows by double-clicking START-LAM-WINDOWS.bat after installing Node.js LTS; keep the console open.'             > artifacts/v353-browser-test/V353-EXPERIMENTAL-PREVIEW.md
+
+      - name: Apply lighting patch to the temporary preview copy
+        env:
+          V352_VIEWER_ROOT: ${{ runner.temp }}/v353-viewer
+          V352_PATCH_REPORT_PATH: ${{ github.workspace }}/artifacts/v353-browser-test/viewer-lighting-patch-report.json
+        run: |
+          set -euo pipefail
+          node --check tools/v352_apply_viewer_fill_lighting.cjs
+          node tools/v352_apply_viewer_fill_lighting.cjs
+          cp "$RUNNER_TEMP/v353-viewer/index.html" artifacts/v353-browser-test/index-v353-experimental-lighting.html
+
+      - name: Test V353 viewer with V350 GLB in mobile WebGL
+        env:
+          NODE_PATH: ${{ runner.temp }}/v353-playwright/node_modules
+          V352_VIEWER_ROOT: ${{ runner.temp }}/v353-viewer
+          V352_VIEWER_EVIDENCE_DIR: ${{ github.workspace }}/artifacts/v353-browser-test
+          V352_EXPECTED_V350_GLB_SHA256: 9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee
+          V352_SOURCE_RUN_ID: 38601681760
+        run: |
+          set -euo pipefail
+          node --check tools/v352_browser_lighting_capture.cjs
+          node tools/v352_browser_lighting_capture.cjs
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("artifacts/v353-browser-test/v352-candidate-browser-report.json").read_text(encoding="utf-8"))
+          assert report["status"] == "PASS_BROWSER_WEBGL_CANDIDATE_ONLY", report
+          assert report["sourceModel"]["version"] == "V350", report
+          assert report["sourceModel"]["sha256"] == "9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee", report
+          assert report["state"]["booted"] and report["state"]["rendererReady"] and report["state"]["webgl"], report
+          assert report["state"]["activeAnimationName"] == "Lam_Idle_GentleSway" and report["state"]["animationTime"] > 0.05, report
+          assert report["faceView"]["clicked"] and report["faceView"]["buttonCount"] == 1, report
+          assert report["faceView"]["screenshotBytes"] > 5000 and report["faceView"]["foregroundPixels"] > 12000, report
+          assert not report["pageErrors"] and not report["consoleErrors"], report
+          fatal = [item for item in report["failedRequests"] if item not in report["ignoredBenignAborts"]]
+          assert not fatal, {"fatal_requests": fatal, "report": report}
+          assert all(item["error"] == "net::ERR_ABORTED" and item["url"].endswith("/lam-default.glb") for item in report["ignoredBenignAborts"]), report
+          patch = json.loads(Path("artifacts/v353-browser-test/viewer-lighting-patch-report.json").read_text(encoding="utf-8"))
+          assert patch["status"] == "V352_TEMP_VIEWER_LIGHTING_PATCH_APPLIED" and patch["replacementCount"] == 1, patch
+          assert patch["modelUnchanged"] is True and patch["originalHtmlSha256"] != patch["patchedHtmlSha256"], patch
+          print("V353_BROWSER_WEBGL_LIGHTING_PREVIEW=PASS_EXPERIMENTAL_ONLY")
+          print(json.dumps({"sourceModel": report["sourceModel"], "state": report["state"], "faceView": report["faceView"], "patch": patch}, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Package Windows preview and verify ZIP/SHA-256
+        if: success()
+        run: |
+          set -euo pipefail
+          stage="$RUNNER_TEMP/v353-preview-stage"
+          package="$RUNNER_TEMP/ly-lam-lam-v353-experimental-windows.zip"
+          mkdir -p "$stage/v312-work"
+          cp -a "$RUNNER_TEMP/v353-viewer/." "$stage/v312-work/"
+          cp artifacts/v353-browser-test/V353-EXPERIMENTAL-PREVIEW.md "$stage/v312-work/V353-EXPERIMENTAL-AVATAR.md"
+          (
+            cd "$stage/v312-work"
+            node --check tools/start-windows-preview.cjs
+            node tools/start-windows-preview.cjs --check
+          )
+          python3 - "$stage" "$package" <<'PY'
+          import hashlib, pathlib, sys, zipfile
+          stage, package = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+          with zipfile.ZipFile(package, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+              for path in sorted(stage.rglob("*")):
+                  if path.is_file():
+                      archive.write(path, path.relative_to(stage).as_posix())
+          digest = hashlib.sha256(package.read_bytes()).hexdigest()
+          package.with_suffix(package.suffix + ".sha256").write_text(f"{digest}  {package.name}\n", encoding="ascii")
+          with zipfile.ZipFile(package, "r") as archive:
+              bad = archive.testzip()
+              if bad:
+                  raise SystemExit(f"ZIP integrity failed: {bad}")
+              names = set(archive.namelist())
+              for required in (
+                  "v312-work/START-LAM-WINDOWS.bat",
+                  "v312-work/V353-EXPERIMENTAL-AVATAR.md",
+                  "v312-work/lam-default.glb",
+                  "v312-work/index.html",
+                  "v312-work/vendor/three/build/three.module.js",
+              ):
+                  if required not in names:
+                      raise SystemExit(f"Missing package file: {required}")
+              packaged_glb = archive.read("v312-work/lam-default.glb")
+              glb_hash = hashlib.sha256(packaged_glb).hexdigest()
+              expected = "9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee"
+              if glb_hash != expected:
+                  raise SystemExit(f"V350 model changed in V353 package: {glb_hash}")
+              html = archive.read("v312-work/index.html").decode("utf-8")
+              if "const faceFill=new THREE.DirectionalLight(0xfff4e8,0.45)" not in html:
+                  raise SystemExit("V353 lighting preview patch missing from packaged index.html")
+          print(f"V353_WINDOWS_PREVIEW_BYTES={package.stat().st_size}")
+          print(f"V353_WINDOWS_PREVIEW_SHA256={digest}")
+          print(f"V353_PACKAGED_V350_GLB_SHA256={glb_hash}")
+          print("V353_WINDOWS_PREVIEW_ZIP_INTEGRITY=PASS")
+          PY
+          cp "$package" artifacts/v353-browser-test/
+          cp "$package.sha256" artifacts/v353-browser-test/
+
+      - name: Upload V353 tested preview ZIP and visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ly-lam-lam-v353-fill-light-preview-${{ github.run_id }}
+          path: artifacts/v353-browser-test/
+          if-no-files-found: warn
+          retention-days: 14
