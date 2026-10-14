@@ -123,6 +123,7 @@ A separate V343 run was created from the earlier V342 conversation checkpoint af
 - Visual decision pending. Do not approve based on workflow status alone; inspect `v364-necklace-closeup.png`, front/side renders and the mobile browser capture. Production `main/v312-work/lam-default.glb` remains untouched.
 ## Version-branch housekeeping
 - The repository already contained multiple V343 experiments and completed candidates through V361. One additional duplicate V343 script/workflow created during this continuation was not a canonical project step: its build exported a model, but its minimum-smile-displacement gate failed on the low-amplitude eyelash mesh (`4.409e-05 m`). The duplicate files `tools/blender_v343_gentle_smile_base_pose.py` and `.github/workflows/v343-gentle-smile-base-pose.yml` were removed in commits `44cef51a52abda36ee2cfde9c4e3d36ec1597386` and `9e68114f52bdd02cc10d969291914b9c595dcefc`; Git history and the failed Actions record remain intact. All other existing V343 variants are unchanged.
+- During this continuation the duplicate path was briefly recreated at smile strength 0.22 and Actions run `38632932265` passed, but those two files were removed again because the canonical line had already moved through V363 toward V364. The run/artifact history remains in GitHub Actions for traceability only; it was not used as the release candidate.
 ## Safety and rollback
 
 - Do not copy any experimental GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
