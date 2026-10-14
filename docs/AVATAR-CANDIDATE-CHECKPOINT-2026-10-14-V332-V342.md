@@ -1,4 +1,4 @@
-# Lý Lâm Lam avatar candidate checkpoint — 2026-10-14 (V332–V342)
+# Lý Lâm Lam avatar candidate checkpoint — 2026-10-14 (V332–V343)
 
 ## Release decision
 
@@ -88,12 +88,11 @@
 - Next target: V342 addresses the neutral face expression with a small, documented default smile while preserving all 12 morph controls. Do not change the face mesh, body, hair or clothes in the same experiment. Production `v312-work/lam-default.glb` remains unchanged.## V342 — gentle smile neutral face pose
 - Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38581370585 — **SUCCESS**.
 - Artifact: [V342 GitHub Actions artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38581370585/artifacts/11903896107), ID `11903896107`, 57,867,261 bytes; digest `sha256:59fde7815f2a5f9e4ec5bf750a81d5e721da953f1f89c9d4a5da5595635677bc`.
-- GLB: `lam-v342-gltf-materials-full-face-candidate.glb`, 20,483,060 bytes, SHA-256 `31c9298744de0df9c96558931f086541ff7d77aab41d27b47525a0052d4e19e8` independently verified. Retains 12 expected morphs and `Lam_Idle_GentleSway`, with the V340 body silhouette and V341 darkened RGBA hair.
-- Windows preview ZIP: `ly-lam-lam-v342-experimental-windows.zip`, 21,652,678 bytes, 81 entries, ZIP integrity passed; SHA-256 `236952a3892b15c793c6b312546a6c64adb66ee712f9aa710c8f40a5117e01f3` matched the sidecar and was independently recomputed.
-- Mobile browser: PASS at 390×844; GLB HTTP 200, WebGL renderer ready, all 12 morphs present, `Lam_Idle_GentleSway` advanced, no page/console/failed-request errors, avatar visible within safe area.
-- Default face change: 0.12 of the pre-existing smile delta was baked into Basis and non-smile keys; the full-smile endpoint is preserved in absolute coordinates. Maximum neutral displacement on the main body mesh was approximately 1.59 mm.
-- Visual decision: **TECHNICAL PASS, EXPRESSION NOT YET APPROVED**. Face-closeup and browser screenshots show only a very subtle lip change; at normal viewing scale the mouth still reads close to neutral. No sign of a large facial warp, but the smile strength is too low for the requested gentle expression.
-- Next: V343 changes only default-smile strength from `0.12` to `0.22`. V340 lower-body shaping, V341 hair texture/material, clothing and all 12 morph controls remain unchanged. Compare the face close-up and verify the smile slider still reaches the original endpoint.
+- GLB: `lam-v342-gltf-materials-full-face-candidate.glb`, 20,483,060 bytes; SHA-256 `31c9298744de0df9c96558931f086541ff7d77aab41d27b47525a0052d4e19e8` verified from the downloaded artifact. It retains 0 glTF skins, 9 images, 12 morphs and `Lam_Idle_GentleSway`.
+- Windows ZIP: `ly-lam-lam-v342-experimental-windows.zip`, 21,652,678 bytes, 81 entries, integrity passed; SHA-256 `236952a3892b15c793c6b312546a6c64adb66ee712f9aa710c8f40a5117e01f3` matched its sidecar and was independently recomputed.
+- Browser: PASS at 390×844; WebGL/renderer ready, animation advanced, no page/console errors, avatar visible within safe area.
+- Default-pose transform is present on 19,532 vertices across the body/eyebrow/lash meshes. Smile strength was `0.12`, max base-face displacement only about `0.001586 m` (1.6 mm). All 12 morph names and full-smile target remain available.
+- Visual decision: **NOT APPROVED as a visible smile improvement yet**. Rendered face still reads neutral/stiff at full-body and close-up scale. The base-pose adjustment is too subtle; next V343 changes only the smile-base strength from `0.12` to `0.24`, leaving geometry/material/body/hair and all other workflow settings fixed for a direct comparison.
 ## Safety and rollback
 - Do not copy any candidate GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
 - Keep all builds, renders, reports, and ZIPs under versioned candidate artifacts. Record SHA-256 only after checking actual bytes against the sidecar.
