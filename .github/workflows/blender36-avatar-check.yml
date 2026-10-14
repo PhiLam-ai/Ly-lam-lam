@@ -24,6 +24,7 @@ on:
       - "tools/blender36_v313_rest_pose_comparison.py"
       - "tools/blender36_v313_pose_reset_experiment.py"
       - "tools/blender36_v313_named_weight_audit.py"
+      - "tools/blender36_v313_face_weight_experiment.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
 
@@ -288,6 +289,26 @@ jobs:
             "mismatches": [{"mesh": x["mesh"], "expected": x["expected_bone_family"],
               "dominant": x["dominant_weight_groups"][0]["bone"] if x["dominant_weight_groups"] else None}
               for x in r["mismatches"]]}, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Build isolated V313 facial-weight experiment candidate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/v313-face-weight-experiment
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup --python tools/blender36_v313_face_weight_experiment.py -- --input "$GITHUB_WORKSPACE/lam-default.glb" --output-dir "$GITHUB_WORKSPACE/artifacts/v313-face-weight-experiment"
+          test -s artifacts/v313-face-weight-experiment/face-weight-candidate-front.png
+          test -s artifacts/v313-face-weight-experiment/lam-face-weight-experiment.glb
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/v313-face-weight-experiment/face-weight-experiment-report.json")
+          r = json.loads(p.read_text(encoding="utf-8"))
+          assert r["status"] == "EXPERIMENT_ONLY_NOT_APPROVED", r
+          assert r["source_unchanged"] is True, r
+          assert len(r["targets"]) == 5, r
+          assert r["morph_count"] >= 12, r
+          print("V313_FACE_WEIGHT_EXPERIMENT=PASS_DIAGNOSTIC_ONLY")
+          print(json.dumps({"targets": r["targets"], "morph_count": r["morph_count"], "source_unchanged": r["source_unchanged"], "candidate_sha256": r["candidate_sha256"]}, ensure_ascii=False, indent=2))
           PY
 
       - name: Run isolated V313 pose-reset experiment
