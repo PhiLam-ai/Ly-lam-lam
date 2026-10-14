@@ -25,6 +25,17 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Set up Node.js for pre-deploy regression tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Block deployment if core avatar or GLB tests fail
+        run: node --test v312-work/tests/avatar-core.test.cjs v312-work/tests/glb-structural-audit.test.cjs
+
+      - name: Block deployment if the actual V312 package checks fail
+        run: node --test automation/tests/v312-package-integrity.test.cjs
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
