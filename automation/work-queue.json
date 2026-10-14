@@ -27,9 +27,10 @@
       "approval_required": false,
       "automated_in_v1": true,
       "acceptance": [
-        "blocking core unit tests pass",
+        "blocking avatar logic tests pass",
         "GLB structural tests pass",
-        "broader package-integrity tests are run and reported separately, with any version-mismatch warnings retained"
+        "target-specific tests for the actual v312-work Pages package pass",
+        "broader package-integrity tests are run and any version-mismatch warnings remain visible"
       ]
     },
     {
