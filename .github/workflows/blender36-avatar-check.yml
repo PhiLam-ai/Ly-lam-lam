@@ -20,6 +20,7 @@ on:
       - "tools/blender36_v313_skin_weight_audit.py"
       - "tools/blender36_v313_bindpose_audit.py"
       - "tools/blender36_v313_mesh_localization.py"
+      - "tools/blender36_v313_transform_bind_audit.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
 
@@ -245,6 +246,16 @@ jobs:
             --input "$GITHUB_WORKSPACE/lam-default.glb" \
             --output-dir "$GITHUB_WORKSPACE/artifacts/v313-mesh-localization"
           test -s artifacts/v313-mesh-localization/v313-mesh-localization.json
+
+      - name: Audit V313 object transforms and bind relationships
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/v313-transform-bind-audit
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_v313_transform_bind_audit.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/v313-transform-bind-audit"
+          test -s artifacts/v313-transform-bind-audit/v313-transform-bind-audit.json
 
       - name: Upload real-model renders, candidate GLB and reports
         if: always()
