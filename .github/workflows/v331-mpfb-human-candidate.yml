@@ -42,6 +42,7 @@ jobs:
           key: v331-mpfb-assets-${{ runner.os }}-system-b5421278-face-d113107b-visemes-official-v1
 
       - name: Download and verify official MakeHuman assets
+        id: download_assets
         run: |
           set -euo pipefail
           mkdir -p .cache/v331-mpfb-assets
@@ -94,7 +95,7 @@ jobs:
           PY
 
       - name: Persist verified asset packs even if later build steps fail
-        if: always()
+        if: steps.download_assets.outcome == 'success'
         uses: actions/cache/save@v4
         with:
           path: .cache/v331-mpfb-assets
