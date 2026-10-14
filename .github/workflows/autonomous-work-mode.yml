@@ -128,7 +128,19 @@ jobs:
           set -e
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           cat automation-report/core-regression.log
-          # Defer the fail gate until after evidence is uploaded.
+          exit 0
+
+      - name: Run tests for the actual V312 deploy target
+        id: target
+        shell: bash
+        run: |
+          set -uo pipefail
+          set +e
+          node --test automation/tests/v312-package-integrity.test.cjs > automation-report/current-package-tests.log 2>&1
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          cat automation-report/current-package-tests.log
           exit 0
 
       - name: Run broad package-integrity suite as a diagnostic
@@ -142,7 +154,6 @@ jobs:
           set -e
           echo "exit_code=$code" >> "$GITHUB_OUTPUT"
           cat automation-report/package-integrity.log
-          # Report version-specific packaging assumptions without hiding them.
           exit 0
 
       - name: Build work-cycle report and recommend next task
@@ -150,6 +161,7 @@ jobs:
         env:
           PREFLIGHT_STATUS: ${{ steps.preflight.outputs.status }}
           CORE_EXIT_CODE: ${{ steps.core.outputs.exit_code }}
+          TARGET_EXIT_CODE: ${{ steps.target.outputs.exit_code }}
           COMPATIBILITY_EXIT_CODE: ${{ steps.compatibility.outputs.exit_code }}
         shell: bash
         run: |
@@ -170,20 +182,24 @@ jobs:
               return {"tests": num("tests"), "pass": num("pass"), "fail": num("fail")}
 
           core_exit = os.environ.get("CORE_EXIT_CODE", "not-run")
+          target_exit = os.environ.get("TARGET_EXIT_CODE", "not-run")
           compatibility_exit = os.environ.get("COMPATIBILITY_EXIT_CODE", "not-run")
           core_ok = core_exit == "0"
+          target_ok = target_exit == "0"
           compatibility_stats = read_stats("automation-report/package-integrity.log")
+          target_stats = read_stats("automation-report/current-package-tests.log")
+          core_stats = read_stats("automation-report/core-regression.log")
           compatibility_warning = compatibility_exit != "0" or (compatibility_stats["fail"] or 0) > 0
           preflight_ok = os.environ.get("PREFLIGHT_STATUS") == "PASS"
 
-          if not preflight_ok or not core_ok:
+          if not preflight_ok or not core_ok or not target_ok:
               overall = "FAIL"
-              next_action = "Fix the failed prerequisite or core unit/GLB test on a non-release branch. Do not promote any candidate."
+              next_action = "Fix the failed prerequisite, core regression, or V312 deploy-target test on a non-release branch. Do not promote any candidate."
           elif compatibility_warning:
               overall = "PASS_WITH_WARNINGS"
               next_action = (
                   "Align legacy package-integrity test assumptions with the actual v312-work deploy package. "
-                  f"Keep the {compatibility_stats['fail'] or 0} known version-specific failures visible; do not describe the entire suite as green."
+                  f"The target-specific tests passed, but {compatibility_stats['fail'] or 0} legacy assertions still fail; do not describe the entire suite as green."
               )
           else:
               overall = "PASS"
@@ -199,7 +215,8 @@ jobs:
               "trigger": os.environ.get("GITHUB_EVENT_NAME", "unknown"),
               "overall_status": overall,
               "preflight_status": base.get("status", "NOT_RUN"),
-              "core_regression_tests": {"status": "PASS" if core_ok else "FAIL_OR_NOT_RUN", "exit_code": core_exit},
+              "core_regression_tests": {"status": "PASS" if core_ok else "FAIL_OR_NOT_RUN", "exit_code": core_exit, **core_stats},
+              "current_package_tests": {"status": "PASS" if target_ok else "FAIL_OR_NOT_RUN", "exit_code": target_exit, **target_stats, "scope": "Actual v312-work GitHub Pages deploy target"},
               "package_integrity_diagnostic": {
                   "status": "WARN_KNOWN_VERSION_MISMATCH" if compatibility_warning else "PASS",
                   "exit_code": compatibility_exit,
@@ -222,11 +239,11 @@ jobs:
               f"- Branch: `{report['branch']}`",
               f"- Trigger: `{report['trigger']}`",
               f"- Preflight: **{report['preflight_status']}**",
-              f"- Core regression: **{report['core_regression_tests']['status']}**",
-              f"- Package-integrity diagnostic: **{report['package_integrity_diagnostic']['status']}** "
-              f"({compatibility_stats['fail'] or 0} failed / {compatibility_stats['tests'] or 'unknown'} tests)",
+              f"- Core regression: **{report['core_regression_tests']['status']}** ({core_stats['pass'] or 0}/{core_stats['tests'] or 'unknown'} pass)",
+              f"- V312 target tests: **{report['current_package_tests']['status']}** ({target_stats['pass'] or 0}/{target_stats['tests'] or 'unknown'} pass)",
+              f"- Legacy package diagnostic: **{report['package_integrity_diagnostic']['status']}** ({compatibility_stats['fail'] or 0} failed / {compatibility_stats['tests'] or 'unknown'} tests)",
               "",
-              "> PASS_WITH_WARNINGS is not release approval. Known package-integrity mismatches remain visible in the attached log.",
+              "> PASS_WITH_WARNINGS is not release approval. Legacy test mismatches remain visible in the attached log.",
               "",
               "## Prerequisite checks", "",
               "| Check | Status | Detail |", "|---|---|---|"
@@ -243,7 +260,8 @@ jobs:
           print(json.dumps({
               "overall_status": overall,
               "preflight": report["preflight_status"],
-              "core_regression": report["core_regression_tests"]["status"],
+              "core_regression": report["core_regression_tests"],
+              "current_package_tests": report["current_package_tests"],
               "package_integrity": report["package_integrity_diagnostic"],
               "next_action": next_action
           }, ensure_ascii=False, indent=2))
@@ -261,21 +279,26 @@ jobs:
           root = Path("automation-report")
           report = json.loads((root / "autonomous-work-report.json").read_text(encoding="utf-8"))
           base = json.loads((root / "baseline-checks.json").read_text(encoding="utf-8"))
-          log = (root / "package-integrity.log").read_text(encoding="utf-8", errors="replace")
-          def stat(label):
-              match = re.search(r"^# " + re.escape(label) + r" (\d+)$", log, re.M)
-              return int(match.group(1)) if match else None
-          diag = report["package_integrity_diagnostic"]
+          def stats(path):
+              data = path.read_text(encoding="utf-8", errors="replace")
+              def num(label):
+                  match = re.search(r"^# " + re.escape(label) + r" (\d+)$", data, re.M)
+                  return int(match.group(1)) if match else None
+              return {"tests": num("tests"), "pass": num("pass"), "fail": num("fail")}
           assert report["preflight_status"] == base["status"], "Preflight state mismatch"
-          assert diag["tests"] == stat("tests"), "Package-integrity test count mismatch"
-          assert diag["pass"] == stat("pass"), "Package-integrity pass count mismatch"
-          assert diag["fail"] == stat("fail"), "Package-integrity failure count mismatch"
-          assert report["core_regression_tests"]["status"] in {"PASS", "FAIL_OR_NOT_RUN"}
+          for key, log in [
+              ("core_regression_tests", root / "core-regression.log"),
+              ("current_package_tests", root / "current-package-tests.log"),
+              ("package_integrity_diagnostic", root / "package-integrity.log")
+          ]:
+              actual = stats(log)
+              for field in ("tests", "pass", "fail"):
+                  assert report[key][field] == actual[field], f"{key} {field} count mismatch"
           assert report["overall_status"] in {"PASS", "PASS_WITH_WARNINGS", "FAIL"}
-          if (diag["fail"] or 0) > 0 and report["core_regression_tests"]["status"] == "PASS":
-              assert report["overall_status"] == "PASS_WITH_WARNINGS", "Compatibility failures must remain warnings"
+          if report["package_integrity_diagnostic"]["fail"] and report["core_regression_tests"]["status"] == "PASS" and report["current_package_tests"]["status"] == "PASS":
+              assert report["overall_status"] == "PASS_WITH_WARNINGS", "Legacy failures must remain visible"
           print("AUTONOMOUS_REPORT_VALIDATION=PASS")
-          print(json.dumps({"overall_status": report["overall_status"], "package_integrity": diag}, ensure_ascii=False, indent=2))
+          print(json.dumps({"overall_status": report["overall_status"], "current_package_tests": report["current_package_tests"], "package_integrity_diagnostic": report["package_integrity_diagnostic"]}, ensure_ascii=False, indent=2))
           PY
 
       - name: Upload durable run evidence
@@ -288,7 +311,7 @@ jobs:
           retention-days: 30
 
       - name: Fail the cycle if a blocking gate or report validation failed
-        if: ${{ always() && (steps.preflight.outputs.status != 'PASS' || steps.core.outputs.exit_code != '0' || steps.reportcheck.outcome != 'success') }}
+        if: ${{ always() && (steps.preflight.outputs.status != 'PASS' || steps.core.outputs.exit_code != '0' || steps.target.outputs.exit_code != '0' || steps.reportcheck.outcome != 'success') }}
         run: |
-          echo "Autonomous work cycle blocked by a preflight/core test failure or invalid report. Inspect the uploaded evidence."
+          echo "Autonomous work cycle blocked by a preflight/core/target test failure or invalid report."
           exit 1
