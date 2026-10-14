@@ -85,7 +85,7 @@ A separate V343 run was created from the earlier V342 conversation checkpoint af
 - Preliminary inspection of the pre-gate V360 face-closeup and eye-closeup shows a more tapered jaw and retains the warm-brown eye/iris material; no obvious mouth pinching or eye displacement is apparent in those Blender renders. Final visual decision is pending the corrected workflow's browser screenshot and artifact integrity checks. The production GLB remains unchanged.
 
 ## V343 parallel smile-strength experiment — duplicate, not adopted
-- A separate V343 strength-0.30 experiment (`38624312907`) was started from the earlier V342 checkpoint after the branch already had accepted V345 closed-lip smile baseline and V360 face-profile work. It must not replace the later V345 smile baseline or be treated as the current candidate. Use the V332–V360 checkpoint's latest candidate line of work rather than version number alone.
+- A separate V343 strength-0.30 experiment (`38624312907`) was started from the earlier V342 checkpoint after the branch already had accepted V345 closed-lip smile baseline and V360 face-profile work. It completed **technical SUCCESS** with artifact [11922713682](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38624312907/artifacts/11922713682), 57,868,910 bytes, digest `sha256:49762504b3e47a8b3e76f5de5e2fac05d2a579225e778d82c027fa6f9aac936f`. It remains a duplicate experiment; it must not replace the later V345 smile baseline or be treated as the current candidate. Use the V332–V360 checkpoint's latest candidate line of work rather than version number alone.
 ## Safety and rollback
 
 - Do not copy any experimental GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
