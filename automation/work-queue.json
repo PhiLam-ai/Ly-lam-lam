@@ -77,17 +77,20 @@
     },
     {
       "id": "AUTO-004",
-      "title": "Align legacy package-integrity checks with the v312-work deployment package",
+      "title": "Reconcile historical package-integrity tests with the current V312 deploy target",
       "type": "test_harness_maintenance",
       "priority": 3,
       "risk": "low",
       "approval_required": false,
       "automated_in_v1": "diagnostic only",
       "acceptance": [
-        "each assertion is tied to the intended package target",
-        "known missing .nojekyll/deploy.yml and import-map mismatch assumptions are either fixed or explicitly retired",
-        "no test is deleted only to hide a failure"
-      ]
+        "all 18 current failures have documented causes in automation/LEGACY-PACKAGE-TEST-CLASSIFICATION.md",
+        "blocking tests validate current runtime package and run before Pages deploy",
+        "historical assertions remain preserved and are not deleted merely to green the suite",
+        "each remaining historical test is either migrated to the correct repository-level target or explicitly marked as an archived requirement with separate fixture",
+        "real browser and iPhone visual verification remain separate release gates"
+      ],
+      "notes": "Classification created in commit 5586239f; run 38506335342 passed after current-target tests were added. The 18 broad-suite failures remain as a diagnostic warning, not release approval."
     }
   ]
 }
