@@ -23,7 +23,7 @@ on:
       - "tools/blender36_v313_transform_bind_audit.py"
       - "tools/blender36_v313_evaluated_mesh_audit.py"
       - "tools/blender36_v313_unskinned_diagnostic.py"
-      - "tools/blender36_v320_coherent_avatar_candidate.py"
+      - "tools/blender36_v320_refined_avatar_candidate.py"
       - "tools/v314_candidate_webgl_smoke.cjs"
       - "tools/blender36_v313_rest_pose_comparison.py"
       - "tools/blender36_v313_pose_reset_experiment.py"
@@ -334,7 +334,7 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/v320-coherent-avatar-candidate
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
-            --python tools/blender36_v320_coherent_avatar_candidate.py -- \
+            --python tools/blender36_v320_refined_avatar_candidate.py -- \
             --output-dir "$GITHUB_WORKSPACE/artifacts/v320-coherent-avatar-candidate" \
             2>&1 | tee artifacts/v320-coherent-avatar-candidate/v320-build.log
           if grep -q "Traceback (most recent call last)" artifacts/v320-coherent-avatar-candidate/v320-build.log; then
