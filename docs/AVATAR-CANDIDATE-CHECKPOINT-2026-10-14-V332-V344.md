@@ -113,11 +113,21 @@
 - Visual decision: **NOT APPROVED as finished default smile yet**. The mouth close-up is a little less open than V343, but remains nearly neutral and not clearly warm. The closed-mouth contribution is present but too weak to visibly reshape the expression.
 - V344 cleanup side effect: its workflow file was briefly created on `main`, then removed; `main` tree confirms the path is absent. The cleanup-triggered Pages/backup workflow ran against the cleaned tree; source backup succeeded, and the current Pages deployment is still in progress at https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38595514495. No application source or production GLB was intentionally changed.
 
-## V345 — stronger mouth-closure contribution (run in progress)
-- Workflow run: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38596423017 (**in progress**). Script: `tools/blender_v345_mouth_close_smile_recipe.py`; workflow: `.github/workflows/v345-mouth-close-smile-recipe.yml`.
-- Only change from V344: increase `mouthClose` in the composite `smile` recipe from `0.22` to `0.42`; `mouthSmileLeft/right` remain 0.72 each, default pose strength remains 0.12, and all body/hair/material/morph/animation settings otherwise stay the same.
-- Goal: determine whether a stronger lip-closure delta can reduce the mouth gap while retaining lifted corners. If it compresses the lips unnaturally or still does not improve the expression, reject it rather than promote.
-- Script/workflow and artifact will be recorded here after the automated run and human visual review. Production `v312-work/lam-default.glb` remains unchanged.
+## V345 — stronger mouth-closure contribution
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38596423017 — **SUCCESS** (18/18 steps).
+- Artifact: [V345 GitHub Actions artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38596423017/artifacts/11908834569), ID `11908834569`, 57,875,666 bytes; digest `sha256:fd099741e08005dd68d6e205e566458bd8f22a130a67a632525c6f773de6bce8`.
+- GLB `lam-v345-gltf-materials-full-face-candidate.glb`: 20,486,448 bytes; SHA-256 `a0cfd34bc13a9f03ebbd9471483614ab42aee9805656ab450c7ef21963c7b252` from report/download. All 12 morphs and `Lam_Idle_GentleSway` retained, 0 skins, 9 images.
+- Windows ZIP `ly-lam-lam-v345-experimental-windows.zip`: 21,658,258 bytes, 81 entries; integrity passed. SHA-256 `13613d9011b061ac8321d41a575127337eb830cb2b48e11e0f5f2300f6e1317d` matched its sidecar and was independently recomputed.
+- Browser PASS at 390×844: WebGL loaded, animation advanced, no page/console errors, avatar visible within safe area.
+- Recipe report: `mouthSmileLeft=0.72`, `mouthSmileRight=0.72`, `mouthClose=0.42`; default smile strength `0.12`, max face base displacement about `2.29 mm`. The V341 darkened hair texture remains pixel-verified in GLB.
+- Visual decision: **NOT APPROVED as a finished default smile**. V345's lips are a little less open than V343, but the corners still read mostly flat; the expression is too subtle at both full-body and close-up scale.
+- V345 next test will increase only the default smile-base strength `0.12 → 0.24` while keeping its `mouthClose=0.42` recipe fixed. This tests whether stronger corner lift can be achieved without reopening the mouth.
+
+## V346 — stronger default smile with lip closure held fixed (run in progress)
+- Workflow: [V346 candidate run](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/PLACEHOLDER) (run ID to be filled after GitHub creates the run).
+- Script: `tools/blender_v346_gentle_smile_with_mouth_close.py`; workflow: `.github/workflows/v346-gentle-smile-mouth-close.yml`.
+- Single change from V345: default face-pose strength `0.12 → 0.24`; `mouthSmileLeft/right=0.72`, `mouthClose=0.42`, body, hair, clothing, materials, other morph definitions and animation remain fixed.
+- Gate checks the precise recipe/strength, all 12 morph names, hair pixel audit, mobile WebGL/animation/frame, clean browser errors, ZIP integrity and SHA-256. Visual acceptance remains pending.
 ## Safety and rollback
 - Do not copy any candidate GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
 - Keep all builds, renders, reports, and ZIPs under versioned candidate artifacts. Record SHA-256 only after checking actual bytes against the sidecar.
