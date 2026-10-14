@@ -1575,7 +1575,7 @@ def main():
             + "; source key inventory=" + repr(composite_report.get(basemesh.name, {}))
         )
 
-    default_face_pose = apply_default_smile_base_pose(character_objects, strength=0.24)
+    default_face_pose = apply_default_smile_base_pose(character_objects, strength=0.22)
     skin_materials = style_materials(basemesh, hair_objects, clothing_objects)
     hair_material_audit = prepare_hair_materials(hair_objects)
 
