@@ -114,7 +114,8 @@
 - V344 cleanup side effect: its workflow file was briefly created on `main`, then removed; `main` tree confirms the path is absent. The cleanup-triggered Pages/backup workflow ran against the cleaned tree; source backup succeeded, and the current Pages deployment is still in progress at https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38595514495. No application source or production GLB was intentionally changed.
 
 ## V345 — stronger mouth-closure contribution (run in progress)
-- Next isolated change: increase only the `mouthClose` weight in the composite `smile` recipe from `0.22` to `0.42`; `mouthSmileLeft/right` remain 0.72 each, default pose strength remains 0.12, and all body/hair/material/morph/animation settings otherwise stay the same.
+- Workflow run: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38596423017 (**in progress**). Script: `tools/blender_v345_mouth_close_smile_recipe.py`; workflow: `.github/workflows/v345-mouth-close-smile-recipe.yml`.
+- Only change from V344: increase `mouthClose` in the composite `smile` recipe from `0.22` to `0.42`; `mouthSmileLeft/right` remain 0.72 each, default pose strength remains 0.12, and all body/hair/material/morph/animation settings otherwise stay the same.
 - Goal: determine whether a stronger lip-closure delta can reduce the mouth gap while retaining lifted corners. If it compresses the lips unnaturally or still does not improve the expression, reject it rather than promote.
 - Script/workflow and artifact will be recorded here after the automated run and human visual review. Production `v312-work/lam-default.glb` remains unchanged.
 ## Safety and rollback
