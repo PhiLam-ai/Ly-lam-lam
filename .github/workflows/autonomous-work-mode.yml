@@ -165,7 +165,7 @@ jobs:
           def read_stats(path):
               data = Path(path).read_text(encoding="utf-8", errors="replace") if Path(path).exists() else ""
               def num(label):
-                  match = re.search(r"^# " + re.escape(label) + r" (\\d+)$", data, re.M)
+                  match = re.search(r"^# " + re.escape(label) + r" (\d+)$", data, re.M)
                   return int(match.group(1)) if match else None
               return {"tests": num("tests"), "pass": num("pass"), "fail": num("fail")}
 
@@ -249,6 +249,35 @@ jobs:
           }, ensure_ascii=False, indent=2))
           PY
 
+      - name: Validate report JSON and diagnostic counts
+        id: reportcheck
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, re
+          from pathlib import Path
+          root = Path("automation-report")
+          report = json.loads((root / "autonomous-work-report.json").read_text(encoding="utf-8"))
+          base = json.loads((root / "baseline-checks.json").read_text(encoding="utf-8"))
+          log = (root / "package-integrity.log").read_text(encoding="utf-8", errors="replace")
+          def stat(label):
+              match = re.search(r"^# " + re.escape(label) + r" (\d+)$", log, re.M)
+              return int(match.group(1)) if match else None
+          diag = report["package_integrity_diagnostic"]
+          assert report["preflight_status"] == base["status"], "Preflight state mismatch"
+          assert diag["tests"] == stat("tests"), "Package-integrity test count mismatch"
+          assert diag["pass"] == stat("pass"), "Package-integrity pass count mismatch"
+          assert diag["fail"] == stat("fail"), "Package-integrity failure count mismatch"
+          assert report["core_regression_tests"]["status"] in {"PASS", "FAIL_OR_NOT_RUN"}
+          assert report["overall_status"] in {"PASS", "PASS_WITH_WARNINGS", "FAIL"}
+          if (diag["fail"] or 0) > 0 and report["core_regression_tests"]["status"] == "PASS":
+              assert report["overall_status"] == "PASS_WITH_WARNINGS", "Compatibility failures must remain warnings"
+          print("AUTONOMOUS_REPORT_VALIDATION=PASS")
+          print(json.dumps({"overall_status": report["overall_status"], "package_integrity": diag}, ensure_ascii=False, indent=2))
+          PY
+
       - name: Upload durable run evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -258,8 +287,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Fail the cycle if blocking preflight or core tests failed
-        if: ${{ always() && (steps.preflight.outputs.status != 'PASS' || steps.core.outputs.exit_code != '0') }}
+      - name: Fail the cycle if a blocking gate or report validation failed
+        if: ${{ always() && (steps.preflight.outputs.status != 'PASS' || steps.core.outputs.exit_code != '0' || steps.reportcheck.outcome != 'success') }}
         run: |
-          echo "Autonomous work cycle blocked by a preflight/core test failure. Inspect the uploaded report."
+          echo "Autonomous work cycle blocked by a preflight/core test failure or invalid report. Inspect the uploaded evidence."
           exit 1
