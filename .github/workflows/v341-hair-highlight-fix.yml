@@ -217,7 +217,10 @@ jobs:
           assert all(item["uv_map_name"] and item["alpha_enabled"] for item in hair["hair_objects"]), hair
           assert all(item["roughness"] == 0.86 and item["specular_ior_level"] == 0.12 for item in hair["hair_objects"]), hair
           assert gltf_hair["name"] == "V341_GltfCompatibleHair", gltf_hair
-          assert "V341_HairDiffuse_Darkened" in gltf_hair["base_color_image_name"], gltf_hair
+          assert gltf_hair["base_color_image_name"], gltf_hair
+          assert gltf_hair["embedded_darkening_verified"] is True, gltf_hair
+          assert gltf_hair["embedded_rgb_mean_linear"] < gltf_hair["source_rgb_mean_linear"] * 0.90, gltf_hair
+          assert abs(gltf_hair["embedded_rgb_mean_linear"] - gltf_hair["processed_rgb_mean_linear"]) <= 0.06, gltf_hair
           assert float(gltf_hair["roughness_factor"]) >= 0.80, gltf_hair
           assert gltf_hair["alpha_mode"] == "BLEND", gltf_hair
           profile = report["morphometric_audit"]
