@@ -367,7 +367,7 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/v314-playwright" --no-save --package-lock=false playwright pngjs
           "$RUNNER_TEMP/v314-playwright/node_modules/.bin/playwright" install --with-deps chromium
 
-      - name: Load the V315 candidate GLB in mobile-sized Three.js viewer
+      - name: Load the V316 visible candidate and verify idle playback in mobile-sized Three.js viewer
         env:
           NODE_PATH: ${{ runner.temp }}/v314-playwright/node_modules
           V314_VIEWER_ROOT: ${{ runner.temp }}/v314-viewer
@@ -393,11 +393,13 @@ jobs:
           assert report["state"]["webgl"] is True, report
           assert report["state"]["canvasCount"] == 1, report
           assert "12 morph" in report["state"]["status"], report
+          assert report["state"]["activeAnimationName"] == "Lam_Idle_GentleSway", report
+          assert report["state"]["animationTime"] > 0.05, report
           assert any(item["status"] == 200 for item in report["glbResponses"]), report
           assert report["pageErrors"] == [], report
           assert report["consoleErrors"] == [], report
           assert report["visualFraming"] is not None, report
-          print("V315_BROWSER_WEBGL_SMOKE=PASS_EXPERIMENTAL_ONLY")
+          print("V316_BROWSER_WEBGL_AND_IDLE_PLAYBACK=PASS_EXPERIMENTAL_ONLY")
           print(json.dumps({"state": report["state"], "visualFraming": report["visualFraming"],
             "glbResponses": report["glbResponses"],
             "requiredLocalAssetResponses": report["requiredLocalAssetResponses"],
