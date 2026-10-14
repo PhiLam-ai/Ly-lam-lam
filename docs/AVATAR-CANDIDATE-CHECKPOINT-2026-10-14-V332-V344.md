@@ -124,7 +124,7 @@
 - V345 next test will increase only the default smile-base strength `0.12 → 0.24` while keeping its `mouthClose=0.42` recipe fixed. This tests whether stronger corner lift can be achieved without reopening the mouth.
 
 ## V346 — stronger default smile with lip closure held fixed (run in progress)
-- Workflow: [V346 candidate run](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/PLACEHOLDER) (run ID to be filled after GitHub creates the run).
+- Workflow: [V346 candidate run](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38597338622) (run ID to be filled after GitHub creates the run).
 - Script: `tools/blender_v346_gentle_smile_with_mouth_close.py`; workflow: `.github/workflows/v346-gentle-smile-mouth-close.yml`.
 - Single change from V345: default face-pose strength `0.12 → 0.24`; `mouthSmileLeft/right=0.72`, `mouthClose=0.42`, body, hair, clothing, materials, other morph definitions and animation remain fixed.
 - Gate checks the precise recipe/strength, all 12 morph names, hair pixel audit, mobile WebGL/animation/frame, clean browser errors, ZIP integrity and SHA-256. Visual acceptance remains pending.
