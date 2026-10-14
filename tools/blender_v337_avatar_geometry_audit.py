@@ -192,48 +192,67 @@ def _linear_quantile(values, q):
     return values[lower] * (1.0 - fraction) + values[upper] * fraction
 
 
-def body_profile_audit(basemesh):
-    """Measure neutral base-mesh cross-sections before changing proportions.
-
-    Bands are expressed as fractions of measured character height. Robust
-    quantiles reduce arm/hand outliers in shoulder/chest slices. These are
-    comparative diagnostics, not anatomical measurements.
-    """
+def _world_mesh_points(obj):
     depsgraph = bpy.context.evaluated_depsgraph_get()
-    evaluated = basemesh.evaluated_get(depsgraph)
-    evaluated_mesh = evaluated.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph)
+    evaluated = obj.evaluated_get(depsgraph)
+    mesh = evaluated.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph)
     try:
         matrix = evaluated.matrix_world.copy()
-        points = [matrix @ vertex.co for vertex in evaluated_mesh.vertices]
+        return [matrix @ vertex.co for vertex in mesh.vertices]
     finally:
         evaluated.to_mesh_clear()
-    if len(points) < 100:
+
+
+def body_profile_audit(basemesh, clothing_objects):
+    """Measure visible neutral-surface cross-sections before changing proportions.
+
+    The base skin mesh may be masked by clothing in thigh regions, so garment
+    vertices are sampled for dressed torso/hip/leg bands. Arm outliers are
+    restricted with a central-body x window. Measurements are comparative
+    geometry diagnostics rather than anatomical/likeness claims.
+    """
+    body_points = _world_mesh_points(basemesh)
+    garment_points = []
+    garment_sources = []
+    for obj in clothing_objects:
+        if obj.type == "MESH":
+            garment_points.extend(_world_mesh_points(obj))
+            garment_sources.append(obj.name)
+    if len(body_points) < 100:
         raise RuntimeError("Too few base-mesh vertices for V337 morphometric audit")
-    z_min = min(point.z for point in points)
-    z_max = max(point.z for point in points)
+    z_min = min(point.z for point in body_points)
+    z_max = max(point.z for point in body_points)
     height = z_max - z_min
     if height <= 0:
         raise RuntimeError("Invalid base-mesh height in V337 morphometric audit")
 
+    # z bands are fractions of measured human height. For upper body, sample
+    # both skin and clothing around the central torso; lower bands use clothing
+    # because MakeHuman hides the skin topology under garments.
     bands = {
-        "head": (0.82, 0.985),
-        "neck": (0.755, 0.835),
-        "shoulders": (0.715, 0.795),
-        "upper_torso": (0.635, 0.735),
-        "waist": (0.535, 0.625),
-        "hips": (0.425, 0.545),
-        "upper_thigh": (0.315, 0.435),
-        "mid_thigh": (0.225, 0.335),
+        "head":        (0.82, 0.985, "skin", None),
+        "neck":        (0.755, 0.835, "skin", 0.20),
+        "shoulders":   (0.715, 0.795, "both", 0.30),
+        "upper_torso": (0.635, 0.735, "both", 0.23),
+        "waist":       (0.535, 0.625, "both", 0.22),
+        "hips":        (0.425, 0.545, "clothing", 0.28),
+        "upper_thigh": (0.315, 0.435, "clothing", 0.27),
+        "mid_thigh":   (0.225, 0.335, "clothing", 0.23),
     }
     regions = {}
-    for name, (low_fraction, high_fraction) in bands.items():
+    for name, (low_fraction, high_fraction, source, x_limit) in bands.items():
         z_low = z_min + height * low_fraction
         z_high = z_min + height * high_fraction
-        slab = [point for point in points if z_low <= point.z <= z_high]
+        candidates = body_points if source == "skin" else garment_points if source == "clothing" else body_points + garment_points
+        slab = [point for point in candidates if z_low <= point.z <= z_high]
+        if x_limit is not None:
+            slab = [point for point in slab if abs(point.x) <= x_limit]
         if len(slab) < 20:
             regions[name] = {
                 "status": "INSUFFICIENT_VERTICES",
                 "vertex_count": len(slab),
+                "source": source,
+                "central_x_limit_m": x_limit,
                 "z_band_m": [round(z_low, 5), round(z_high, 5)],
             }
             continue
@@ -242,16 +261,20 @@ def body_profile_audit(basemesh):
         regions[name] = {
             "status": "MEASURED",
             "vertex_count": len(slab),
+            "source": source,
+            "central_x_limit_m": x_limit,
             "z_band_m": [round(z_low, 5), round(z_high, 5)],
-            "robust_width_x_m": round(2.0 * _linear_quantile(abs_x, 0.75), 5),
+            "robust_width_x_m": round(2.0 * _linear_quantile(abs_x, 0.85), 5),
             "robust_depth_y_m": round(
                 _linear_quantile(y_values, 0.95) - _linear_quantile(y_values, 0.05), 5
             ),
         }
     return {
-        "method": "neutral base-mesh world-space height bands; x width=2*P75(abs(x)); y depth=P95(y)-P05(y)",
-        "measurement_warning": "Comparative mesh metrics only; not a replacement for visual review or a human likeness check.",
-        "vertex_count": len(points),
+        "method": "neutral world-space height bands; region-specific skin/garment sources; central x filtering; width=2*P85(abs(x)); depth=P95(y)-P05(y)",
+        "measurement_warning": "Comparative dressed-mesh metrics only; not a replacement for visual review or a likeness check.",
+        "vertex_count": len(body_points),
+        "garment_vertex_count": len(garment_points),
+        "garment_objects": garment_sources,
         "height_m": round(height, 5),
         "regions": regions,
     }
@@ -1218,7 +1241,7 @@ def main():
     character_bounds = world_bounds(character_objects)
     if abs(character_bounds["size"][2] - 1.60) > 0.06:
         raise RuntimeError("Character height outside 1.60 m target after rig/assets: " + repr(character_bounds))
-    morphometric_audit = body_profile_audit(basemesh)
+    morphometric_audit = body_profile_audit(basemesh, clothing_objects)
     cameras, floor = setup_studio(bpy.context.scene, character_bounds)
     # Remove the temporary floor mesh entirely; the candidate evidence must not contain
     # a ground-plane line that masks the lower body in an orthographic camera.
