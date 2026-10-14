@@ -114,7 +114,7 @@ def main():
             "mesh": obj.name,
             "parent": obj.parent.name if obj.parent else None,
             "vertex_count": len(obj.data.vertices),
-            "raw_object_space_bounds": raw_bounds,
+            "source_world_bounds_before_modifiers": raw_bounds,
             "evaluated_world_space_bounds": evaluated_bounds,
             "evaluated_vertex_count": len(evaluated_points),
             "deformation_vs_raw": {
@@ -145,9 +145,9 @@ def main():
             "a": a_name,
             "b": b_name,
             "status": "MEASURED" if a and b else "MISSING_MESH",
-            "raw_bounds_gap": gap_between(
-                a.get("raw_object_space_bounds") if a else None,
-                b.get("raw_object_space_bounds") if b else None,
+            "pre_evaluation_bounds_gap": gap_between(
+                a.get("source_world_bounds_before_modifiers") if a else None,
+                b.get("source_world_bounds_before_modifiers") if b else None,
             ),
             "evaluated_bounds_gap": gap_between(
                 a.get("evaluated_world_space_bounds") if a else None,
@@ -169,7 +169,7 @@ def main():
         "found_expected_morphs": sorted(EXPECTED_MORPHS & morph_names),
         "missing_expected_morphs": sorted(EXPECTED_MORPHS - morph_names),
         "method": (
-            "Compare undeformed object-space bounds against evaluated world-space bounds after Blender's "
+            "Compare source world-space bounds before modifiers against evaluated world-space bounds after Blender's "
             "dependency graph applies current modifiers, including armature deformation. AABB gaps screen "
             "for disconnections but do not prove surface continuity. This script makes no model edits."
         ),
