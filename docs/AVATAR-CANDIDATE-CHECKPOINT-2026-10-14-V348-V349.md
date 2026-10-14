@@ -1,4 +1,4 @@
-# Lý Lâm Lam avatar candidate checkpoint — V348–V349 (2026-10-14)
+# Lý Lâm Lam avatar candidate checkpoint — V348–V351 (2026-10-14)
 
 ## Release decision
 
@@ -27,10 +27,23 @@
 - Latest validation run after fixing both summary syntax issues: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38601681760.
 - Script: `tools/blender_v350_eye_front_surface_specular_export.py`; workflow: `.github/workflows/v350-eye-front-surface-specular-export.yml`.
 - New front-eye specular setting is `0.48` in Blender so glTF exports a non-default factor near `0.96`; the base material is unchanged (`0.38` / `0.76`). Clearcoat remains `0.30`, coat roughness `0.14`, front roughness `0.18`. Eye size/position, `brown_eye` image/UV/alpha, V340 body shape, V341 hair, the 0.40 closed-mouth smile and the 12 morphs are unchanged.
-- Visual decision pending. The image from the pre-summary-failure artifact shows the same eye/face shape; the successful final run must still pass browser/WebGL, no page/console/request errors, ZIP integrity and SHA-256 sidecar. Whole avatar remains not approved for production.
+- Final workflow run: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38601681760 — **SUCCESS**.
+- Artifact: [V350 GitHub Actions artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38601681760/artifacts/11914695268), ID `11914695268`, 58,716,807 bytes; digest `sha256:b55ba21fe7ec2d4555216b6b06f2163b6a1d6bcf8ce3e6be92493575d5b05334`.
+- Re-downloaded artifact verification: GLB `lam-v350-gltf-materials-full-face-candidate.glb`, 20,484,436 bytes, SHA-256 `9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee`; Windows preview ZIP `ly-lam-lam-v350-experimental-windows.zip`, 21,653,923 bytes, SHA-256 `a5c48d6c84c156bb5831e5b6c0c05def86ea1fec431b793711a524c4cacea304`, matched its sidecar and passed ZIP integrity.
+- V350 browser smoke passed at 390×844: GLB HTTP 200, WebGL ready, `Lam_Idle_GentleSway` advanced, no page/console/failed-request errors and avatar within the mobile safe area.
+- Visual review of `v350-eye-closeup.png`: eye texture/eyelash detail is visible and the front-shell specular response creates modest natural catchlights without obvious washed-out irises. **Eye-material experiment accepted for further work; whole avatar remains NOT APPROVED for production** because the face is still generic and its overall likeness/proportions need more work.
+
+## V351 — browser face quick-view audit (model remains V350)
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38604435323 (first attempt) and https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38604499942 (rerun after report-path correction).
+- Script: `tools/v351_eye_closeup_browser_capture.cjs`; workflow: `.github/workflows/v351-eye-closeup-browser-audit.yml`.
+- This is an evidence-only browser test: it downloads the exact V350 artifact from run `38601681760`, verifies GLB SHA-256 `9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee`, loads it in the bundled Three.js viewer at 390×844, captures the full-body view, taps the actual `Khuôn mặt` quick-view button and captures a second face/eye close-up. It does not rebuild or modify the GLB.
+- The new report records the source model/run/hash, WebGL status, page/console/request errors, the face-view button result, image dimensions and foreground-pixel sanity check. This confirms the material change in the actual mobile viewer instead of relying only on Blender renders.
+- Visual decision pending until the corrected rerun uploads both screenshots and a passing browser report. No production files are touched.
+
 ## Separate smile-strength experiments
 
-The repo has parallel experimental tracks that reused some V34x version numbers. Use the workflow run ID and exact script path as the unique identifier rather than the version label alone. The successful closed-lip smile track reached V345 at strength 0.40; the V346 eye-material diagnostic is a separate run from the later “V346 stronger smile with lip closure” candidate. Keep these checkpoints distinct when comparing assets.
+The repo has parallel experimental tracks that reused some V34x version numbers. Use the workflow run ID and exact script path as the unique identifier rather than the version label alone.
+- An additional V343 strength-0.20 rerun was accidentally started from the earlier V342 chat checkpoint after later V343–V350 experiments already existed: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38603515911 succeeded; its superseded concurrent run `38603453132` was cancelled. Treat it as a duplicate experimental artifact only, not the latest candidate and not a promotion. The successful V345 strength-0.40 closed-lip-smile line remains the adopted smile baseline. The successful closed-lip smile track reached V345 at strength 0.40; the V346 eye-material diagnostic is a separate run from the later “V346 stronger smile with lip closure” candidate. Keep these checkpoints distinct when comparing assets.
 
 ## Safety and rollback
 
