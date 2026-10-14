@@ -145,7 +145,7 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/v345-gltf-face-accessories
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
-            --python tools/blender_v345_gentle_smile_strength.py -- \
+            --python tools/blender_v345_gentle_smile_visible.py -- \
             --mpfb-src "$RUNNER_TEMP/mpfb2/src" \
             --system-pack "$GITHUB_WORKSPACE/.cache/v331-mpfb-assets/makehuman_system_assets_cc0.zip" \
             --face-pack "$GITHUB_WORKSPACE/.cache/v331-mpfb-assets/faceunits01.zip" \
