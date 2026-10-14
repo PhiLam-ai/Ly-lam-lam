@@ -50,12 +50,13 @@
 - Pixel comparison between baseline and modified face-view captures: mean absolute channel delta `5.5986/255`; `32.27%` of pixels had a maximum RGB-channel difference above 8. This measures change magnitude only; it is not an aesthetics score.
 - Visual review: the modified face view is more evenly lit, softens the hard shadows around the nose/mouth and helps the eye area read more clearly. The face is still a generic base, so this is a **provisional viewer-lighting improvement**, not approval of the avatar likeness.
 
-## V353 — Windows preview package with V352 fill lighting (run in progress)
-- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38606089328.
-- V353 packages the temporary V352 viewer lighting adjustment together with the exact V350 GLB; it is intended as a testable Windows ZIP so Phi can check the result in the full viewer outside CI.
-- Required gates: exact GLB SHA-256 unchanged; browser face/full views pass at 390×844; no page/console errors or non-benign request failures; all 12 morphs and idle animation remain available; Windows launcher check, ZIP integrity and matching SHA-256 sidecar.
-- Production main branch and its GLB remain unchanged. Final decision is pending the package and visual review.
-
+## V353 — Windows preview package with V352 fill lighting
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38606089328 — **SUCCESS**.
+- Artifact: [V353 tested preview and evidence](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38606089328/artifacts/11915707101), ID `11915707101`, 22,203,627 bytes; artifact digest `sha256:8ec2c1ebe9d7dcfc28717491f4c81e1736a8b4e532badbd16b2d99830a1f4f46`.
+- Windows preview ZIP: `ly-lam-lam-v353-experimental-windows.zip`, 21,663,635 bytes, 81 entries. SHA-256 `23fce310d69e73cd78389ddb2f50c4557985a59e84c6d6f31f578a3563ed4b81` matched the included `.sha256` sidecar and was independently recomputed after download; ZIP integrity passed.
+- Packaged GLB verified unchanged: 20,484,436 bytes, SHA-256 `9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee` (exact V350). The Windows ZIP contains the new viewer lighting block and its README says this is a preview-only package.
+- Mobile browser validation passed at 390×844: WebGL ready, all 12 morphs reported, `Lam_Idle_GentleSway` advanced, `Khuôn mặt` button worked and face-closeup canvas had sufficient foreground content. No page or console errors; only the known GLB request abort after a successful load was tolerated.
+- Visual decision: **viewer-lighting improvement accepted for testing, avatar likeness still NOT APPROVED for production**. The browser render is brighter and softer around the nose/mouth than V350 baseline, but the model remains a generic face. The repository and production main branch were not modified.
 ## Separate smile-strength experiments
 
 The repo has parallel experimental tracks that reused some V34x version numbers. Use the workflow run ID and exact script path as the unique identifier rather than the version label alone.
