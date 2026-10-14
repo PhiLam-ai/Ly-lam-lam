@@ -203,9 +203,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/v313-skin-weight-audit
-          "$RUNNER_TEMP/blender/blender" --background --factory-startup \\
-            --python tools/blender36_v313_skin_weight_audit.py -- \\
-            --input "$GITHUB_WORKSPACE/lam-default.glb" \\
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_v313_skin_weight_audit.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
             --output-dir "$GITHUB_WORKSPACE/artifacts/v313-skin-weight-audit"
           test -s artifacts/v313-skin-weight-audit/v313-skin-weight-audit.json
           python3 - <<'PY'
