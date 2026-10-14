@@ -1,0 +1,85 @@
+name: V313 App Startup Candidate
+
+on:
+  push:
+    branches:
+      - "v313/app-startup-*"
+    paths:
+      - "v312-work/**"
+      - ".github/workflows/v313-app-startup.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v313-app-startup-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  startup:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install browser test dependencies
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Serve exact V312 app baseline
+        run: |
+          python3 -m http.server 4173 --directory v312-work > /tmp/v313-server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/v313-server.log
+          exit 1
+      - name: Verify startup, local GLB, canvas, and console
+        run: |
+          cat > /tmp/v313-smoke.cjs <<'JS'
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch({headless:true,args:['--enable-webgl','--use-gl=angle','--use-angle=swiftshader','--ignore-gpu-blocklist']});
+            const page = await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+            const errors = [], failed = [], glb = [];
+            page.on('pageerror', e => errors.push(e.message));
+            page.on('requestfailed', r => failed.push({url:r.url(),error:r.failure()?.errorText||'unknown'}));
+            page.on('response', r => { if(new URL(r.url()).pathname.endsWith('/lam-default.glb')) glb.push(r.status()); });
+            const response = await page.goto('http://127.0.0.1:4173/',{waitUntil:'domcontentloaded',timeout:30000});
+            if(!response || !response.ok()) throw new Error('HTML did not return HTTP success');
+            await page.waitForFunction(() => window.__lyLamAppBooted === true || window.__lyLamBootFailed === true,{timeout:60000});
+            await page.waitForTimeout(1000);
+            const state = await page.evaluate(() => ({
+              booted:window.__lyLamAppBooted===true,
+              failed:window.__lyLamBootFailed===true,
+              rendererReady:window.__lyLamRendererReady===true,
+              canvasCount:document.querySelectorAll('#stage canvas').length,
+              status:document.querySelector('#status-message')?.textContent || document.querySelector('#status')?.textContent || '',
+              webgl:!!document.querySelector('#stage canvas')?.getContext('webgl2') || !!document.querySelector('#stage canvas')?.getContext('webgl')
+            }));
+            await page.screenshot({path:'/tmp/v313-app-startup.png',fullPage:true});
+            require('fs').writeFileSync('/tmp/v313-app-startup-report.json',JSON.stringify({state,glb,errors,failed},null,2));
+            console.log('V313_STARTUP_REPORT='+JSON.stringify({state,glb,errors,failed}));
+            if(!state.booted) throw new Error('App/GLB startup did not finish: '+state.status);
+            if(!state.rendererReady || state.canvasCount!==1 || !state.webgl) throw new Error('WebGL renderer not ready');
+            if(!glb.includes(200)) throw new Error('Local GLB did not return HTTP 200');
+            if(errors.length) throw new Error('Browser errors: '+errors.join(' | '));
+            await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          JS
+          NODE_PATH="$GITHUB_WORKSPACE/node_modules" node /tmp/v313-smoke.cjs
+      - name: Save startup evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v313-app-startup-evidence-${{ github.run_id }}
+          path: |
+            /tmp/v313-app-startup.png
+            /tmp/v313-app-startup-report.json
+            /tmp/v313-server.log
+          if-no-files-found: warn
+          retention-days: 30
