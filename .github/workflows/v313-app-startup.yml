@@ -67,6 +67,7 @@ jobs:
             if(!state.booted) throw new Error('App/GLB startup did not finish: '+state.status);
             if(!state.rendererReady || state.canvasCount!==1 || !state.webgl) throw new Error('WebGL renderer not ready');
             if(!glb.includes(200)) throw new Error('Local GLB did not return HTTP 200');
+            if(failed.length) throw new Error('Failed browser requests: '+JSON.stringify(failed));
             if(errors.length) throw new Error('Browser errors: '+errors.join(' | '));
             await browser.close();
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
