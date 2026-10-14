@@ -26,7 +26,7 @@ test('V297 closes the stylesheet before the import map and document body', () =>
 
 test('V309 defaults to bundled Three.js locally and keeps explicit pinned CDN overrides', () => {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-  assert.match(html, /const local=new URLSearchParams\(location\.search\)\.get\('three'\)==='local'\|\|mode===null/);
+  assert.match(html, /const mode=new URLSearchParams\(location\.search\)\.get\('three'\);const local=mode==='local'\|\|mode===null;/, 'omitted mode and explicit local mode must both select bundled assets');
   assert.match(html, /const base=local\?'\.\/vendor\/three\/'\:mode==='unpkg'\?'https:\/\/unpkg\.com\/three@0\.160\.0\/'\:'https:\/\/cdn\.jsdelivr\.net\/npm\/three@0\.160\.0\//, 'default path must use bundled vendor assets while preserving pinned CDN overrides');
   assert.match(html, /thư viện nội bộ \(mặc định\)/, 'diagnostics must describe the actual default');
   assert.match(html, /currentParam === 'cdn' \? 'cdn' : 'local'/, 'recovery switch must treat an omitted mode as local');
