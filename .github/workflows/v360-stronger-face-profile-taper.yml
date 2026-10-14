@@ -344,7 +344,7 @@ jobs:
           face = report["face_shape_refinement"]
           assert face["status"] == "APPLIED", face
           assert face["baseline_version"] == "V359", face
-          assert face["scope"] == "base skin facial profile only; frontal cheek/jaw/chin bands", face
+          assert face["scope"] == "stronger but bounded base skin facial profile; frontal cheek/jaw/chin bands", face
           assert 0.0005 < float(face["max_vertex_displacement_m"]) <= 0.006, face
           zones = face["zones"]
           assert zones["cheeks"]["max_lateral_scale"] == 1.035, face
