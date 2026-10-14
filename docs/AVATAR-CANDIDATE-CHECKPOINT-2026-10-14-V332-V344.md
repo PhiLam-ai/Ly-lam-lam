@@ -103,12 +103,20 @@
 - Visual decision: **NOT APPROVED as default expression**. Direct crop comparison shows the lips become more parted, but the face still doesn't read as a relaxed closed-mouth smile. This indicates the current `smile` composite (mouthSmileLeft+mouthSmileRight) needs a mouth-closure component, rather than simply more strength.
 - V343 accidental branch issue is resolved: both files were copied to the isolated candidate branch and removed from `main`; main tree confirms both paths absent. The interim Pages deployment was cancelled and the latest clean-main deployment finished **SUCCESS**. No production avatar file was replaced.
 - Next V344 changes only the smile composite recipe by adding a small `mouthClose` contribution while returning default strength to V342's `0.12`; compare the face close-up to ensure the mouth looks softer and less open.
-## V344 — closed-lip smile recipe experiment (run in progress)
-- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38595490380.
-- Script: `tools/blender_v344_closed_lip_smile_recipe.py`; workflow: `.github/workflows/v344-closed-lip-smile-recipe.yml`. Both are confirmed on the isolated candidate branch. The workflow file was also briefly created on `main` by omission of the branch argument, then removed; `main` tree confirms this V344 workflow path is absent. A cleanup-triggered Pages deployment is currently running against the cleaned tree.
-- Single expression change relative to V342: `MORPH_SOURCES['smile']` now blends `mouthSmileLeft=0.72`, `mouthSmileRight=0.72`, and `mouthClose=0.22`. Default base-pose strength remains `0.12`; body shape, hair material, clothing, other morph recipes and idle animation remain unchanged.
-- Report records the exact smile recipe. Automated gate checks source list/weights, all 12 named morphs, V341 embedded hair pixel darkening, central-gated body adjustment, browser WebGL and safe-area framing, no page/console errors, ZIP integrity and SHA-256 sidecar.
-- Visual decision pending; target is a small closed-lip smile that reads warmer than V342 without the extra mouth gap seen in V343. Production GLB remains unchanged.
+## V344 — closed-lip smile recipe experiment
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38595490380 — **SUCCESS** (18/18 steps).
+- Artifact: [V344 GitHub Actions artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38595490380/artifacts/11909033300), ID `11909033300`, 57,876,587 bytes; digest `sha256:7ac48e3622e0c758d3ced25260bc97c30e3d237167ec1f10b76d89e8572ac80d`.
+- GLB `lam-v344-gltf-materials-full-face-candidate.glb`: 20,486,448 bytes; SHA-256 `8cc645f35c4201e20c757bfe3877194042ea29a15bca6a75814ed6f5f6649dcf` independently recomputed from the downloaded artifact. Contains 0 skins, 9 images, all 12 morphs and `Lam_Idle_GentleSway`.
+- Windows ZIP `ly-lam-lam-v344-experimental-windows.zip`: 21,658,111 bytes, 81 entries; ZIP integrity passed. SHA-256 `6e4d708d2be2eede369de8614d134d4dd8eff811c4f4d1931be86577c26f27df` matched the `.sha256` sidecar and was independently recomputed.
+- Mobile WebGL/browser: PASS at 390×844, animation advanced, no page/console errors, avatar visible within safe area.
+- Recipe is verified in report: `mouthSmileLeft=0.72`, `mouthSmileRight=0.72`, `mouthClose=0.22`; default smile strength remains 0.12; max base-pose displacement is about 1.70 mm. The V341 darkened hair image is still embedded and pixel-verified.
+- Visual decision: **NOT APPROVED as finished default smile yet**. The mouth close-up is a little less open than V343, but remains nearly neutral and not clearly warm. The closed-mouth contribution is present but too weak to visibly reshape the expression.
+- V344 cleanup side effect: its workflow file was briefly created on `main`, then removed; `main` tree confirms the path is absent. The cleanup-triggered Pages/backup workflow ran against the cleaned tree; source backup succeeded, and the current Pages deployment is still in progress at https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38595514495. No application source or production GLB was intentionally changed.
+
+## V345 — stronger mouth-closure contribution (run in progress)
+- Next isolated change: increase only the `mouthClose` weight in the composite `smile` recipe from `0.22` to `0.42`; `mouthSmileLeft/right` remain 0.72 each, default pose strength remains 0.12, and all body/hair/material/morph/animation settings otherwise stay the same.
+- Goal: determine whether a stronger lip-closure delta can reduce the mouth gap while retaining lifted corners. If it compresses the lips unnaturally or still does not improve the expression, reject it rather than promote.
+- Script/workflow and artifact will be recorded here after the automated run and human visual review. Production `v312-work/lam-default.glb` remains unchanged.
 ## Safety and rollback
 - Do not copy any candidate GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
 - Keep all builds, renders, reports, and ZIPs under versioned candidate artifacts. Record SHA-256 only after checking actual bytes against the sidecar.
