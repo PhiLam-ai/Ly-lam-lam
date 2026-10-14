@@ -1985,7 +1985,8 @@ def apply_eye_component_material_split(eye_obj, base_material, front_material):
         "front_surface_settings": {
             "roughness": 0.18, "specular_ior_level": 0.48, "coat_weight": 0.30, "coat_roughness": 0.14
         },
-        "source_diffuse_texture_and_uv_unchanged": True,
+        "source_texture_changed_only_inside_iris_mask": True,
+        "uv_layout_unchanged": True,
         "alpha_behavior_unchanged": True,
         "both_surfaces_use_same_image": True,
     }
