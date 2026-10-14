@@ -41,6 +41,21 @@
 - Evidence files: `v351-candidate-canvas.png` (full-body view), `v351-eye-face-closeup-canvas.png` (after tapping “Khuôn mặt”), `v351-eye-face-closeup-browser.png`, and `v351-candidate-browser-report.json`.
 - Visual review: the browser face-view button does work, and the eyes are clearly visible at a useful close-up scale. Compared with Blender, browser shading is darker and harsher around the nose/mouth, and the face remains a generic base. **Audit PASS, visual likeness not approved.**
 - Next: V352 will test one isolated lighting adjustment in a temporary candidate viewer copy only, using the same V350 GLB and the same face-close-up capture. Do not modify the main/production `v312-work/index.html` unless the comparison clearly improves the browser rendering; keep the original viewer as rollback.
+
+## V352 — browser face-lighting A/B (model unchanged)
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38605546894 — **SUCCESS**.
+- Artifact: [V352 before/after browser evidence](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38605546894/artifacts/11915343214), ID `11915343214`, 1,084,563 bytes; digest `sha256:cd6c7b0bc827d98a4ef8c37dec824ce2549f1647b3a405dc915a6725d8324ebe` (re-downloaded and SHA-256 independently verified; ZIP integrity passed).
+- Exact GLB source remained V350: SHA-256 `9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee`. The repository and main/production `v312-work/index.html` were not edited; the patch only touched a temporary test copy.
+- One lighting change was tested: hemisphere fill intensity/color `2.2 / 0xfff0e2`, key intensity reduced from `2.2` to `1.8`, side fill `0.8`, front fill `0.45`. Both baseline and candidate retained WebGL, 12 morph names, `Lam_Idle_GentleSway`, no page/console errors and a successful `Khuôn mặt` capture at 390×844.
+- Pixel comparison between baseline and modified face-view captures: mean absolute channel delta `5.5986/255`; `32.27%` of pixels had a maximum RGB-channel difference above 8. This measures change magnitude only; it is not an aesthetics score.
+- Visual review: the modified face view is more evenly lit, softens the hard shadows around the nose/mouth and helps the eye area read more clearly. The face is still a generic base, so this is a **provisional viewer-lighting improvement**, not approval of the avatar likeness.
+
+## V353 — Windows preview package with V352 fill lighting (run in progress)
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38606089328.
+- V353 packages the temporary V352 viewer lighting adjustment together with the exact V350 GLB; it is intended as a testable Windows ZIP so Phi can check the result in the full viewer outside CI.
+- Required gates: exact GLB SHA-256 unchanged; browser face/full views pass at 390×844; no page/console errors or non-benign request failures; all 12 morphs and idle animation remain available; Windows launcher check, ZIP integrity and matching SHA-256 sidecar.
+- Production main branch and its GLB remain unchanged. Final decision is pending the package and visual review.
+
 ## Separate smile-strength experiments
 
 The repo has parallel experimental tracks that reused some V34x version numbers. Use the workflow run ID and exact script path as the unique identifier rather than the version label alone.
