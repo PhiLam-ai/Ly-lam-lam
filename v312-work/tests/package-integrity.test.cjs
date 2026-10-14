@@ -1001,6 +1001,12 @@ test('V289 exports a portable Three.js tarball only when it matches npm dist.int
   const fakeNpm = path.join(bin, 'npm');
   fs.writeFileSync(fakeNpm, `#!/usr/bin/env node\nconst fs=require('node:fs');const path=require('node:path');const a=process.argv.slice(2);if(a[0]==='view'){process.stdout.write(JSON.stringify(process.env.FAKE_VIEW_INTEGRITY||'${actualIntegrity}'));process.exit(0)}if(a[0]==='pack'){const d=a[a.indexOf('--pack-destination')+1];const f='three-0.160.0.tgz';fs.copyFileSync(process.env.FIXTURE_TARBALL,path.join(d,f));process.stdout.write(JSON.stringify([{filename:f,integrity:'${actualIntegrity}'}]));process.exit(0)}process.exit(2);\n`);
   fs.chmodSync(fakeNpm, 0o755);
+  if (process.platform === 'win32') {
+    // Windows runners cannot execute the POSIX-style fake npm fixture directly.
+    // Keep its JavaScript logic identical and expose it through a small npm.cmd shim.
+    fs.copyFileSync(fakeNpm, path.join(bin, 'fake-npm.cjs'));
+    fs.writeFileSync(path.join(bin, 'npm.cmd'), '@echo off\r\nnode "%~dp0fake-npm.cjs" %*\r\nexit /b %ERRORLEVEL%\r\n');
+  }
   const script = path.join(root, 'tools/export-three-offline-bundle.cjs');
   const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, FIXTURE_TARBALL: fixtureTarball };
   try {
@@ -1044,6 +1050,12 @@ test('V291 offline bundle exporter falls back to mirror only for network errors 
 const fs=require('node:fs');const path=require('node:path');const a=process.argv.slice(2);const r=a[a.indexOf('--registry')+1]||'';fs.appendFileSync(process.env.FAKE_LOG,JSON.stringify({cmd:a[0],registry:r})+'\\n');if(r==='https://registry.npmjs.org/') {process.stderr.write('getaddrinfo EAI_AGAIN registry.npmjs.org');process.exit(1)}if(r!=='https://registry.npmmirror.com/')process.exit(3);if(a[0]==='view'){process.stdout.write(JSON.stringify('${integrity}'));process.exit(0)}if(a[0]==='pack'){const d=a[a.indexOf('--pack-destination')+1];const f='three-0.160.0.tgz';fs.copyFileSync(process.env.FIXTURE_TARBALL,path.join(d,f));process.stdout.write(JSON.stringify([{filename:f,integrity:'${integrity}'}]));process.exit(0)}process.exit(2);
 `);
   fs.chmodSync(fakeNpm, 0o755);
+  if (process.platform === 'win32') {
+    // Windows runners cannot execute the POSIX-style fake npm fixture directly.
+    // Keep its JavaScript logic identical and expose it through a small npm.cmd shim.
+    fs.copyFileSync(fakeNpm, path.join(bin, 'fake-npm.cjs'));
+    fs.writeFileSync(path.join(bin, 'npm.cmd'), '@echo off\r\nnode "%~dp0fake-npm.cjs" %*\r\nexit /b %ERRORLEVEL%\r\n');
+  }
   const log = path.join(temp, 'npm-log.jsonl');
   try {
     const result = cp.spawnSync(process.execPath, [path.join(root, 'tools/export-three-offline-bundle.cjs'), '--out', out], {
