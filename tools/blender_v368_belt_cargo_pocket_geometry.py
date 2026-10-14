@@ -380,16 +380,15 @@ def _create_surface_panel(scene, name, surface_casters, center_x, center_z, widt
             # The camera looks from -Y; this order orients the front toward it.
             faces.append((a, d, c, b))
             faces.append((front_count+b, front_count+c, front_count+d, front_count+a))
+    # Side walls only around the outer panel boundary. Interior grid cells
+    # share edges and must not receive duplicate coplanar walls.
     for row in range(rows):
-        for column in range(columns):
-            a = row * stride + column
-            b = a + 1
-            d = (row + 1) * stride + column
-            c = d + 1
-            faces.extend([
-                (a, front_count+a, front_count+d, d),
-                (b, c, front_count+c, front_count+b),
-            ])
+        left_top = row * stride
+        left_bottom = (row + 1) * stride
+        right_top = row * stride + columns
+        right_bottom = (row + 1) * stride + columns
+        faces.append((left_top, front_count+left_top, front_count+left_bottom, left_bottom))
+        faces.append((right_top, right_bottom, front_count+right_bottom, front_count+right_top))
     for column in range(columns):
         a = column
         b = a + 1
