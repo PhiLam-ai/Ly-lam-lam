@@ -266,9 +266,9 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/v313-evaluated-mesh-audit
-          "$RUNNER_TEMP/blender/blender" --background --factory-startup \\
-            --python tools/blender36_v313_evaluated_mesh_audit.py -- \\
-            --input "$GITHUB_WORKSPACE/lam-default.glb" \\
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_v313_evaluated_mesh_audit.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
             --output-dir "$GITHUB_WORKSPACE/artifacts/v313-evaluated-mesh-audit"
           test -s artifacts/v313-evaluated-mesh-audit/v313-evaluated-mesh-audit.json
           python3 - <<'PY'
