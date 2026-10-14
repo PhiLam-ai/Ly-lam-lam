@@ -24,7 +24,7 @@ for (let i = 0; i < args.length; i++) {
 }
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 function run(args) {
-  const result = cp.spawnSync(npm, args, { encoding: 'utf8', windowsHide: true, timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'] });
+  const result = cp.spawnSync(npm, args, { encoding: 'utf8', windowsHide: true, timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' });
   if (result.error) throw new Error(`Không chạy được npm: ${result.error.message}`);
   if (result.status !== 0) throw new Error(`npm ${args.join(' ')} thất bại (mã ${result.status}):\n${[result.stdout, result.stderr].filter(Boolean).join('\n').trim()}`);
   return result.stdout.trim();
