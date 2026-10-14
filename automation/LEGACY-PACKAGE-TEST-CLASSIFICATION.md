@@ -2,7 +2,7 @@
 
 ## Decision
 
-The previous broad diagnostic reported **71/88 passing and 17 failures** on workflow run [38507117893](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38507117893). The failed set mixed a real runtime-policy inconsistency with tests pinned to a retired Pages build architecture.
+The pre-cleanup diagnostic reported **71/88 passing and 17 failures** on workflow run [38507117893](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38507117893). The failed set mixed a real runtime-policy inconsistency with tests pinned to a retired Pages build architecture. After the fixes and archiving described below, the new CI run [38507424599](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38507424599) passed the retained diagnostic suite **72/72**, the core suite **46/46**, and the actual-target suite **6/6**.
 
 The real runtime policy issue was fixed on this PR branch: an omitted `three` query parameter now selects the bundled `./vendor/three/` modules, matching the diagnostics and the local-first contract. The V309 test now checks this current expression, and the V241 test was rewritten to verify the effective runtime behavior plus the actual vendor files rather than a build-time tool under the deployed package directory.
 
@@ -43,4 +43,4 @@ The historical suite remains useful evidence but is no longer used as if its old
 
 ## Verification status
 
-The latest run before this cleanup reported core tests **46/46 passing** and actual-target tests **5/5 passing**; the new edits still require a fresh CI run. No claim is made yet that the post-cleanup suite is green, nor that structural checks establish coherent avatar geometry or real iPhone Safari behavior. The PR remains a draft and production deployment has not been performed by these edits.
+Verified on the draft PR branch by run [38507424599](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38507424599): core tests **46/46**, actual-target tests **6/6**, retained package-integrity diagnostic **72/72**. AUTO-004 is marked complete on this branch. This is not proof that the avatar geometry is visually coherent or that it works on real iPhone Safari; those remain separate acceptance gates. PR #3 remains draft and unmerged, and these changes have not been deployed to production.
