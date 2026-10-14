@@ -333,6 +333,8 @@ jobs:
           test -s artifacts/v314-coherent-avatar-candidate/lam-v314-front.png
           test -s artifacts/v314-coherent-avatar-candidate/lam-v314-three-quarter.png
           test -s artifacts/v314-coherent-avatar-candidate/lam-v314-side.png
+          test -s artifacts/v314-coherent-avatar-candidate/lam-v314-rigged-front.png
+          test -s artifacts/v314-coherent-avatar-candidate/lam-v314-rigged-three-quarter.png
           test -s artifacts/v314-coherent-avatar-candidate/lam-v314-coherent-avatar-candidate.glb
           python3 - <<'PY'
           import json
@@ -340,7 +342,8 @@ jobs:
           p = Path("artifacts/v314-coherent-avatar-candidate/lam-v314-candidate-report.json")
           report = json.loads(p.read_text(encoding="utf-8"))
           assert report["status"] == "EXPERIMENTAL_COHERENT_STATIC_CANDIDATE_NOT_APPROVED", report
-          assert report["armature_count"] == 0, report
+          assert report["armature_count"] == 1, report
+          assert report["armature_bone_count"] == 17, report
           assert report["missing_expected_morphs"] == [], report
           assert abs(report["bounds_m"]["size"][2] - 1.60) < 0.04, report
           assert report["candidate_bytes"] > 20000, report
