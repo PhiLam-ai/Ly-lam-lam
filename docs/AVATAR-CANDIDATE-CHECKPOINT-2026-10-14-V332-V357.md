@@ -46,13 +46,13 @@ A separate V343 run was created from the earlier V342 conversation checkpoint af
 - Placement report: baseline V355, vertical shift `+0.04 m`; chain sample z values `[1.283, 1.288, 1.302, 1.326]`, pendant center z `1.283 m`. The chain and pendant both export as meshes and retain the gold PBR settings (`metallic 0.55`, `roughness 0.28`).
 - Mobile browser passed at 390×844; WebGL ready, idle animation advanced, no page/console errors. Visual review of front, face-closeup, side and browser views: the pendant now sits below the collar and above the full white shirt-logo ring, without visible front-view clipping. **Necklace placement accepted for further candidate work; full avatar is still not approved for production** because facial likeness remains generic and eye/iris realism can improve.
 
-## V357 — warm-brown iris texture diagnostic (validation rerun)
-- First workflow attempt: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38614148268 — build stopped at an overly strict internal channel-ratio threshold before GLB export. The 30% bounded chestnut mix raised green/red ratio from `0.2054` to `0.2430` (+18%) and blue/red from `0.0435` to `0.0657` (+51%). This was a gate-calibration failure, not a Blender, GLB or browser failure.
-- The processing remains restricted to the existing `brown_eye` atlas's two feathered iris annuli: 30% linear-RGB blend toward muted chestnut; target pixels only. Pupil cores, sclera, alpha and UV layout remain unchanged.
-- Correction: set a proportionate lower bound of +10% for green/red and +30% for blue/red, while retaining independent gates for unchanged pixels outside the mask, exact source/processed alpha digest, embedded GLB pixel agreement, base/front shared texture source, eye PBR response, all 12 morphs, V340 body shape, V341 hair, V345 smile, V352 fill lighting and V356 necklace.
-- Validation rerun: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38614450460.
+## V357 — warm-brown iris texture diagnostic (third run in progress)
+- First attempt: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38614148268. It stopped on an overly strict internal channel-ratio threshold before export; this was corrected to a +10% minimum for green/red and +30% for blue/red.
+- Second attempt: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38614450460. It generated the Blender eye/front/side images and applied the bounded iris processing, but the bake step failed when `restore_face_accessory_materials()` tried to rediscover `brown_eye` on the already-replaced `Human.high-poly` material. The fix is to choose `V357_WarmBrownIris` first for the high-poly eye and use the original asset-image lookup only for other accessory meshes.
+- Current run: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38615213626.
 - Builder: `tools/blender_v357_warm_brown_iris_texture.py`; workflow: `.github/workflows/v357-warm-brown-iris-texture.yml`.
-- Visual decision pending. Inspect V357 face close-up and browser capture against V356 for warm natural brown irises without washed-out whites, alpha halos, oversaturation or changes to the face/body/hair/necklace. This is an experimental candidate, not production approval.
+- The partial V357 eye close-up shows a small move away from the red/orange cast toward chestnut, without visible changes to sclera/pupil geometry. Final judgement is pending the successfully exported GLB, embedded-pixel/alpha audit, mobile browser and packaged preview.
+- V357 keeps the V356 geometry, V340 lower-body silhouette, V341 hair, V345 smile, V350 eye-front response, V352 viewer fill lighting and V356 necklace. No production GLB is changed.
 ## Safety and rollback
 
 - Do not copy any experimental GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
