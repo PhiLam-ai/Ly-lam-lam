@@ -8,9 +8,9 @@ This is the first bounded automation layer for the project. It turns the nightly
 
 1. Check the application entry page, bundled Three.js dependencies, GLB file integrity, and the stable-version registry.
 2. Run core avatar logic and GLB structural tests as blocking checks.
-3. Run the broader package-integrity suite as a diagnostic. The current copy contains version-specific deployment assumptions that do not match the deployed `v312-work` package; those failures remain visible as warnings until the harness is reconciled.
+3. Run the retained package-integrity suite against the current `v312-work` target. Sixteen test blocks for a retired `deploy.yml`/`dist` packaging pipeline are preserved in `automation/legacy/legacy-package-integrity-tests.md`, outside the active test path; the remaining current compatibility tests and target-specific tests are blocking/diagnostic evidence.
 4. Publish JSON and Markdown reports plus the raw test logs as a GitHub Actions artifact and workflow summary.
-5. Choose the next safe recommendation from predefined rules: investigate failed blocking tests first; otherwise reconcile legacy package-test assumptions before returning to the known avatar visual/rigging blocker.
+5. Choose the next safe recommendation from predefined rules: investigate failed blocking tests first; otherwise return to the known avatar visual/rigging blocker; the legacy test-harness reconciliation is completed on the draft automation branch.
 6. Keep every execution read-only with respect to repository contents and stable-version pointers.
 
 ## Autonomy boundaries
@@ -36,6 +36,6 @@ Each run attaches `autonomous-work-mode-<run id>-<attempt>` containing:
 ## Next stages
 
 - V1: scheduled safety preflight, blocking core tests, legacy package-test diagnostics, recommendations, and durable run evidence.
-- Next low-risk task: reconcile the package-integrity suite's assumptions to the exact deploy target. This is tracked as `AUTO-004`; known failures must not be hidden or removed merely to produce a green run.
+- Completed on the automation branch: `AUTO-004` reconciles current tests to the active Pages target. Sixteen old-pipeline assertions are preserved verbatim in a non-executable archive; the current test set passes 72/72, core tests 46/46, and target-specific tests 6/6 in run [38507424599](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38507424599). These changes are still in draft PR #3 and are not active on `main` until reviewed and merged.
 - V2: bounded AI task execution on a disposable branch, with file/path allowlists, diff-size limits, repeatable tests, and a patch artifact; never promote automatically.
 - V3: human-reviewed merge/promotion and rollback verification. iPhone visual review remains an explicit acceptance gate until it can be reliably tested.
