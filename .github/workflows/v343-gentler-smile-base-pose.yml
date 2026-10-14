@@ -318,7 +318,7 @@ jobs:
           cat > "$stage/v312-work/V343-EXPERIMENTAL-AVATAR.md" <<'MD'
           # V343 Experimental Real Human-Topology Avatar — Not Yet Approved
 
-          This package preserves the V340 accepted body silhouette and replaces the hair's source material with a direct glTF-compatible material using a processed diffuse texture. The texture's bright baked highlights are luminance-compressed and warmed; alpha and UV mapping are preserved. Roughness is raised to 0.86 and specular IOR level lowered to 0.12. Body, face accessories, clothing, morphs and idle animation remain unchanged. This is a diagnostic candidate, not the final avatar.
+          This package preserves the V340 body silhouette and V341 darkened hair material. V343 changes only the default neutral-smile fraction from 0.12 to 0.20, moving the neutral Basis and non-smile keys by a slightly larger part of the existing smile delta while keeping the original full-smile endpoint. All 12 morph controls remain. Body geometry, clothing, hair material and idle animation otherwise remain unchanged. This is a diagnostic candidate, not the final avatar.
 
           - This is an experimental human-mesh candidate, not a claim of final photorealism.
           - It includes a subtle Lam_Idle_GentleSway common-root animation and 12 base-mesh facial morph names. The five separate face accessory meshes are restored with export-safe materials so the browser image can be compared against the V335 texture-only diagnostic.
