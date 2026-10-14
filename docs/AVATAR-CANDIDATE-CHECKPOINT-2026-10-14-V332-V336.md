@@ -34,12 +34,13 @@
 - Windows ZIP: `ly-lam-lam-v335-experimental-windows.zip`, 17,932,708 bytes, 81 entries, ZIP integrity passed; SHA-256 `ccc2039d2269602149d36815cdef754809c659af8ced908f29e5520079447342` matched its sidecar.
 - Visual decision: NOT APPROVED. The pronounced blotches were greatly reduced, but the texture-only face still lacks 3D eyes, lashes, brows, teeth and tongue; the eye region reads as thin printed lines at the full-body scale.
 
-## V336 — restore face accessories with glTF-safe materials (running)
-- Run: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38564972623
+## V336 — restore face accessories with glTF-safe materials
+- Run: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38564972623 — SUCCESS; artifact ID `11895095803` (about 54 MB).
 - Script: `tools/blender_v336_gltf_face_accessory_candidate.py`.
 - Keeps the simplified skin material from V335 and restores five 3D face accessory meshes with one image and an explicit UV map per material; RGBA alpha is retained for transparent meshes.
-- Required gates: no excluded face accessories, all five accessories have image/UV/material audit entries, 0 skins, at least 12 morph names, `Lam_Idle_GentleSway`, mobile WebGL load and framing, clean browser page/console errors, ZIP integrity and matching SHA-256 sidecar.
-- It is a diagnostic candidate, not a production replacement. Inspect the V336 browser screenshot before approving the avatar.
+- Technical gates passed: all five accessory meshes are present and audited, 0 glTF skins, 12 expected morphs, `Lam_Idle_GentleSway`, mobile WebGL load and framing, no browser page/console errors, ZIP integrity and SHA sidecar included.
+- Visual review of `v336-face-closeup.png`, `v336-front.png`, and `v314-candidate-canvas.png`: the severe red/black patches are no longer apparent, and brows, eye geometry, lashes and hair are visible. However, the face remains low-detail/stiff at full-body scale, the hair has a conspicuous pale rim/highlight, eye/iris realism is limited, and the overall body/clothing is still a generic MPFB base rather than the approved Lam likeness and desired proportions. **Visual decision: NOT APPROVED for production.**
+- Next work: V337 should target a measured visual audit first (face/hair/eyes/body proportions and browser-versus-Blender consistency), then make one isolated improvement at a time and compare renders. Keep the production GLB unchanged.
 
 ## Safety and rollback
 - Do not copy any candidate GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
