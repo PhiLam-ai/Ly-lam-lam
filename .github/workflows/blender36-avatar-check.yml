@@ -335,7 +335,13 @@ jobs:
           mkdir -p artifacts/v314-coherent-avatar-candidate
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
             --python tools/blender36_v314_coherent_avatar_candidate.py -- \
-            --output-dir "$GITHUB_WORKSPACE/artifacts/v314-coherent-avatar-candidate"
+            --output-dir "$GITHUB_WORKSPACE/artifacts/v314-coherent-avatar-candidate" \
+            2>&1 | tee artifacts/v314-coherent-avatar-candidate/v317-build.log
+          if grep -q "Traceback (most recent call last)" artifacts/v314-coherent-avatar-candidate/v317-build.log; then
+            echo "Blender Python traceback detected in V317 candidate build."
+            exit 1
+          fi
+          test -s artifacts/v314-coherent-avatar-candidate/v317-build.log
           test -s artifacts/v314-coherent-avatar-candidate/lam-v314-candidate-report.json
           test -s artifacts/v314-coherent-avatar-candidate/lam-v314-front.png
           test -s artifacts/v314-coherent-avatar-candidate/lam-v314-three-quarter.png
