@@ -37,6 +37,11 @@ test('current GitHub Pages workflow deploys the v312-work directory', () => {
   assert.match(workflow, /Deploy Lam Avatar to GitHub Pages/);
   assert.match(workflow, /path:\s*\.\/v312-work/);
   assert.match(workflow, /uses:\s*actions\/deploy-pages@v4/);
+  const coreGate = workflow.indexOf('node --test v312-work/tests/avatar-core.test.cjs v312-work/tests/glb-structural-audit.test.cjs');
+  const targetGate = workflow.indexOf('node --test automation/tests/v312-package-integrity.test.cjs');
+  const deployStep = workflow.indexOf('uses: actions/deploy-pages@v4');
+  assert.ok(coreGate >= 0 && targetGate > coreGate, 'both blocking test gates are declared before deployment');
+  assert.ok(deployStep > targetGate, 'Pages deployment must be later than both test gates');
 });
 
 test('deployed V312 entry page uses bundled runtime assets that exist in the package', () => {
