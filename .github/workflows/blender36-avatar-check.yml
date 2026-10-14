@@ -23,6 +23,7 @@ on:
       - "tools/blender36_v313_transform_bind_audit.py"
       - "tools/blender36_v313_evaluated_mesh_audit.py"
       - "tools/blender36_v313_unskinned_diagnostic.py"
+      - "tools/blender36_v314_coherent_avatar_candidate.py"
       - "tools/blender36_v313_rest_pose_comparison.py"
       - "tools/blender36_v313_pose_reset_experiment.py"
       - "tools/blender36_v313_named_weight_audit.py"
@@ -319,6 +320,32 @@ jobs:
               "bounds_after_normalization": report["bounds_after_normalization"],
               "candidate_bytes": report["candidate_bytes"]
           }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Build and render V314 coherent stylized Lam avatar candidate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/v314-coherent-avatar-candidate
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_v314_coherent_avatar_candidate.py -- \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/v314-coherent-avatar-candidate"
+          test -s artifacts/v314-coherent-avatar-candidate/lam-v314-candidate-report.json
+          test -s artifacts/v314-coherent-avatar-candidate/lam-v314-front.png
+          test -s artifacts/v314-coherent-avatar-candidate/lam-v314-three-quarter.png
+          test -s artifacts/v314-coherent-avatar-candidate/lam-v314-side.png
+          test -s artifacts/v314-coherent-avatar-candidate/lam-v314-coherent-avatar-candidate.glb
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/v314-coherent-avatar-candidate/lam-v314-candidate-report.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["status"] == "EXPERIMENTAL_COHERENT_STATIC_CANDIDATE_NOT_APPROVED", report
+          assert report["armature_count"] == 0, report
+          assert report["missing_expected_morphs"] == [], report
+          assert abs(report["bounds_m"]["size"][2] - 1.60) < 0.04, report
+          assert report["candidate_bytes"] > 20000, report
+          print("V314_COHERENT_AVATAR_CANDIDATE=PASS_EXPERIMENTAL_ONLY")
+          print(json.dumps(report, ensure_ascii=False, indent=2))
           PY
 
       - name: Compare V313 rest pose with mesh bounds
