@@ -118,6 +118,7 @@ function startServer() {
         viewport: { width: window.innerWidth, height: window.innerHeight }
       };
     });
+    report.avatarDiagnostics = await page.evaluate(() => window.__lyLamAvatarDiagnostics || null);
     await page.screenshot({ path: path.join(evidenceDir, 'v314-candidate-browser.png'), fullPage: true });
     const canvasPath = path.join(evidenceDir, 'v314-candidate-canvas.png');
     await page.locator('#stage canvas').screenshot({ path: canvasPath });
@@ -136,19 +137,32 @@ function startServer() {
         if (canvasPng.data[index + 3] > 16 && delta > threshold) rowCounts[y]++;
       }
     }
-    const minPixelsInRow = Math.max(3, Math.floor(canvasPng.width * 0.01));
-    const activeRows = rowCounts.map((count, index) => ({count, index})).filter(row => row.count >= minPixelsInRow);
+    // Exclude rows covered by the floating quick-controls and status card.
+    // The old full-image row coverage incorrectly passed when only the lower legs
+    // were visible because UI chrome itself supplied foreground pixels.
+    const safeTop = Math.min(108, Math.floor(canvasPng.height * 0.13));
+    const safeBottom = Math.max(safeTop + 1, canvasPng.height - 96);
+    const minPixelsInRow = Math.max(3, Math.floor(canvasPng.width * 0.015));
+    const activeRows = rowCounts.map((count, index) => ({count, index}))
+      .filter(row => row.index >= safeTop && row.index < safeBottom && row.count >= minPixelsInRow);
     const topRow = activeRows.length ? activeRows[0].index : null;
     const bottomRow = activeRows.length ? activeRows[activeRows.length - 1].index : null;
-    const coverage = topRow === null ? 0 : (bottomRow - topRow + 1) / canvasPng.height;
+    const safeCoverage = topRow === null ? 0 : (bottomRow - topRow + 1) / (safeBottom - safeTop);
+    const allActiveRows = rowCounts.map((count, index) => ({count, index})).filter(row => row.count >= minPixelsInRow);
+    const rawTopRow = allActiveRows.length ? allActiveRows[0].index : null;
+    const rawBottomRow = allActiveRows.length ? allActiveRows[allActiveRows.length - 1].index : null;
+    const rawCoverage = rawTopRow === null ? 0 : (rawBottomRow - rawTopRow + 1) / canvasPng.height;
     report.visualFraming = {
       canvas: { width: canvasPng.width, height: canvasPng.height },
-      topRow,
-      bottomRow,
-      verticalCoverage: Number(coverage.toFixed(4)),
+      rawTopRow, rawBottomRow,
+      rawVerticalCoverage: Number(rawCoverage.toFixed(4)),
+      ignoredOverlayRows: { topEndExclusive: safeTop, bottomStartInclusive: safeBottom },
+      topRow, bottomRow,
+      safeAreaVerticalCoverage: Number(safeCoverage.toFixed(4)),
       thresholdRGBDelta: threshold,
-      classification: coverage >= 0.55 ? 'VISIBLE_HEIGHT_REASONABLE' : 'CROPPED_OR_OFF_CENTER',
-      note: 'Diagnostic pixel-coverage heuristic only; review canvas screenshot for actual anatomical quality.'
+      minPixelsInRow,
+      classification: safeCoverage >= 0.6 ? 'VISIBLE_AVATAR_IN_SAFE_AREA' : 'LIKELY_CROPPED_OR_OFF_CENTER',
+      note: 'Safe-area pixel heuristic excludes floating buttons/status UI; combine with projected model bounds and inspect the screenshot.'
     };
 
     if (!report.state.booted || report.state.failed) throw new Error('Candidate viewer did not boot: ' + report.state.status);
@@ -175,6 +189,17 @@ function startServer() {
     if (fatalRequests.length) throw new Error('Failed viewer requests: ' + JSON.stringify(fatalRequests));
     if (report.pageErrors.length) throw new Error('Browser page errors: ' + report.pageErrors.join(' | '));
     if (report.consoleErrors.length) throw new Error('Browser console errors: ' + report.consoleErrors.join(' | '));
+    if (!report.avatarDiagnostics || !report.avatarDiagnostics.framing) {
+      throw new Error('Viewer did not expose projected avatar bounds for camera validation.');
+    }
+    const projected = report.avatarDiagnostics.framing;
+    if (!projected.fitsNdc || projected.verticalCoverage < 0.58 || projected.verticalCoverage > 0.94 ||
+        Math.abs(projected.verticalCenter) > 0.22) {
+      throw new Error('Projected model bounds are cropped or off-center: ' + JSON.stringify(projected));
+    }
+    if (report.visualFraming.safeAreaVerticalCoverage < 0.6) {
+      throw new Error('Actual canvas foreground does not fill the unobstructed safe area: ' + JSON.stringify(report.visualFraming));
+    }
     report.status = 'PASS_BROWSER_WEBGL_CANDIDATE_ONLY';
   } catch (error) {
     fatal = error;
