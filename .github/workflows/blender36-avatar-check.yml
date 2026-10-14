@@ -21,6 +21,7 @@ on:
       - "tools/blender36_v313_bindpose_audit.py"
       - "tools/blender36_v313_mesh_localization.py"
       - "tools/blender36_v313_transform_bind_audit.py"
+      - "tools/blender36_v313_evaluated_mesh_audit.py"
       - "tools/blender36_v313_rest_pose_comparison.py"
       - "tools/blender36_v313_pose_reset_experiment.py"
       - "tools/blender36_v313_named_weight_audit.py"
@@ -260,6 +261,31 @@ jobs:
             --input "$GITHUB_WORKSPACE/lam-default.glb" \
             --output-dir "$GITHUB_WORKSPACE/artifacts/v313-transform-bind-audit"
           test -s artifacts/v313-transform-bind-audit/v313-transform-bind-audit.json
+
+      - name: Audit evaluated mesh bounds after skin and armature modifiers
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/v313-evaluated-mesh-audit
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \\
+            --python tools/blender36_v313_evaluated_mesh_audit.py -- \\
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \\
+            --output-dir "$GITHUB_WORKSPACE/artifacts/v313-evaluated-mesh-audit"
+          test -s artifacts/v313-evaluated-mesh-audit/v313-evaluated-mesh-audit.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/v313-evaluated-mesh-audit/v313-evaluated-mesh-audit.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["status"] == "DIAGNOSTIC_ONLY_NO_MESH_OR_WEIGHT_CHANGES", report
+          assert report["source_unchanged"] is True, report
+          assert report["mesh_count"] == 85, report
+          assert report["armature_count"] == 1, report
+          assert report["missing_expected_morphs"] == [], report
+          assert all(pair["status"] == "MEASURED" for pair in report["critical_adjacency_pairs"]), report
+          print("V313_EVALUATED_MESH_AUDIT=PASS_DIAGNOSTIC_ONLY")
+          print(json.dumps({"mesh_count": report["mesh_count"], "source_unchanged": report["source_unchanged"],
+            "largest_evaluated_gaps": report["largest_evaluated_gaps"][:8]}, ensure_ascii=False, indent=2))
+          PY
 
       - name: Compare V313 rest pose with mesh bounds
         run: |
