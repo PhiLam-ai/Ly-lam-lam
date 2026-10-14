@@ -333,8 +333,8 @@ jobs:
               "front_texture_index": report["gltf_eye_front_surface_audit"]["base_color_texture_index"],
               "front_image_source_index": report["gltf_eye_front_surface_audit"]["base_color_image_source_index"],
               "same_image_source": report["gltf_eye_front_surface_audit"]["same_image_source_as_base_eye"]
-            }
-            "eye_material_preview_audit": report["eye_material_preview_audit"]
+            },
+            "eye_material_preview_audit": report["eye_material_preview_audit"],
             "eye_geometry_diagnostic": report["eye_geometry_diagnostic"]
           }, ensure_ascii=False, indent=2))
           PY
