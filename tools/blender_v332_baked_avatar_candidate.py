@@ -883,7 +883,7 @@ def main():
     report_path = os.path.join(output, "lam-v332-candidate-report.json")
     Path(report_path).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     # Save an editable Blender scene alongside the exported GLB and visual evidence.
-    scene_path = os.path.join(output, "lam-v332-real-human-candidate.blend")
+    scene_path = os.path.join(output, "lam-v332-baked-human-candidate.blend")
     bpy.ops.wm.save_as_mainfile(filepath=scene_path)
     print("V332_REAL_HUMAN_CANDIDATE=" + json.dumps(report, ensure_ascii=False))
     if os.path.getsize(glb_path) < 1_000_000:
