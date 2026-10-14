@@ -33,3 +33,9 @@ Build a separate realistic-human-topology candidate for the Lý Lâm Lam avatar.
 
 ## Production safety
 V331 is experimental. Do not copy its output into the main branch or mark production approved simply because an automated build passes. Keep V330 and the last tested production GLB available as rollback candidates.
+
+
+## Latest execution update
+- Run \`38548182116\` was stopped while still downloading the large asset archive; no model output was produced and the archive was changing during attempted cache save, so no cache was retained.
+- The current workflow is \`38549291083\` and contains the corrected \`extensions/user_default/mpfb\` package installation path, an MPFB namespace preflight, a guarded cache-save step (only after archive verification), curl low-speed failover to the second official mirror, and cancellation of stale candidate runs.
+- Current checkpoint: asset download/verification is still in progress; do not treat V331 as built or passed until reports and renders are present.
