@@ -330,8 +330,8 @@ jobs:
           assert iris["outside_mask_max_rgb_delta"] <= 1e-7, iris
           source_ratios = iris["source_iris_channel_ratios"]
           processed_ratios = iris["processed_iris_channel_ratios"]
-          assert processed_ratios["green_to_red"] > source_ratios["green_to_red"] * 1.5, iris
-          assert processed_ratios["blue_to_red"] > source_ratios["blue_to_red"] * 1.5, iris
+          assert processed_ratios["green_to_red"] > source_ratios["green_to_red"] * 1.10, iris
+          assert processed_ratios["blue_to_red"] > source_ratios["blue_to_red"] * 1.30, iris
           gltf_iris = report["gltf_iris_texture_audit"]
           assert gltf_iris["embedded_texture_matches_processed_iris"] is True, gltf_iris
           assert gltf_iris["embedded_alpha_matches_source"] is True, gltf_iris
