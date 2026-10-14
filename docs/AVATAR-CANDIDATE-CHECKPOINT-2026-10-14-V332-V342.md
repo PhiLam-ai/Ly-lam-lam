@@ -93,6 +93,12 @@
 - Browser: PASS at 390×844; WebGL/renderer ready, animation advanced, no page/console errors, avatar visible within safe area.
 - Default-pose transform is present on 19,532 vertices across the body/eyebrow/lash meshes. Smile strength was `0.12`, max base-face displacement only about `0.001586 m` (1.6 mm). All 12 morph names and full-smile target remain available.
 - Visual decision: **NOT APPROVED as a visible smile improvement yet**. Rendered face still reads neutral/stiff at full-body and close-up scale. The base-pose adjustment is too subtle; next V343 changes only the smile-base strength from `0.12` to `0.24`, leaving geometry/material/body/hair and all other workflow settings fixed for a direct comparison.
+## V343 — stronger gentle-smile comparison (run in progress)
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38594051250.
+- Script: `tools/blender_v343_gentle_smile_base_pose_stronger.py`; workflow: `.github/workflows/v343-gentle-smile-stronger.yml`. Both are now verified on the isolated candidate branch; temporary copies on `main` were removed.
+- Only change versus V342: default smile-base strength `0.12 → 0.24`. The code continues to shift Basis and every non-smile morph by the same fraction while preserving the original smile shape-key endpoint; all twelve morphs remain required by the workflow gate.
+- Initial preparation and MPFB preflight passed; the run is currently installing browser dependencies after building the V343 candidate. Await visual evidence before deciding whether the stronger default smile is appropriate.
+- Cleanup side effect: the brief add/remove commits on `main` triggered GitHub Pages/backup workflows. The first Pages deployment was cancelled, and a latest deployment for the cleaned `main` tree is in progress. No production GLB or application source file was intentionally edited; verify deployment completion and the main tree remains free of the two temporary V343 files.
 ## Safety and rollback
 - Do not copy any candidate GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
 - Keep all builds, renders, reports, and ZIPs under versioned candidate artifacts. Record SHA-256 only after checking actual bytes against the sidecar.
