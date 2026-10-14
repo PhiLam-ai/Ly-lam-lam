@@ -93,6 +93,13 @@ jobs:
           Path("artifacts-v331-provenance.tmp").write_text(json.dumps(report, indent=2), encoding="utf-8")
           PY
 
+      - name: Persist verified asset packs even if later build steps fail
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/v331-mpfb-assets
+          key: v331-mpfb-assets-${{ runner.os }}-system-b5421278-face-d113107b-visemes-official-v1
+
       - name: Download Blender 4.5.3
         run: |
           set -euo pipefail
