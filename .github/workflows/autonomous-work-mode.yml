@@ -1,0 +1,318 @@
+name: LLL Autonomous Work Mode V1 - Safe Executor
+
+on:
+  schedule:
+    # Daily 23:50 Vietnam time (UTC+7); GitHub may start scheduled jobs late.
+    - cron: "50 16 * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - automation/autonomous-work-mode-v1
+    paths:
+      - "AUTONOMOUS-WORK-MODE-V1.md"
+      - "automation/**"
+      - "v312-work/**"
+      - ".github/workflows/autonomous-work-mode.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lll-autonomous-work-mode-v1
+  cancel-in-progress: false
+
+jobs:
+  safe-work-cycle:
+    name: Preflight, run regression suite, and report next task
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run read-only prerequisite and GLB integrity checks
+        id: preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p automation-report
+          python3 - <<'PY'
+          import hashlib, json, os, struct
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          root = Path(".")
+          checks = []
+          def check(name, ok, detail):
+              checks.append({"check": name, "status": "PASS" if ok else "FAIL", "detail": str(detail)})
+
+          required = [
+              ("app_entry", "v312-work/index.html", 1000),
+              ("three_module", "v312-work/vendor/three/build/three.module.js", 1000),
+              ("gltf_loader", "v312-work/vendor/three/examples/jsm/loaders/GLTFLoader.js", 1000),
+              ("orbit_controls", "v312-work/vendor/three/examples/jsm/controls/OrbitControls.js", 1000),
+              ("regression_tests", "v312-work/tests/package-integrity.test.cjs", 100),
+              ("work_queue", "automation/work-queue.json", 100),
+          ]
+          for name, rel, min_bytes in required:
+              p = root / rel
+              ok = p.is_file() and p.stat().st_size >= min_bytes
+              check(name, ok, f"path={rel}; exists={p.is_file()}; bytes={p.stat().st_size if p.exists() else 0}")
+
+          html_path = root / "v312-work/index.html"
+          html = html_path.read_text(encoding="utf-8", errors="replace") if html_path.exists() else ""
+          check("local_three_imports", "./vendor/three/" in html and "three/addons/" in html,
+                "Entry page must point at bundled Three.js modules.")
+
+          glb_path = root / "v312-work/lam-default.glb"
+          if not glb_path.is_file():
+              check("glb_integrity", False, f"Missing {glb_path.as_posix()}")
+          else:
+              data = glb_path.read_bytes()
+              valid = len(data) >= 20 and data[:4] == b"glTF" and struct.unpack_from("<I", data, 4)[0] == 2
+              declared = struct.unpack_from("<I", data, 8)[0] if len(data) >= 12 else 0
+              exact_length = declared == len(data)
+              digest = hashlib.sha256(data).hexdigest()
+              check("glb_integrity", valid and exact_length,
+                    f"bytes={len(data)}; glTF2={valid}; declared_length_matches={exact_length}; sha256={digest}")
+
+          registry_path = root / "versions/stable.json"
+          try:
+              registry = json.loads(registry_path.read_text(encoding="utf-8"))
+              registry_ok = registry.get("schema_version") == 1
+              check("stable_registry", registry_ok, f"schema_version={registry.get('schema_version')}; current={registry.get('current')}; previous={registry.get('previous')}")
+          except Exception as exc:
+              check("stable_registry", False, repr(exc))
+
+          try:
+              queue = json.loads((root / "automation/work-queue.json").read_text(encoding="utf-8"))
+              tasks = queue.get("tasks", [])
+              ids = [t.get("id") for t in tasks]
+              queue_ok = queue.get("schema_version") == 1 and len(ids) == len(set(ids)) and all(
+                  isinstance(t.get("approval_required"), bool) and t.get("risk") in {"low", "medium", "high"}
+                  for t in tasks
+              )
+              check("work_queue_schema", queue_ok, f"task_count={len(tasks)}; unique_ids={len(ids) == len(set(ids))}")
+          except Exception as exc:
+              check("work_queue_schema", False, repr(exc))
+
+          errors = [c["check"] for c in checks if c["status"] != "PASS"]
+          report = {
+              "created_utc": datetime.now(timezone.utc).isoformat(),
+              "commit": os.environ.get("GITHUB_SHA", "unknown"),
+              "trigger": os.environ.get("GITHUB_EVENT_NAME", "unknown"),
+              "checks": checks,
+              "failed_checks": errors,
+              "status": "PASS" if not errors else "FAIL",
+              "scope": "Read-only deterministic checks. No AI/API call, source modification, deploy, or version promotion."
+          }
+          Path("automation-report/baseline-checks.json").write_text(
+              json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(report, ensure_ascii=False, indent=2))
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"status={report['status']}\n")
+          PY
+
+      - name: Run blocking core regression and GLB structural tests
+        id: core
+        shell: bash
+        run: |
+          set -uo pipefail
+          set +e
+          (cd v312-work && node --test tests/avatar-core.test.cjs tests/glb-structural-audit.test.cjs) > automation-report/core-regression.log 2>&1
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          cat automation-report/core-regression.log
+          exit 0
+
+      - name: Run tests for the actual V312 deploy target
+        id: target
+        shell: bash
+        run: |
+          set -uo pipefail
+          set +e
+          node --test automation/tests/v312-package-integrity.test.cjs > automation-report/current-package-tests.log 2>&1
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          cat automation-report/current-package-tests.log
+          exit 0
+
+      - name: Run broad package-integrity suite as a diagnostic
+        id: compatibility
+        shell: bash
+        run: |
+          set -uo pipefail
+          set +e
+          (cd v312-work && node --test tests/package-integrity.test.cjs) > automation-report/package-integrity.log 2>&1
+          code=$?
+          set -e
+          echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+          cat automation-report/package-integrity.log
+          exit 0
+
+      - name: Build work-cycle report and recommend next task
+        if: always()
+        env:
+          PREFLIGHT_STATUS: ${{ steps.preflight.outputs.status }}
+          CORE_EXIT_CODE: ${{ steps.core.outputs.exit_code }}
+          TARGET_EXIT_CODE: ${{ steps.target.outputs.exit_code }}
+          COMPATIBILITY_EXIT_CODE: ${{ steps.compatibility.outputs.exit_code }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          base = json.loads(Path("automation-report/baseline-checks.json").read_text(encoding="utf-8"))
+          queue = json.loads(Path("automation/work-queue.json").read_text(encoding="utf-8"))
+
+          def read_stats(path):
+              data = Path(path).read_text(encoding="utf-8", errors="replace") if Path(path).exists() else ""
+              def num(label):
+                  match = re.search(r"^# " + re.escape(label) + r" (\d+)$", data, re.M)
+                  return int(match.group(1)) if match else None
+              return {"tests": num("tests"), "pass": num("pass"), "fail": num("fail")}
+
+          core_exit = os.environ.get("CORE_EXIT_CODE", "not-run")
+          target_exit = os.environ.get("TARGET_EXIT_CODE", "not-run")
+          compatibility_exit = os.environ.get("COMPATIBILITY_EXIT_CODE", "not-run")
+          core_ok = core_exit == "0"
+          target_ok = target_exit == "0"
+          compatibility_stats = read_stats("automation-report/package-integrity.log")
+          target_stats = read_stats("automation-report/current-package-tests.log")
+          core_stats = read_stats("automation-report/core-regression.log")
+          compatibility_warning = compatibility_exit != "0" or (compatibility_stats["fail"] or 0) > 0
+          preflight_ok = os.environ.get("PREFLIGHT_STATUS") == "PASS"
+
+          if not preflight_ok or not core_ok or not target_ok:
+              overall = "FAIL"
+              next_action = "Fix the failed prerequisite, core regression, or V312 deploy-target test on a non-release branch. Do not promote any candidate."
+          elif compatibility_warning:
+              overall = "PASS_WITH_WARNINGS"
+              next_action = (
+                  "Align legacy package-integrity test assumptions with the actual v312-work deploy package. "
+                  f"The target-specific tests passed, but {compatibility_stats['fail'] or 0} legacy assertions still fail; do not describe the entire suite as green."
+              )
+          else:
+              overall = "PASS"
+              next_action = "Continue isolated avatar geometry/rig diagnosis. Preserve the original GLB; require visual review and real-device acceptance before promotion."
+
+          report = {
+              "title": "Lý Lâm Lam Autonomous Work Mode V1",
+              "created_utc": datetime.now(timezone.utc).isoformat(),
+              "run_id": os.environ.get("GITHUB_RUN_ID", "unknown"),
+              "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT", "unknown"),
+              "commit": os.environ.get("GITHUB_SHA", "unknown"),
+              "branch": os.environ.get("GITHUB_REF_NAME", "unknown"),
+              "trigger": os.environ.get("GITHUB_EVENT_NAME", "unknown"),
+              "overall_status": overall,
+              "preflight_status": base.get("status", "NOT_RUN"),
+              "core_regression_tests": {"status": "PASS" if core_ok else "FAIL_OR_NOT_RUN", "exit_code": core_exit, **core_stats},
+              "current_package_tests": {"status": "PASS" if target_ok else "FAIL_OR_NOT_RUN", "exit_code": target_exit, **target_stats, "scope": "Actual v312-work GitHub Pages deploy target"},
+              "package_integrity_diagnostic": {
+                  "status": "WARN_KNOWN_VERSION_MISMATCH" if compatibility_warning else "PASS",
+                  "exit_code": compatibility_exit,
+                  **compatibility_stats,
+                  "log": "package-integrity.log"
+              },
+              "failed_checks": base.get("failed_checks", []),
+              "work_queue": queue.get("tasks", []),
+              "recommended_next_action": next_action,
+              "capability_boundary": "Deterministic checks only. No AI coding agent, source edits, paid APIs, deployment, stable promotion, or proof of iPhone visual behavior."
+          }
+
+          Path("automation-report/autonomous-work-report.json").write_text(
+              json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+          lines = [
+              "# Lý Lâm Lam — Autonomous Work Mode V1", "",
+              f"- Status: **{overall}**",
+              f"- Commit: `{report['commit']}`",
+              f"- Branch: `{report['branch']}`",
+              f"- Trigger: `{report['trigger']}`",
+              f"- Preflight: **{report['preflight_status']}**",
+              f"- Core regression: **{report['core_regression_tests']['status']}** ({core_stats['pass'] or 0}/{core_stats['tests'] or 'unknown'} pass)",
+              f"- V312 target tests: **{report['current_package_tests']['status']}** ({target_stats['pass'] or 0}/{target_stats['tests'] or 'unknown'} pass)",
+              f"- Legacy package diagnostic: **{report['package_integrity_diagnostic']['status']}** ({compatibility_stats['fail'] or 0} failed / {compatibility_stats['tests'] or 'unknown'} tests)",
+              "",
+              "> PASS_WITH_WARNINGS is not release approval. Legacy test mismatches remain visible in the attached log.",
+              "",
+              "## Prerequisite checks", "",
+              "| Check | Status | Detail |", "|---|---|---|"
+          ]
+          for item in base.get("checks", []):
+              detail = item.get("detail", "").replace("|", "\\|").replace("\n", " ")
+              lines.append(f"| {item['check']} | {item['status']} | {detail} |")
+          lines += ["", "## Recommended next action", "", next_action, "",
+                    "## Acceptance boundary", "",
+                    "Automated checks do not prove avatar visual quality or iPhone Safari behavior. Human visual acceptance remains required before stable promotion.", ""]
+          Path("automation-report/REPORT.md").write_text("\n".join(lines), encoding="utf-8")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write("\n".join(lines) + "\n")
+          print(json.dumps({
+              "overall_status": overall,
+              "preflight": report["preflight_status"],
+              "core_regression": report["core_regression_tests"],
+              "current_package_tests": report["current_package_tests"],
+              "package_integrity": report["package_integrity_diagnostic"],
+              "next_action": next_action
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Validate report JSON and diagnostic counts
+        id: reportcheck
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, re
+          from pathlib import Path
+          root = Path("automation-report")
+          report = json.loads((root / "autonomous-work-report.json").read_text(encoding="utf-8"))
+          base = json.loads((root / "baseline-checks.json").read_text(encoding="utf-8"))
+          def stats(path):
+              data = path.read_text(encoding="utf-8", errors="replace")
+              def num(label):
+                  match = re.search(r"^# " + re.escape(label) + r" (\d+)$", data, re.M)
+                  return int(match.group(1)) if match else None
+              return {"tests": num("tests"), "pass": num("pass"), "fail": num("fail")}
+          assert report["preflight_status"] == base["status"], "Preflight state mismatch"
+          for key, log in [
+              ("core_regression_tests", root / "core-regression.log"),
+              ("current_package_tests", root / "current-package-tests.log"),
+              ("package_integrity_diagnostic", root / "package-integrity.log")
+          ]:
+              actual = stats(log)
+              for field in ("tests", "pass", "fail"):
+                  assert report[key][field] == actual[field], f"{key} {field} count mismatch"
+          assert report["overall_status"] in {"PASS", "PASS_WITH_WARNINGS", "FAIL"}
+          if report["package_integrity_diagnostic"]["fail"] and report["core_regression_tests"]["status"] == "PASS" and report["current_package_tests"]["status"] == "PASS":
+              assert report["overall_status"] == "PASS_WITH_WARNINGS", "Legacy failures must remain visible"
+          print("AUTONOMOUS_REPORT_VALIDATION=PASS")
+          print(json.dumps({"overall_status": report["overall_status"], "current_package_tests": report["current_package_tests"], "package_integrity_diagnostic": report["package_integrity_diagnostic"]}, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload durable run evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autonomous-work-mode-${{ github.run_id }}-${{ github.run_attempt }}
+          path: automation-report/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Fail the cycle if a blocking gate or report validation failed
+        if: ${{ always() && (steps.preflight.outputs.status != 'PASS' || steps.core.outputs.exit_code != '0' || steps.target.outputs.exit_code != '0' || steps.reportcheck.outcome != 'success') }}
+        run: |
+          echo "Autonomous work cycle blocked by a preflight/core/target test failure or invalid report."
+          exit 1

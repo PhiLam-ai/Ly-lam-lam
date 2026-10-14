@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "title": "Lý Lâm Lam autonomous work queue",
+  "policy": "Read-only automated tasks may run unattended. AI/API calls, source edits, deploys, stable promotion, destructive actions, and material costs require explicit authorization.",
+  "tasks": [
+    {
+      "id": "AUTO-001",
+      "title": "Preflight application files, bundled runtime and GLB integrity",
+      "type": "deterministic_check",
+      "priority": 1,
+      "risk": "low",
+      "approval_required": false,
+      "automated_in_v1": true,
+      "acceptance": [
+        "entry page exists",
+        "local Three.js files exist",
+        "GLB 2.0 header and declared length match",
+        "stable registry is valid JSON"
+      ]
+    },
+    {
+      "id": "AUTO-002",
+      "title": "Run Node.js regression and structural tests",
+      "type": "test",
+      "priority": 2,
+      "risk": "low",
+      "approval_required": false,
+      "automated_in_v1": true,
+      "acceptance": [
+        "blocking avatar logic tests pass",
+        "GLB structural tests pass",
+        "target-specific tests for the actual v312-work Pages package pass",
+        "broader package-integrity tests are run and any version-mismatch warnings remain visible"
+      ]
+    },
+    {
+      "id": "AUTO-003",
+      "title": "Continue avatar rig/geometry diagnosis without replacing source GLB",
+      "type": "diagnostic",
+      "priority": 3,
+      "risk": "low",
+      "approval_required": false,
+      "automated_in_v1": "evidence linkage only",
+      "acceptance": [
+        "separate experiment artifacts",
+        "source hash unchanged",
+        "12 expected morph names retained",
+        "visual inspection before acceptance"
+      ]
+    },
+    {
+      "id": "HUMAN-001",
+      "title": "Confirm real iPhone Safari viewport, WebGL and avatar appearance",
+      "type": "manual_acceptance",
+      "priority": 4,
+      "risk": "medium",
+      "approval_required": true,
+      "automated_in_v1": false,
+      "acceptance": [
+        "real-device evidence reviewed"
+      ]
+    },
+    {
+      "id": "AUTH-001",
+      "title": "Enable a bounded AI coding agent for unattended code changes",
+      "type": "external_service_integration",
+      "priority": 5,
+      "risk": "high",
+      "approval_required": true,
+      "automated_in_v1": false,
+      "acceptance": [
+        "provider and credential explicitly approved",
+        "spending cap defined",
+        "branch-only patch policy",
+        "tests and human review gate pass"
+      ]
+    },
+    {
+      "id": "AUTO-004",
+      "title": "Reconcile historical package-integrity tests with the current V312 deploy target",
+      "type": "test_harness_maintenance",
+      "priority": 3,
+      "risk": "low",
+      "approval_required": false,
+      "automated_in_v1": true,
+      "acceptance": [
+        "actual Pages workflow and pre-deploy blocking gates verified",
+        "V309 default local-first runtime mismatch corrected and covered by direct assertion",
+        "16 obsolete deployment-pipeline test blocks archived verbatim instead of being deleted",
+        "current broad diagnostic suite passes with no failures",
+        "current-target suite checks runtime assets, mobile controls, GLB morphs and absence of symlinks",
+        "real browser and iPhone visual verification remain separate release gates"
+      ],
+      "notes": "Completed and verified on automation/autonomous-work-mode-v1. Latest full CI run 38507518716 (head d9be57ae33cc7a2e20144936edc008c7a72051be): core 46/46, actual V312 deploy-target 6/6, retained current package-integrity tests 72/72. Sixteen obsolete pipeline tests remain preserved in automation/legacy/legacy-package-integrity-tests.md. PR #3 is still draft/unmerged; the fix is not yet active on main.",
+      "status": "completed_on_branch_pending_review_merge"
+    }
+  ]
+}
