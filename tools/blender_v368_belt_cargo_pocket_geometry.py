@@ -3596,6 +3596,35 @@ def main():
         "metallic_factor": frame_pbr.get("metallicFactor"),
         "nodes_all_present": len(present_frame_nodes) == len(expected_frame_nodes),
     }
+    expected_wardrobe_detail_nodes = [
+        "V368_Baked_" + name for name in wardrobe_detail_audit["objects_added"]
+    ]
+    present_wardrobe_detail_nodes = [
+        name for name in expected_wardrobe_detail_nodes if name in node_names
+    ]
+    if len(present_wardrobe_detail_nodes) != len(expected_wardrobe_detail_nodes):
+        raise RuntimeError("V368 wardrobe detail meshes missing from GLB: " + repr({
+            "expected": expected_wardrobe_detail_nodes,
+            "present": present_wardrobe_detail_nodes,
+            "all_nodes": node_names,
+        }))
+    expected_detail_materials = {
+        "V368_MatteBlackBelt", "V368_CargoPocketCharcoal", "V368_CargoFlapCharcoal",
+        "V368_BuckleSilver", "V368_BucklePinSilver",
+    }
+    actual_detail_materials = {
+        material.get("name", "") for material in gltf.get("materials", [])
+    }
+    missing_detail_materials = sorted(expected_detail_materials - actual_detail_materials)
+    if missing_detail_materials:
+        raise RuntimeError("V368 wardrobe detail materials missing from glTF: " + repr(missing_detail_materials))
+    wardrobe_detail_audit["gltf_export"] = {
+        "expected_node_names": expected_wardrobe_detail_nodes,
+        "present_node_names": present_wardrobe_detail_nodes,
+        "nodes_all_present": len(present_wardrobe_detail_nodes) == len(expected_wardrobe_detail_nodes),
+        "expected_material_names": sorted(expected_detail_materials),
+        "present_material_names": sorted(expected_detail_materials & actual_detail_materials),
+    }
     source_morph_names = set()
     for mesh in gltf.get("meshes", []):
         extras = mesh.get("extras", {})
