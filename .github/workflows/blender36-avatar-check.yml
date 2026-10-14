@@ -28,7 +28,8 @@ on:
       - "tools/blender36_v324_scalp_crown_continuity_candidate.py"
       - "tools/blender36_v325_scalp_crown_surface_candidate.py"
       - "tools/blender36_v326_integrated_bangs_candidate.py"
-      - "tools/blender36_v326_integrated_bangs_candidate.py"
+      - "tools/blender36_v327_curved_bangs_panel_candidate.py"
+      - "tools/blender36_v327_curved_bangs_panel_candidate.py"
       - "tools/v314_candidate_webgl_smoke.cjs"
       - "tools/blender36_v313_rest_pose_comparison.py"
       - "tools/blender36_v313_pose_reset_experiment.py"
@@ -334,37 +335,37 @@ jobs:
           }, ensure_ascii=False, indent=2))
           PY
 
-      - name: Build V326 refined browser-visible candidate and export rigged debug copy
+      - name: Build V327 refined browser-visible candidate and export rigged debug copy
         run: |
           set -euo pipefail
-          mkdir -p artifacts/v326-coherent-avatar-candidate
+          mkdir -p artifacts/v327-coherent-avatar-candidate
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
-            --python tools/blender36_v326_integrated_bangs_candidate.py -- \
-            --output-dir "$GITHUB_WORKSPACE/artifacts/v326-coherent-avatar-candidate" \
-            2>&1 | tee artifacts/v326-coherent-avatar-candidate/v326-build.log
-          if grep -q "Traceback (most recent call last)" artifacts/v326-coherent-avatar-candidate/v326-build.log; then
-            echo "Blender Python traceback detected in V326 candidate build."
+            --python tools/blender36_v327_curved_bangs_panel_candidate.py -- \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/v327-coherent-avatar-candidate" \
+            2>&1 | tee artifacts/v327-coherent-avatar-candidate/v327-build.log
+          if grep -q "Traceback (most recent call last)" artifacts/v327-coherent-avatar-candidate/v327-build.log; then
+            echo "Blender Python traceback detected in V327 candidate build."
             exit 1
           fi
-          test -s artifacts/v326-coherent-avatar-candidate/v326-build.log
-          test -s artifacts/v326-coherent-avatar-candidate/lam-v326-candidate-report.json
-          test -s artifacts/v326-coherent-avatar-candidate/lam-v326-front.png
-          test -s artifacts/v326-coherent-avatar-candidate/lam-v326-three-quarter.png
-          test -s artifacts/v326-coherent-avatar-candidate/lam-v326-side.png
-          test -s artifacts/v326-coherent-avatar-candidate/lam-v326-root-animated-front.png
-          test -s artifacts/v326-coherent-avatar-candidate/lam-v326-root-sway-frame13.png
-          test -s artifacts/v326-coherent-avatar-candidate/lam-v326-rigged-debug-front.png
-          test -s artifacts/v326-coherent-avatar-candidate/lam-v326-rigged-debug-three-quarter.png
-          test -s artifacts/v326-coherent-avatar-candidate/lam-v326-face-closeup.png
-          test -s artifacts/v326-coherent-avatar-candidate/lam-v326-coherent-avatar-candidate.glb
-          test -s artifacts/v326-coherent-avatar-candidate/lam-v326-rigged-debug-candidate.glb
+          test -s artifacts/v327-coherent-avatar-candidate/v327-build.log
+          test -s artifacts/v327-coherent-avatar-candidate/lam-v327-candidate-report.json
+          test -s artifacts/v327-coherent-avatar-candidate/lam-v327-front.png
+          test -s artifacts/v327-coherent-avatar-candidate/lam-v327-three-quarter.png
+          test -s artifacts/v327-coherent-avatar-candidate/lam-v327-side.png
+          test -s artifacts/v327-coherent-avatar-candidate/lam-v327-root-animated-front.png
+          test -s artifacts/v327-coherent-avatar-candidate/lam-v327-root-sway-frame13.png
+          test -s artifacts/v327-coherent-avatar-candidate/lam-v327-rigged-debug-front.png
+          test -s artifacts/v327-coherent-avatar-candidate/lam-v327-rigged-debug-three-quarter.png
+          test -s artifacts/v327-coherent-avatar-candidate/lam-v327-face-closeup.png
+          test -s artifacts/v327-coherent-avatar-candidate/lam-v327-coherent-avatar-candidate.glb
+          test -s artifacts/v327-coherent-avatar-candidate/lam-v327-rigged-debug-candidate.glb
           python3 - <<'PY'
           import json
           from pathlib import Path
-          p = Path("artifacts/v326-coherent-avatar-candidate/lam-v326-candidate-report.json")
+          p = Path("artifacts/v327-coherent-avatar-candidate/lam-v327-candidate-report.json")
           report = json.loads(p.read_text(encoding="utf-8"))
-          assert report["status"] == "EXPERIMENTAL_V326_VISIBLE_ROOT_ANIMATED_CANDIDATE_NOT_APPROVED", report
-          assert report["candidate_version"] == "V326", report
+          assert report["status"] == "EXPERIMENTAL_V327_VISIBLE_ROOT_ANIMATED_CANDIDATE_NOT_APPROVED", report
+          assert report["candidate_version"] == "V327", report
           assert report["candidate_skin_count"] == 0, report
           assert report["candidate_animation_count"] == 1, report
           assert "Lam_Idle_GentleSway" in report["candidate_animation_names"], report
@@ -373,22 +374,24 @@ jobs:
           assert report["rigged_debug_skin_count"] == 1, report
           assert report["rigged_debug_max_tee_deformation_m_frame_1_to_13"] > 0.0001, report
           assert report["missing_expected_morphs"] == [], report
-          assert report["v326_visual_refinements"]["signature_necklace"] is True, report
-          assert report["v326_visual_refinements"]["scalp_coverage"] is True, report
-          assert report["v326_visual_refinements"]["fringe_geometry_integrated_into_scalp"] is True, report
-          assert report["v326_visual_refinements"]["fused_fringe_source_count"] >= 6, report
-          assert report["v326_visual_refinements"]["scalp_crown_front_extent_covered"] is True, report
-          assert report["v326_visual_refinements"]["scalp_crown_back_extent_preserved"] is True, report
-          assert report["v326_visual_refinements"]["scalp_crown_edge_continuity"] is True, report
-          assert report["v326_visual_refinements"]["scalp_crown_max_edge_length_m"] < 0.06, report
-          assert report["v326_visual_refinements"]["long_hair_visible_at_waist"] is True, report
-          assert report["v326_visual_refinements"]["integrated_bust_contour"] is True, report
-          assert report["v326_visual_refinements"]["blended_tee_contours"] is True, report
-          assert report["v326_visual_refinements"]["longer_layered_hair"] is True, report
-          assert report["v326_visual_refinements"]["integrated_bust_contour"] is True, report
+          assert report["v327_visual_refinements"]["signature_necklace"] is True, report
+          assert report["v327_visual_refinements"]["scalp_coverage"] is True, report
+          assert report["v327_visual_refinements"]["fringe_geometry_integrated_into_scalp"] is True, report
+          assert report["v327_visual_refinements"]["integrated_bangs_panel"] is True, report
+          assert report["v327_visual_refinements"]["fringe_zone_count"] >= 6, report
+          assert report["v327_visual_refinements"]["fringe_panel_vertex_count"] > 500, report
+          assert report["v327_visual_refinements"]["scalp_crown_front_extent_covered"] is True, report
+          assert report["v327_visual_refinements"]["scalp_crown_back_extent_preserved"] is True, report
+          assert report["v327_visual_refinements"]["scalp_crown_edge_continuity"] is True, report
+          assert report["v327_visual_refinements"]["scalp_crown_max_edge_length_m"] < 0.06, report
+          assert report["v327_visual_refinements"]["long_hair_visible_at_waist"] is True, report
+          assert report["v327_visual_refinements"]["integrated_bust_contour"] is True, report
+          assert report["v327_visual_refinements"]["blended_tee_contours"] is True, report
+          assert report["v327_visual_refinements"]["longer_layered_hair"] is True, report
+          assert report["v327_visual_refinements"]["integrated_bust_contour"] is True, report
           assert abs(report["candidate_bounds_m"]["size"][2] - 1.60) < 0.04, report
           assert report["candidate_bytes"] > 20000, report
-          print("V326_VISIBLE_CANDIDATE=PASS_EXPERIMENTAL_ONLY")
+          print("V327_VISIBLE_CANDIDATE=PASS_EXPERIMENTAL_ONLY")
           print(json.dumps(report, ensure_ascii=False, indent=2))
           PY
 
@@ -398,7 +401,7 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/v314-playwright" --no-save --package-lock=false playwright pngjs
           "$RUNNER_TEMP/v314-playwright/node_modules/.bin/playwright" install --with-deps chromium
 
-      - name: Load the V326 refined visible candidate and verify idle playback in mobile-sized Three.js viewer
+      - name: Load the V327 refined visible candidate and verify idle playback in mobile-sized Three.js viewer
         env:
           NODE_PATH: ${{ runner.temp }}/v314-playwright/node_modules
           V314_VIEWER_ROOT: ${{ runner.temp }}/v314-viewer
@@ -407,7 +410,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/v314-viewer" artifacts/v314-browser-test
           cp -a v312-work/. "$RUNNER_TEMP/v314-viewer/"
-          cp "$GITHUB_WORKSPACE/artifacts/v326-coherent-avatar-candidate/lam-v326-coherent-avatar-candidate.glb" "$RUNNER_TEMP/v314-viewer/lam-default.glb"
+          cp "$GITHUB_WORKSPACE/artifacts/v327-coherent-avatar-candidate/lam-v327-coherent-avatar-candidate.glb" "$RUNNER_TEMP/v314-viewer/lam-default.glb"
           node --check tools/v314_candidate_webgl_smoke.cjs
           node tools/v314_candidate_webgl_smoke.cjs
           test -s artifacts/v314-browser-test/v314-candidate-browser-report.json
@@ -430,7 +433,7 @@ jobs:
           assert report["pageErrors"] == [], report
           assert report["consoleErrors"] == [], report
           assert report["visualFraming"] is not None, report
-          print("V326_BROWSER_WEBGL_AND_IDLE_PLAYBACK=PASS_EXPERIMENTAL_ONLY")
+          print("V327_BROWSER_WEBGL_AND_IDLE_PLAYBACK=PASS_EXPERIMENTAL_ONLY")
           print(json.dumps({"state": report["state"], "visualFraming": report["visualFraming"],
             "glbResponses": report["glbResponses"],
             "requiredLocalAssetResponses": report["requiredLocalAssetResponses"],
@@ -524,19 +527,19 @@ jobs:
           test -s artifacts/v313-pose-reset-experiment/pose-reset-front.png
           test -s artifacts/v313-pose-reset-experiment/lam-pose-reset-experiment.glb
 
-      - name: Package V326 experimental Windows preview and SHA-256
+      - name: Package V327 experimental Windows preview and SHA-256
         if: success()
         run: |
           set -euo pipefail
-          stage="$RUNNER_TEMP/ly-lam-lam-v326-experimental-stage"
-          package="$RUNNER_TEMP/ly-lam-lam-v326-experimental-windows.zip"
+          stage="$RUNNER_TEMP/ly-lam-lam-v327-experimental-stage"
+          package="$RUNNER_TEMP/ly-lam-lam-v327-experimental-windows.zip"
           mkdir -p "$stage/v312-work"
           cp -a v312-work/. "$stage/v312-work/"
-          cp "artifacts/v326-coherent-avatar-candidate/lam-v326-coherent-avatar-candidate.glb" "$stage/v312-work/lam-default.glb"
-          cat > "$stage/v312-work/V326-EXPERIMENTAL-AVATAR.md" <<'MD'
-          # V326 Experimental Avatar Preview — Not the Production Avatar
+          cp "artifacts/v327-coherent-avatar-candidate/lam-v327-coherent-avatar-candidate.glb" "$stage/v312-work/lam-default.glb"
+          cat > "$stage/v312-work/V327-EXPERIMENTAL-AVATAR.md" <<'MD'
+          # V327 Experimental Avatar Preview — Not the Production Avatar
 
-          This separate Windows preview package uses the V326 procedural stylized avatar candidate so the whole figure can be seen in the browser.
+          This separate Windows preview package uses the V327 procedural stylized avatar candidate so the whole figure can be seen in the browser.
 
           - It is an experimental stylized blockout, not the final photorealistic Lam avatar.
           - The preview candidate intentionally has no skeletal skin. The small `Lam_Idle_GentleSway` clip is a subtle whole-root sway, not joint articulation.
@@ -569,26 +572,26 @@ jobs:
               names = archive.namelist()
               for required in (
                   "v312-work/START-LAM-WINDOWS.bat",
-                  "v312-work/V326-EXPERIMENTAL-AVATAR.md",
+                  "v312-work/V327-EXPERIMENTAL-AVATAR.md",
                   "v312-work/lam-default.glb",
                   "v312-work/vendor/three/build/three.module.js",
               ):
                   if required not in names:
                       raise SystemExit(f"Missing package entry: {required}")
-          print(f"V326_WINDOWS_PREVIEW_ZIP={package}")
-          print(f"V326_WINDOWS_PREVIEW_SHA256={digest}")
-          print(f"V326_WINDOWS_PREVIEW_BYTES={package.stat().st_size}")
-          print("V326_WINDOWS_PREVIEW_ZIP_INTEGRITY=PASS")
+          print(f"V327_WINDOWS_PREVIEW_ZIP={package}")
+          print(f"V327_WINDOWS_PREVIEW_SHA256={digest}")
+          print(f"V327_WINDOWS_PREVIEW_BYTES={package.stat().st_size}")
+          print("V327_WINDOWS_PREVIEW_ZIP_INTEGRITY=PASS")
           PY
 
-      - name: Upload V326 experimental Windows preview ZIP and checksum
+      - name: Upload V327 experimental Windows preview ZIP and checksum
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: ly-lam-lam-v326-experimental-windows-preview-${{ github.run_id }}
+          name: ly-lam-lam-v327-experimental-windows-preview-${{ github.run_id }}
           path: |
-            ${{ runner.temp }}/ly-lam-lam-v326-experimental-windows.zip
-            ${{ runner.temp }}/ly-lam-lam-v326-experimental-windows.zip.sha256
+            ${{ runner.temp }}/ly-lam-lam-v327-experimental-windows.zip
+            ${{ runner.temp }}/ly-lam-lam-v327-experimental-windows.zip.sha256
           if-no-files-found: error
           retention-days: 30
 
