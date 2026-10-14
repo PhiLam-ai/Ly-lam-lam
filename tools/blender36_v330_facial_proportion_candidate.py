@@ -563,12 +563,8 @@ def main():
             if vertex.co.y < -0.020:
                 vertex.co.y *= (1.0 - 0.045 * taper)
     head.data.update()
-    face_polish = head.modifiers.new("V330_FaceSurfacePolish", "SUBSURF")
-    face_polish.subdivision_type = "CATMULL_CLARK"
-    face_polish.levels = 1
-    face_polish.render_levels = 1
-    bpy.context.view_layer.objects.active = head
-    bpy.ops.object.modifier_apply(modifier=face_polish.name)
+    # Keep the fused remesh at its native resolution for mobile download/memory.
+    # The V330 jaw taper and softened feature volumes are retained without a costly subdivision pass.
     uv("Mouth_Interior", (0, -0.094, 1.394), (0.020, 0.0020, 0.0038), mouth_inside, 32, 20)
     mouth = uv("Mouth_Lips", (0, -0.101, 1.394), (0.024, 0.0048, 0.0048), lip, 36, 20)
     shape_key(mouth, "smile", lambda co, idx: Vector((co.x * 1.18, co.y, co.z + 0.11 * abs(co.x))))
