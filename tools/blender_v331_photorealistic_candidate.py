@@ -491,31 +491,19 @@ def main():
     mpfb_src = os.path.abspath(args.mpfb_src)
     if not os.path.isdir(os.path.join(mpfb_src, "mpfb")):
         raise FileNotFoundError("MPFB source package was not found under " + mpfb_src)
-    package_dir = Path(mpfb_src).resolve() / "mpfb"
-    # MPFB 2 is a Blender Extension. Loading it under the plain package name
-    # "mpfb" breaks bpy.utils.extension_path_user(); give it the canonical
-    # extension namespace so MPFB can resolve its own user-data directory.
-    for namespace in ("bl_ext", "bl_ext.user_default"):
-        if namespace not in sys.modules:
-            module = types.ModuleType(namespace)
-            module.__path__ = []
-            sys.modules[namespace] = module
-            if namespace == "bl_ext.user_default":
-                setattr(sys.modules["bl_ext"], "user_default", module)
+    # Enable MPFB through Blender's own extension/add-on manager. This ensures
+    # AddonPreferences is registered and appears in bpy.context.preferences.addons
+    # before MPFB services read preferences during import.
     extension_name = "bl_ext.user_default.mpfb"
-    spec = importlib.util.spec_from_file_location(
-        extension_name,
-        package_dir / "__init__.py",
-        submodule_search_locations=[str(package_dir)],
-    )
-    if spec is None or spec.loader is None:
-        raise RuntimeError("Could not create MPFB extension import specification")
-    mpfb = importlib.util.module_from_spec(spec)
-    sys.modules[extension_name] = mpfb
-    spec.loader.exec_module(mpfb)
-    setattr(sys.modules["bl_ext.user_default"], "mpfb", mpfb)
-    mpfb.register()
-
+    if extension_name not in bpy.context.preferences.addons:
+        result = bpy.ops.preferences.addon_enable(module=extension_name)
+        if "FINISHED" not in result or extension_name not in bpy.context.preferences.addons:
+            raise RuntimeError(
+                "Blender could not enable the installed MPFB extension. "
+                "Ensure it exists in the configured user extension repository. "
+                "Operator result: " + repr(result)
+            )
+    mpfb = importlib.import_module(extension_name)
     from bl_ext.user_default.mpfb.services import AssetService, HumanService, LocationService, TargetService, FaceService, ExportService, ObjectService
 
     pack_reports = []
