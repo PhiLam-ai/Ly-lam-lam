@@ -493,6 +493,74 @@ jobs:
           test -s artifacts/v313-pose-reset-experiment/pose-reset-front.png
           test -s artifacts/v313-pose-reset-experiment/lam-pose-reset-experiment.glb
 
+      - name: Package V317 experimental Windows preview and SHA-256
+        if: success()
+        run: |
+          set -euo pipefail
+          stage="$RUNNER_TEMP/ly-lam-lam-v317-experimental-stage"
+          package="$RUNNER_TEMP/ly-lam-lam-v317-experimental-windows.zip"
+          mkdir -p "$stage/v312-work"
+          cp -a v312-work/. "$stage/v312-work/"
+          cp "artifacts/v314-coherent-avatar-candidate/lam-v314-coherent-avatar-candidate.glb" "$stage/v312-work/lam-default.glb"
+          cat > "$stage/v312-work/V317-EXPERIMENTAL-AVATAR.md" <<'MD'
+          # V317 Experimental Avatar Preview — Not the Production Avatar
+
+          This separate Windows preview package uses the V317 procedural stylized avatar candidate so the whole figure can be seen in the browser.
+
+          - It is an experimental stylized blockout, not the final photorealistic Lam avatar.
+          - The preview candidate intentionally has no skeletal skin. The small `Lam_Idle_GentleSway` clip is a subtle whole-root sway, not joint articulation.
+          - Twelve facial morph names are present, but visual quality for each expression is not yet approved.
+          - AI conversation/API and voice features are not integrated.
+          - This package replaces `lam-default.glb` only inside this ZIP. The original repository GLB remains unchanged.
+          - Launch by double-clicking `START-LAM-WINDOWS.bat` after installing Node.js LTS. Keep its console open while using the preview.
+          MD
+          (
+            cd "$stage/v312-work"
+            node --check tools/start-windows-preview.cjs
+            node tools/start-windows-preview.cjs --check
+          )
+          python3 - "$stage" "$package" <<'PY'
+          import pathlib, sys, zipfile, hashlib
+          stage = pathlib.Path(sys.argv[1])
+          package = pathlib.Path(sys.argv[2])
+          with zipfile.ZipFile(package, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=8) as archive:
+              for path in sorted(stage.rglob("*")):
+                  if path.is_file():
+                      archive.write(path, path.relative_to(stage).as_posix())
+          digest = hashlib.sha256(package.read_bytes()).hexdigest()
+          package.with_suffix(package.suffix + ".sha256").write_text(
+              f"{digest}  {package.name}\n", encoding="ascii"
+          )
+          with zipfile.ZipFile(package, "r") as archive:
+              bad = archive.testzip()
+              if bad:
+                  raise SystemExit(f"ZIP integrity failed at {bad}")
+              names = archive.namelist()
+              for required in (
+                  "v312-work/START-LAM-WINDOWS.bat",
+                  "v312-work/V317-EXPERIMENTAL-AVATAR.md",
+                  "v312-work/lam-default.glb",
+                  "v312-work/vendor/three/build/three.module.js",
+              ):
+                  if required not in names:
+                      raise SystemExit(f"Missing package entry: {required}")
+          print(f"V317_WINDOWS_PREVIEW_ZIP={package}")
+          print(f"V317_WINDOWS_PREVIEW_SHA256={digest}")
+          print(f"V317_WINDOWS_PREVIEW_BYTES={package.stat().st_size}")
+          print("V317_WINDOWS_PREVIEW_ZIP_INTEGRITY=PASS")
+          PY
+
+      - name: Upload V317 experimental Windows preview ZIP and checksum
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ly-lam-lam-v317-experimental-windows-preview-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/ly-lam-lam-v317-experimental-windows.zip
+            ${{ runner.temp }}/ly-lam-lam-v317-experimental-windows.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload real-model renders, candidate GLB and reports
         if: always()
         uses: actions/upload-artifact@v4
