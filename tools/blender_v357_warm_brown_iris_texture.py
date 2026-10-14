@@ -2031,12 +2031,12 @@ def restore_face_accessory_materials(character_objects, baked_objects, baked_mes
         baked_obj = baked_by_name.get(row["baked_object"])
         if source_obj is None or baked_obj is None:
             raise RuntimeError("Could not map source/baked accessory pair: " + repr(row))
-        image = find_face_accessory_diffuse_image(source_obj, suffix)
         if suffix == "high-poly":
-            warm_image = bpy.data.images.get("V357_WarmBrownIris")
-            if warm_image is None:
+            image = bpy.data.images.get("V357_WarmBrownIris")
+            if image is None:
                 raise RuntimeError("V357 processed iris texture wasn't prepared before bake/material restore")
-            image = warm_image
+        else:
+            image = find_face_accessory_diffuse_image(source_obj, suffix)
         uv_name = get_active_uv_name(source_obj)
         if not uv_name:
             raise RuntimeError("No UV map on face accessory " + source_name)
