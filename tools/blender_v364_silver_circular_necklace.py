@@ -1529,7 +1529,7 @@ def audit_eye_geometry(character_objects, basemesh):
     }
 
 
-def setup_studio(scene, bounds, eye_geometry=None):
+def setup_studio(scene, bounds, eye_geometry=None, necklace_audit=None):
     scene.render.engine = "CYCLES"
     scene.cycles.samples = 24
     scene.cycles.use_denoising = True
@@ -1619,6 +1619,16 @@ def setup_studio(scene, bounds, eye_geometry=None):
             tuple(eye_center),
             lens=75,
         )
+    if necklace_audit is not None:
+        pendant = necklace_audit.get("pendant_surface_sample", {})
+        necklace_y = float(pendant.get("pendant_center_y_m", -0.2))
+        necklace_z = float(pendant.get("pendant_center_z_m", 1.283))
+        cameras["necklace_closeup"] = create_camera(
+            "V364_Camera_NecklaceCloseup",
+            (0.0, necklace_y - 0.62, necklace_z + 0.105),
+            (0.0, necklace_y, necklace_z + 0.018),
+            lens=90,
+        )
     return cameras, floor
 
 
@@ -1632,6 +1642,9 @@ def render_evidence(scene, cameras, output_dir, character_bounds):
         elif label == "eye_closeup":
             scene.render.resolution_x = 1000
             scene.render.resolution_y = 700
+        elif label == "necklace_closeup":
+            scene.render.resolution_x = 1000
+            scene.render.resolution_y = 1000
         else:
             scene.render.resolution_x = 1000
             scene.render.resolution_y = 1300
@@ -2765,7 +2778,7 @@ def main():
     if not source_eye_uv:
         raise RuntimeError("V364 source eye mesh has no active UV map")
     eye_material_preview_audit = prepare_eye_surface_materials(source_eye_obj, source_eye_image, source_eye_uv)
-    cameras, floor = setup_studio(bpy.context.scene, character_bounds, eye_geometry_diagnostic)
+    cameras, floor = setup_studio(bpy.context.scene, character_bounds, eye_geometry_diagnostic, necklace_accessory_audit)
     # Remove the temporary floor mesh entirely; the candidate evidence must not contain
     # a ground-plane line that masks the lower body in an orthographic camera.
     if floor is not None and floor.name in bpy.data.objects:
