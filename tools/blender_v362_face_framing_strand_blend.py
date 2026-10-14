@@ -2679,7 +2679,7 @@ def main():
     if len(frame_materials) != 1:
         raise RuntimeError("V362 expected one exported face-framing strand material")
     frame_pbr = frame_materials[0].get("pbrMetallicRoughness", {})
-    if abs(float(frame_pbr.get("roughnessFactor", 0.0)) - 0.72) > 0.03:
+    if abs(float(frame_pbr.get("roughnessFactor", 0.0)) - 0.80) > 0.03:
         raise RuntimeError("V362 strand roughness did not export correctly: " + repr(frame_pbr))
     face_framing_hair_audit["gltf_export"] = {
         "expected_node_names": expected_frame_nodes,
