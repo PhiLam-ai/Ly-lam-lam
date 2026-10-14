@@ -265,89 +265,79 @@ def main():
     # Proportions are built directly in meter-like Blender units; no destructive global rescale.
     # T-shirt volume, blended into a continuous adult torso silhouette.
     trunk_parts = [
-        uv("tee_waist_volume", (0, 0, 1.055), (0.148, 0.102, 0.142), shirt),
-        uv("tee_torso_volume", (0, 0, 1.185), (0.177, 0.112, 0.168), shirt),
-        uv("tee_shoulders_volume", (0, 0, 1.285), (0.173, 0.104, 0.082), shirt),
-        uv("tee_sleeve.L", (-0.163, -0.004, 1.258), (0.052, 0.067, 0.057), shirt),
-        uv("tee_sleeve.R", (0.163, -0.004, 1.258), (0.052, 0.067, 0.057), shirt)
+        uv("tee_waist_volume", (0, 0, 1.055), (0.132, 0.092, 0.142), shirt),
+        uv("tee_torso_volume", (0, 0, 1.185), (0.158, 0.100, 0.168), shirt),
+        uv("tee_shoulders_volume", (0, 0, 1.285), (0.153, 0.092, 0.082), shirt),
+        capsule("tee_sleeve.L", (-0.115, -0.002, 1.286), (-0.194, -0.008, 1.232), 0.041, shirt, 0.052),
+        capsule("tee_sleeve.R", (0.115, -0.002, 1.286), (0.194, -0.008, 1.232), 0.041, shirt, 0.052)
     ]
     tee = fuse(trunk_parts, "Tee_Fitted_Continuous", 0.007, 5)
 
     # High-waist denim shorts with fuller hip silhouette and short hems.
     shorts_parts = [
-        uv("shorts_hip_shell", (0, 0.002, 0.914), (0.202, 0.121, 0.125), denim),
-        capsule("shorts_leg.L", (-0.096, 0.0, 0.89), (-0.103, 0.0, 0.735), 0.092, denim, 0.105),
-        capsule("shorts_leg.R", (0.096, 0.0, 0.89), (0.103, 0.0, 0.735), 0.092, denim, 0.105)
+        uv("shorts_hip_shell", (0, 0.002, 0.914), (0.188, 0.112, 0.113), denim),
+        capsule("shorts_leg.L", (-0.091, 0.0, 0.89), (-0.098, 0.0, 0.748), 0.079, denim, 0.092),
+        capsule("shorts_leg.R", (0.091, 0.0, 0.89), (0.098, 0.0, 0.748), 0.079, denim, 0.092)
     ]
     shorts = fuse(shorts_parts, "Denim_Shorts_Continuous", 0.006, 4)
 
-    # Waistband/belt and button.
-    bpy.ops.mesh.primitive_torus_add(major_radius=0.145, minor_radius=0.0045, major_segments=64, minor_segments=10, location=(0, 0, 0.978))
-    belt = bpy.context.object
-    belt.name = "Shorts_Waist_Belt"
-    belt.data.materials.append(belt_mat)
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=20, ring_count=12, location=(0, -0.121, 0.981))
-    button = bpy.context.object
-    button.name = "Shorts_Silver_Button"
-    button.scale = (0.012, 0.006, 0.012)
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-    button.data.materials.append(metal)
+    # Keep the shorts waist clean and fitted; no floating belt/button geometry.
 
     # Adult legs: continuous fused thigh-to-calf surfaces, one object per side.
     leg_meshes = []
     for sign, side in [(-1, "L"), (1, "R")]:
         leg_parts = [
-            capsule("thigh." + side, (sign * 0.102, 0.0, 0.765), (sign * 0.105, 0.0, 0.425), 0.092, skin, 0.088),
-            uv("knee." + side, (sign * 0.105, 0.0, 0.425), (0.062, 0.066, 0.062), skin),
-            capsule("calf." + side, (sign * 0.105, 0.0, 0.43), (sign * 0.108, 0.0, 0.13), 0.061, skin, 0.063)
+            capsule("thigh." + side, (sign * 0.098, 0.0, 0.765), (sign * 0.103, 0.0, 0.425), 0.084, skin, 0.080),
+            uv("knee." + side, (sign * 0.103, 0.0, 0.425), (0.056, 0.058, 0.056), skin),
+            capsule("calf." + side, (sign * 0.103, 0.0, 0.43), (sign * 0.108, 0.0, 0.13), 0.056, skin, 0.058)
         ]
-        leg_meshes.append(fuse(leg_parts, "Leg_Continuous_" + side, 0.005, 5))
+        leg_meshes.append(fuse(leg_parts, "Leg_Continuous_" + side, 0.0045, 8))
 
     # Shoes: soles, uppers, toe caps, and understated gray panels.
     for sign, side in [(-1, "L"), (1, "R")]:
         x = sign * 0.11
-        uv("Sneaker_Sole." + side, (x, -0.038, 0.027), (0.072, 0.132, 0.020), sole, 36, 20)
-        upper = uv("Sneaker_Upper." + side, (x, -0.045, 0.069), (0.065, 0.116, 0.047), sneaker, 36, 24)
-        toe = uv("Sneaker_Toe." + side, (x, -0.115, 0.071), (0.054, 0.047, 0.030), sneaker, 32, 18)
+        uv("Sneaker_Sole." + side, (x, -0.038, 0.020), (0.060, 0.112, 0.020), sole, 36, 20)
+        upper = uv("Sneaker_Upper." + side, (x, -0.045, 0.064), (0.054, 0.100, 0.040), sneaker, 36, 24)
+        toe = uv("Sneaker_Toe." + side, (x, -0.105, 0.064), (0.046, 0.040, 0.026), sneaker, 32, 18)
         fuse([upper, toe], "Sneaker_Upper_Continuous." + side, 0.004, 3)
-        uv("Sneaker_Accent." + side, (x + sign * 0.049, -0.015, 0.079), (0.005, 0.035, 0.012), sneaker_accent, 24, 16)
+        uv("Sneaker_Accent." + side, (x + sign * 0.048, -0.015, 0.075), (0.004, 0.029, 0.009), sneaker_accent, 24, 16)
         for i in range(3):
             uv("Lace_" + side + "_" + str(i), (x, -0.067 + i * 0.023, 0.108), (0.007, 0.003, 0.0025), eye_white, 12, 8)
 
     # Arms hang naturally at the sides and overlap sleeves/torso at the shoulder.
     for sign, side in [(-1, "L"), (1, "R")]:
         arm_parts = [
-            capsule("upper_arm." + side, (sign * 0.166, 0.002, 1.258), (sign * 0.232, -0.012, 0.985), 0.046, skin, 0.045),
-            uv("elbow." + side, (sign * 0.232, -0.012, 0.985), (0.043, 0.044, 0.045), skin),
-            capsule("forearm." + side, (sign * 0.232, -0.012, 0.985), (sign * 0.245, -0.036, 0.735), 0.034, skin, 0.036),
+            capsule("upper_arm." + side, (sign * 0.166, 0.002, 1.258), (sign * 0.232, -0.012, 0.985), 0.041, skin, 0.041),
+            uv("elbow." + side, (sign * 0.232, -0.012, 0.985), (0.036, 0.037, 0.038), skin),
+            capsule("forearm." + side, (sign * 0.232, -0.012, 0.985), (sign * 0.245, -0.036, 0.735), 0.032, skin, 0.033),
             uv("hand." + side, (sign * 0.246, -0.043, 0.672), (0.040, 0.031, 0.061), skin),
             capsule("thumb." + side, (sign * 0.218, -0.06, 0.684), (sign * 0.205, -0.07, 0.646), 0.014, skin, 0.014)
         ]
         for digit in range(4):
             x = sign * (0.224 + digit * 0.014)
             arm_parts.append(capsule("finger." + side + str(digit), (x, -0.05, 0.646), (x, -0.052, 0.612), 0.009, skin, 0.009))
-        fuse(arm_parts, "Arm_Continuous_" + side, 0.0045, 4)
+        fuse(arm_parts, "Arm_Continuous_" + side, 0.004, 7)
 
     # Neck, head, and face; front of face points to -Y.
     uv("Neck", (0, 0.004, 1.315), (0.050, 0.048, 0.085), skin, 36, 24)
-    head = uv("Head_Face", (0, 0.0, 1.438), (0.112, 0.103, 0.145), skin, 64, 40)
-    cheek_l = uv("Cheek.L", (-0.067, -0.080, 1.409), (0.018, 0.010, 0.013), skin, 32, 20)
-    cheek_r = uv("Cheek.R", (0.067, -0.080, 1.409), (0.018, 0.010, 0.013), skin, 32, 20)
-    chin = uv("Chin_Jaw", (0, -0.077, 1.356), (0.035, 0.014, 0.020), skin, 36, 24)
+    head = uv("Head_Face", (0, 0.0, 1.438), (0.116, 0.097, 0.151), skin, 64, 40)
+    cheek_l = uv("Cheek.L", (-0.067, -0.079, 1.409), (0.013, 0.007, 0.010), skin, 32, 20)
+    cheek_r = uv("Cheek.R", (0.067, -0.079, 1.409), (0.013, 0.007, 0.010), skin, 32, 20)
+    chin = uv("Chin_Jaw", (0, -0.075, 1.356), (0.030, 0.010, 0.016), skin, 36, 24)
     ear_objects = []
     for sign, side in [(-1, "L"), (1, "R")]:
-        ear_objects.append(uv("Ear." + side, (sign * 0.111, 0.0, 1.433), (0.017, 0.021, 0.030), skin, 28, 18))
-        eye = uv("Eye_White." + side, (sign * 0.043, -0.092, 1.455), (0.016, 0.008, 0.0105), eye_white, 32, 20)
-        uv("Iris." + side, (sign * 0.043, -0.099, 1.455), (0.0065, 0.0035, 0.0075), iris, 28, 18)
-        uv("Pupil." + side, (sign * 0.043, -0.101, 1.455), (0.003, 0.0015, 0.0045), pupil, 20, 14)
-        brow = capsule("Brow." + side, (sign * 0.064, -0.098, 1.481), (sign * 0.025, -0.101, 1.484), 0.006, hair, 0.005)
+        ear_objects.append(uv("Ear." + side, (sign * 0.113, 0.0, 1.433), (0.014, 0.018, 0.025), skin, 28, 18))
+        eye = uv("Eye_White." + side, (sign * 0.043, -0.096, 1.455), (0.018, 0.008, 0.011), eye_white, 32, 20)
+        uv("Iris." + side, (sign * 0.043, -0.103, 1.455), (0.007, 0.0035, 0.008), iris, 28, 18)
+        uv("Pupil." + side, (sign * 0.043, -0.105, 1.455), (0.0035, 0.0015, 0.0045), pupil, 20, 14)
+        brow = capsule("Brow." + side, (sign * 0.064, -0.096, 1.481), (sign * 0.025, -0.098, 1.484), 0.0035, hair, 0.003)
         if side == "L":
             shape_key(eye, "blink_left", lambda co, idx: Vector((co.x, co.y, co.z * 0.08)))
         else:
             shape_key(eye, "blink_right", lambda co, idx: Vector((co.x, co.y, co.z * 0.08)))
         shape_key(brow, "brow_raise", lambda co, idx: Vector((co.x, co.y, co.z + 0.009)))
 
-    nose = uv("Nose", (0, -0.099, 1.433), (0.010, 0.014, 0.017), skin, 32, 20)
+    nose = uv("Nose", (0, -0.092, 1.433), (0.008, 0.010, 0.013), skin, 32, 20)
     head = fuse([head, cheek_l, cheek_r, chin, nose] + ear_objects, "Head_Face_Continuous", 0.0035, 2)
     mouth = uv("Mouth_Lips", (0, -0.099, 1.394), (0.034, 0.008, 0.006), lip, 36, 20)
     shape_key(mouth, "smile", lambda co, idx: Vector((co.x * 1.18, co.y, co.z + 0.11 * abs(co.x))))
@@ -365,18 +355,20 @@ def main():
     shape_key(head, "cheek_raise", lambda co, idx: Vector((co.x, co.y, co.z + (0.004 if -0.045 < co.z < 0.0 and co.y < -0.03 else 0))))
 
     # Long natural black hair, rather than the helmet-like short cap of the first prototype.
-    uv("Hair_Cap", (0, 0.025, 1.526), (0.120, 0.109, 0.066), hair, 48, 32)
-    uv("Hair_Fringes", (0, -0.086, 1.502), (0.070, 0.020, 0.014), hair, 36, 20)
+    uv("Hair_Cap", (0, 0.025, 1.515), (0.120, 0.107, 0.083), hair, 48, 32)
+    capsule("Hair_Fringes.Center", (0, -0.084, 1.548), (0, -0.101, 1.497), 0.011, hair, 0.008)
+    capsule("Hair_Fringes.Left", (-0.037, -0.078, 1.543), (-0.050, -0.098, 1.497), 0.010, hair, 0.008)
+    capsule("Hair_Fringes.Right", (0.037, -0.078, 1.543), (0.050, -0.098, 1.497), 0.010, hair, 0.008)
     uv("Hair_Back_Long", (0, 0.065, 1.315), (0.119, 0.080, 0.268), hair, 48, 32)
     for sign, side in [(-1, "L"), (1, "R")]:
-        capsule("Hair_Front_Lock." + side, (sign * 0.092, -0.075, 1.478), (sign * 0.101, -0.054, 1.085), 0.018, hair, 0.021)
+        capsule("Hair_Front_Lock." + side, (sign * 0.092, -0.075, 1.478), (sign * 0.101, -0.054, 1.085), 0.015, hair, 0.019)
         capsule("Hair_Back_Lock." + side, (sign * 0.095, 0.072, 1.49), (sign * 0.118, 0.065, 1.075), 0.028, hair, 0.030)
         capsule("Hair_Tip." + side, (sign * 0.103, -0.009, 1.10), (sign * 0.098, -0.005, 1.055), 0.024, hair, 0.029)
 
     # Simple pocket/stitch details on shorts and tee, deliberately subtle at full-body view.
     for sign, side in [(-1, "L"), (1, "R")]:
-        uv("Shorts_Pocket." + side, (sign * 0.09, -0.115, 0.912), (0.034, 0.003, 0.018), denim_light, 24, 16)
-        uv("Tee_Hem_Stitch." + side, (sign * 0.09, -0.104, 1.003), (0.035, 0.002, 0.002), shirt, 20, 12)
+        pass # Flat pocket patches are deferred to keep the experimental silhouette clean.
+        pass # Hem stays visually clean in the low-resolution prototype.
 
     meshes = [obj for obj in scene.objects if obj.type == "MESH"]
     scene.render.engine = "BLENDER_WORKBENCH"
