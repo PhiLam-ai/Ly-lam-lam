@@ -703,7 +703,14 @@ def main():
             "long_hair_visible_at_waist": front_hair_min_z < 1.04,
             "longer_layered_hair": any(obj.name.startswith("Hair_Layer_Back.") for obj in meshes)
                 and any(obj.name == "Hair_Back_Long" for obj in meshes),
-            "integrated_bust_contour": any(obj.name == "Tee_Fitted_Continuous" for obj in meshes)
+            "integrated_bust_contour": any(obj.name == "Tee_Fitted_Continuous" for obj in meshes),
+            # Structural proxy only: one fused remeshed tee mesh, not an automated judgment of visual anatomy.
+            "blended_tee_contours": any(
+                obj.name == "Tee_Fitted_Continuous" and
+                len(obj.data.vertices) >= 1000 and
+                len(obj.modifiers) == 0
+                for obj in meshes
+            )
         },
         "morph_names_found": sorted(found),
         "missing_expected_morphs": sorted(set(EXPECTED_MORPHS) - found),
