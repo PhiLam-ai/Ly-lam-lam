@@ -33,13 +33,14 @@
 - V350 browser smoke passed at 390×844: GLB HTTP 200, WebGL ready, `Lam_Idle_GentleSway` advanced, no page/console/failed-request errors and avatar within the mobile safe area.
 - Visual review of `v350-eye-closeup.png`: eye texture/eyelash detail is visible and the front-shell specular response creates modest natural catchlights without obvious washed-out irises. **Eye-material experiment accepted for further work; whole avatar remains NOT APPROVED for production** because the face is still generic and its overall likeness/proportions need more work.
 
-## V351 — browser face quick-view audit (model remains V350)
-- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38604435323 (first attempt) and https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38604499942 (rerun after report-path correction).
-- Script: `tools/v351_eye_closeup_browser_capture.cjs`; workflow: `.github/workflows/v351-eye-closeup-browser-audit.yml`.
-- This is an evidence-only browser test: it downloads the exact V350 artifact from run `38601681760`, verifies GLB SHA-256 `9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee`, loads it in the bundled Three.js viewer at 390×844, captures the full-body view, taps the actual `Khuôn mặt` quick-view button and captures a second face/eye close-up. It does not rebuild or modify the GLB.
-- The new report records the source model/run/hash, WebGL status, page/console/request errors, the face-view button result, image dimensions and foreground-pixel sanity check. This confirms the material change in the actual mobile viewer instead of relying only on Blender renders.
-- Visual decision pending until the corrected rerun uploads both screenshots and a passing browser report. No production files are touched.
-
+## V351 — browser face quick-view audit (V350 model unchanged)
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38604800989 — **SUCCESS**. First workflow attempt `38604499942` was blocked by an overstrict Python assertion that rejected a known benign GLB `net::ERR_ABORTED` already classified by the browser script; the gate was corrected to allow only this specific abort when GLB HTTP 200, viewer boot and renderer readiness are all confirmed.
+- Artifact: [V351 browser audit evidence](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38604800989/artifacts/11914598351), ID `11914598351`, 515,192 bytes, digest `sha256:8666cfe77ae2141dd8cc5528776afc21df5c99ac66a21ff81d8014f0c21aed44` (re-downloaded and SHA-256 independently verified; ZIP integrity passed).
+- Exact source model: V350 run `38601681760`, GLB 20,484,436 bytes, SHA-256 `9e36f37c6e12dfbded9c47dcbf0cfbbfd7e339112aa5a32bcc4d11d9bc0f05ee`. V351 makes **no model or production-code modification**; it uses the same bundled Three.js viewer and GLB in an isolated temporary folder.
+- Browser result: `PASS_BROWSER_WEBGL_CANDIDATE_ONLY` at 390×844; WebGL and renderer ready; 12 morphs reported; `Lam_Idle_GentleSway` advanced; `#view-face` found once and clicked; face-view canvas 390×844, 159,931 bytes and 144,984 foreground pixels; no page errors or console errors. One canceled GLB request is retained as a classified benign abort after HTTP 200, and the strict gate rejects any other request failure.
+- Evidence files: `v351-candidate-canvas.png` (full-body view), `v351-eye-face-closeup-canvas.png` (after tapping “Khuôn mặt”), `v351-eye-face-closeup-browser.png`, and `v351-candidate-browser-report.json`.
+- Visual review: the browser face-view button does work, and the eyes are clearly visible at a useful close-up scale. Compared with Blender, browser shading is darker and harsher around the nose/mouth, and the face remains a generic base. **Audit PASS, visual likeness not approved.**
+- Next: V352 will test one isolated lighting adjustment in a temporary candidate viewer copy only, using the same V350 GLB and the same face-close-up capture. Do not modify the main/production `v312-work/index.html` unless the comparison clearly improves the browser rendering; keep the original viewer as rollback.
 ## Separate smile-strength experiments
 
 The repo has parallel experimental tracks that reused some V34x version numbers. Use the workflow run ID and exact script path as the unique identifier rather than the version label alone.
