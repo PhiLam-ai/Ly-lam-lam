@@ -63,6 +63,7 @@ function startLocalServer() {
     pageErrors: [],
     consoleErrors: [],
     failedRequests: [],
+    ignoredBenignAborts: [],
     serverLogs: null
   };
   let fatal = null;
@@ -133,7 +134,25 @@ function startLocalServer() {
       }
     }
     if (report.pageErrors.length) throw new Error('JavaScript page errors: ' + report.pageErrors.join(' | '));
-    if (report.failedRequests.length) throw new Error('Failed browser requests: ' + JSON.stringify(report.failedRequests));
+    const fatalFailedRequests = [];
+    for (const item of report.failedRequests) {
+      const isLoadedGlbAbort =
+        item.error === 'net::ERR_ABORTED' &&
+        new URL(item.url).pathname.endsWith('/lam-default.glb') &&
+        report.assetResponses.some(asset => asset.path.endsWith('/lam-default.glb') && asset.status === 200) &&
+        report.state.booted &&
+        report.state.rendererReady &&
+        report.state.status.includes('Mô hình đã tải');
+      if (isLoadedGlbAbort) {
+        report.ignoredBenignAborts.push({
+          ...item,
+          reason: 'GLB also returned HTTP 200 and the app reported the model loaded with a ready renderer.'
+        });
+      } else {
+        fatalFailedRequests.push(item);
+      }
+    }
+    if (fatalFailedRequests.length) throw new Error('Failed browser requests: ' + JSON.stringify(fatalFailedRequests));
     if (report.consoleErrors.length) throw new Error('Browser console errors: ' + report.consoleErrors.join(' | '));
     report.status = 'PASS';
   } catch (error) {
