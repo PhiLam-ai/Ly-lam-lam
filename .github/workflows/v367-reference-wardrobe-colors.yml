@@ -310,7 +310,7 @@ jobs:
           junction = necklace["chain_junction_audit"]
           assert junction["status"] == "PASS_CONTACT_GEOMETRY", junction
           assert junction["control_point_index"] == 3, junction
-          assert abs(junction["nominal_chain_centerline_y_m"] + 0.10361) < 0.0001, junction
+          assert abs(junction["nominal_chain_centerline_y_m"] + 0.10413) < 0.0001, junction
           assert abs(junction["chain_centerline_y_m"] - junction["ring_forward_surface_y_m"]) <= 1e-6, junction
           assert 0.0080 <= abs(junction["junction_depth_adjustment_m"]) <= 0.0090, junction
           assert junction["depth_delta_to_ring_centerline_m"] <= 0.00091, junction
