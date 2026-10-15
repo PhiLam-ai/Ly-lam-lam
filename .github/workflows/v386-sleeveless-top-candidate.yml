@@ -465,6 +465,15 @@ jobs:
           assert "retained central sleeveless shirt torso/shoulder region" in sleeves["preserved"], sleeves
           assert "lower-body trouser mesh and trouser geometry" in sleeves["preserved"], sleeves
           print("V386_SLEEVE_GEOMETRY_GATE=PASS_EXPERIMENTAL_ONLY")
+          binding = sleeves["armhole_binding_audit"]
+          assert binding["status"] == "APPLIED", binding
+          assert binding["object"] == "V386_ArmholeBinding", binding
+          assert binding["chain_count"] >= 4, binding
+          assert binding["selected_boundary_edge_count"] >= 80, binding
+          assert binding["binding_mesh_vertex_count"] >= 100, binding
+          assert binding["binding_mesh_face_count"] >= 100, binding
+          assert len(binding["chain_vertex_counts"]) == binding["chain_count"], binding
+          print("V386_ARMHOLE_BINDING_GATE=PASS_EXPERIMENTAL_ONLY")
           face = report["face_shape_refinement"]
           assert face["status"] == "APPLIED", face
           assert face["baseline_version"] == "V359", face
