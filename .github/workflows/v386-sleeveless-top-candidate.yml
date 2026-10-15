@@ -445,24 +445,25 @@ jobs:
           sleeves = report["sleeve_removal_audit"]
           assert sleeves["status"] == "APPLIED", sleeves
           assert sleeves["object"] == "Human.female_sportsuit01", sleeves
-          assert 1 <= sleeves["component_count_before"] <= 4, sleeves
-          assert sleeves["component_count_after_cut"] >= sleeves["component_count_before"] + 2, sleeves
-          assert sleeves["component_count_after_expected"] == sleeves["component_count_after"], sleeves
-          assert sleeves["component_count_after"] == sleeves["component_count_after_cut"] - 2, sleeves
+          assert sleeves["component_count_before"] == 2, sleeves
+          assert sleeves["component_count_after_cut"] == 2, sleeves
+          assert sleeves["component_count_after_expected"] == 2, sleeves
           assert sleeves["removed_component_count"] == 2, sleeves
           assert 60 <= sleeves["cut_face_count"] <= 450, sleeves
-          assert 80 <= sleeves["removed_face_count"] <= 600, sleeves
-          assert sleeves["removed_face_count"] == sleeves["cut_face_count"] + sum(item["face_count"] for item in sleeves["removed_components"]), sleeves
-          assert sleeves["removed_vertex_count"] >= sum(item["vertex_count"] for item in sleeves["removed_components"]), sleeves
-          assert sleeves["vertex_count_after"] == sleeves["vertex_count_before"] - sleeves["removed_vertex_count"], sleeves
-          assert sleeves["face_count_after"] == sleeves["face_count_before"] - sleeves["removed_face_count"], sleeves
+          assert sleeves["removed_face_count"] == sleeves["cut_face_count"], sleeves
+          assert sleeves["removed_vertex_count"] == sleeves["vertex_count_before"] - sleeves["vertex_count_after"], sleeves
+          assert sleeves["removed_face_count"] == sleeves["face_count_before"] - sleeves["face_count_after"], sleeves
           assert all(item["classified_as_sleeve"] is True for item in sleeves["removed_components"]), sleeves
+          assert all(item["region_kind"] == "trimmed_surface_patch_not_detached_component" for item in sleeves["removed_components"]), sleeves
           assert {item["side"] for item in sleeves["removed_components"]} == {"left", "right"}, sleeves
-          assert all(item["max_abs_x_m"] >= 0.17 and 1.08 < item["bounds_world_m"]["min"][2] < 1.24 and 1.24 < item["bounds_world_m"]["max"][2] < 1.36 for item in sleeves["removed_components"]), sleeves
+          assert sum(item["face_count"] for item in sleeves["removed_components"]) == sleeves["cut_face_count"], sleeves
           assert sleeves["cut_region_audit"]["side_face_counts"]["left"] >= 25, sleeves
           assert sleeves["cut_region_audit"]["side_face_counts"]["right"] >= 25, sleeves
-          assert "central shirt torso and shoulder panels outside the measured sleeve-cut envelope" in sleeves["preserved"], sleeves
-          assert "lower-body trouser mesh outside the measured sleeve-cut envelope" in sleeves["preserved"], sleeves
+          assert sleeves["shirt_region_after"]["vertex_count"] >= 450 and sleeves["shirt_region_after"]["face_count"] >= 400, sleeves
+          assert sleeves["trouser_region_after"]["vertex_count"] >= 500 and sleeves["trouser_region_after"]["face_count"] >= 500, sleeves
+          assert sleeves["shirt_region_after"]["max_abs_x_m"] <= sleeves["shirt_region_before"]["max_abs_x_m"] - 0.025, sleeves
+          assert "retained central sleeveless shirt torso/shoulder region" in sleeves["preserved"], sleeves
+          assert "lower-body trouser mesh and trouser geometry" in sleeves["preserved"], sleeves
           print("V386_SLEEVE_GEOMETRY_GATE=PASS_EXPERIMENTAL_ONLY")
           face = report["face_shape_refinement"]
           assert face["status"] == "APPLIED", face
