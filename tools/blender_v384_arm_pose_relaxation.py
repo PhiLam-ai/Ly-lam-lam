@@ -1150,15 +1150,21 @@ def apply_relaxed_arm_pose(basemesh, clothing_objects):
     lateral_outer_m = 0.39
     vertical_start_z_m = 1.13
     vertical_full_z_m = 0.90
+    lower_cutoff_z_m = 0.82
+    lower_full_z_m = 0.90
 
     def point_weight(point):
         lateral = _v384_smooth_unit(
             (abs(float(point.x)) - lateral_inner_m) / (lateral_outer_m - lateral_inner_m)
         )
-        vertical = _v384_smooth_unit(
-            (vertical_start_z_m - float(point.z)) / (vertical_start_z_m - vertical_full_z_m)
+        z = float(point.z)
+        upper_vertical = _v384_smooth_unit(
+            (vertical_start_z_m - z) / (vertical_start_z_m - vertical_full_z_m)
         )
-        return lateral * vertical
+        lower_vertical = _v384_smooth_unit(
+            (z - lower_cutoff_z_m) / (lower_full_z_m - lower_cutoff_z_m)
+        )
+        return lateral * upper_vertical * lower_vertical
 
     def transform_world_point(point):
         weight = point_weight(point)
@@ -1183,6 +1189,10 @@ def apply_relaxed_arm_pose(basemesh, clothing_objects):
     selected_lateral_reductions = []
     selected_vertical_drops = []
     selected_displacements = []
+    protected_torso_displacements = []
+    protected_lower_body_displacements = []
+    protected_torso_count = 0
+    protected_lower_body_count = 0
     selected_count = 0
 
     for role, obj in targets:
@@ -1196,6 +1206,10 @@ def apply_relaxed_arm_pose(basemesh, clothing_objects):
         measure_block = basis if basis is not None else (key_blocks[0] if key_blocks else None)
 
         mesh_before_x, mesh_after_x, mesh_lateral, mesh_drop, mesh_disp = [], [], [], [], []
+        mesh_torso_guard_disp = []
+        mesh_lower_guard_disp = []
+        mesh_torso_guard_count = 0
+        mesh_lower_guard_count = 0
         # Measure from Basis (or the first available key block / raw vertices), but transform every key block
         # by the same spatial rule so any existing keys remain aligned.
         for block in (key_blocks if key_blocks else [None]):
@@ -1204,17 +1218,24 @@ def apply_relaxed_arm_pose(basemesh, clothing_objects):
             for vertex in points:
                 original = matrix @ vertex.co
                 transformed, weight = transform_world_point(original)
-                if is_measure_block and weight >= 0.50:
-                    new_abs_x = abs(float(transformed.x))
-                    old_abs_x = abs(float(original.x))
-                    lateral_delta = old_abs_x - new_abs_x
-                    vertical_drop = float(original.z) - float(transformed.z)
-                    displacement = (transformed - original).length
-                    mesh_before_x.append(old_abs_x)
-                    mesh_after_x.append(new_abs_x)
-                    mesh_lateral.append(lateral_delta)
-                    mesh_drop.append(vertical_drop)
-                    mesh_disp.append(float(displacement))
+                if is_measure_block:
+                    displacement = float((transformed - original).length)
+                    if abs(float(original.x)) <= lateral_inner_m + 1e-9:
+                        mesh_torso_guard_disp.append(displacement)
+                        mesh_torso_guard_count += 1
+                    if float(original.z) <= lower_cutoff_z_m + 1e-9:
+                        mesh_lower_guard_disp.append(displacement)
+                        mesh_lower_guard_count += 1
+                    if weight >= 0.50:
+                        new_abs_x = abs(float(transformed.x))
+                        old_abs_x = abs(float(original.x))
+                        lateral_delta = old_abs_x - new_abs_x
+                        vertical_drop = float(original.z) - float(transformed.z)
+                        mesh_before_x.append(old_abs_x)
+                        mesh_after_x.append(new_abs_x)
+                        mesh_lateral.append(lateral_delta)
+                        mesh_drop.append(vertical_drop)
+                        mesh_disp.append(displacement)
                 vertex.co = inverse @ transformed
         obj.data.update()
 
@@ -1225,11 +1246,19 @@ def apply_relaxed_arm_pose(basemesh, clothing_objects):
             selected_vertical_drops.extend(mesh_drop)
             selected_displacements.extend(mesh_disp)
             selected_count += len(mesh_before_x)
+        protected_torso_displacements.extend(mesh_torso_guard_disp)
+        protected_lower_body_displacements.extend(mesh_lower_guard_disp)
+        protected_torso_count += mesh_torso_guard_count
+        protected_lower_body_count += mesh_lower_guard_count
         per_mesh.append({
             "role": role,
             "object": obj.name,
             "mesh_vertex_count": len(obj.data.vertices),
             "weighted_vertex_count": len(mesh_before_x),
+            "protected_torso_vertex_count": mesh_torso_guard_count,
+            "protected_torso_max_displacement_m": round(max(mesh_torso_guard_disp), 9) if mesh_torso_guard_disp else 0.0,
+            "protected_lower_body_vertex_count": mesh_lower_guard_count,
+            "protected_lower_body_max_displacement_m": round(max(mesh_lower_guard_disp), 9) if mesh_lower_guard_disp else 0.0,
             "max_abs_x_before_m": round(max(mesh_before_x), 6) if mesh_before_x else None,
             "max_abs_x_after_m": round(max(mesh_after_x), 6) if mesh_after_x else None,
             "mean_lateral_reduction_m": round(sum(mesh_lateral) / len(mesh_lateral), 6) if mesh_lateral else None,
@@ -1245,6 +1274,17 @@ def apply_relaxed_arm_pose(basemesh, clothing_objects):
     max_before = max(selected_before_x)
     max_after = max(selected_after_x)
     max_displacement = max(selected_displacements)
+    torso_guard_max_displacement = max(protected_torso_displacements, default=0.0)
+    lower_body_guard_max_displacement = max(protected_lower_body_displacements, default=0.0)
+    if protected_torso_count < 25 or protected_lower_body_count < 25:
+        raise RuntimeError("V384 could not establish enough protected torso/lower-body vertices: " + repr({
+            "protected_torso_count": protected_torso_count,
+            "protected_lower_body_count": protected_lower_body_count,
+        }))
+    if torso_guard_max_displacement > 1e-7:
+        raise RuntimeError("V384 unexpectedly moved vertices inside the torso x-guard: " + repr(torso_guard_max_displacement))
+    if lower_body_guard_max_displacement > 1e-7:
+        raise RuntimeError("V384 unexpectedly moved vertices below the lower-body z-guard: " + repr(lower_body_guard_max_displacement))
     if max_before - max_after < 0.06:
         raise RuntimeError("V384 arm-pose gate did not reduce lateral spread enough: " + repr({
             "max_before": max_before, "max_after": max_after, "per_mesh": per_mesh
@@ -1264,8 +1304,10 @@ def apply_relaxed_arm_pose(basemesh, clothing_objects):
         "rotation": {
             "max_inward_downward_degrees": max_angle_deg,
             "lateral_fade_m": [lateral_inner_m, lateral_outer_m],
-            "vertical_fade_z_m": [vertical_start_z_m, vertical_full_z_m],
-            "interpolation": "product of cubic smoothstep lateral and vertical gates",
+            "upper_vertical_fade_z_m": [vertical_start_z_m, vertical_full_z_m],
+            "lower_body_cutoff_z_m": lower_cutoff_z_m,
+            "lower_vertical_fade_z_m": [lower_cutoff_z_m, lower_full_z_m],
+            "interpolation": "product of cubic smoothstep lateral, upper-vertical and lower-vertical gates",
         },
         "weighted_vertex_count": selected_count,
         "max_abs_x_before_m": round(max_before, 6),
@@ -1273,6 +1315,10 @@ def apply_relaxed_arm_pose(basemesh, clothing_objects):
         "mean_lateral_reduction_m": round(lateral_gain, 6),
         "mean_vertical_drop_m": round(vertical_drop, 6),
         "max_vertex_displacement_m": round(max_displacement, 6),
+        "protected_torso_vertex_count": protected_torso_count,
+        "protected_torso_max_displacement_m": round(torso_guard_max_displacement, 9),
+        "protected_lower_body_vertex_count": protected_lower_body_count,
+        "protected_lower_body_max_displacement_m": round(lower_body_guard_max_displacement, 9),
         "per_mesh": per_mesh,
         "preserved": [
             "head and facial profile; eyes, iris texture, hair and necklace",
