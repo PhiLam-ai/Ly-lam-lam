@@ -442,6 +442,7 @@ def create_wardrobe_details(scene, basemesh, clothing_objects):
     candidate_centers = [round(0.780 + index * 0.005, 5) for index in range(23)]
     belt_candidate_audit = []
     eligible_belt_rings = []
+    print("V370_BELT_SEARCH_START " + json.dumps({"candidate_count": len(candidate_centers), "first_center_m": candidate_centers[0], "last_center_m": candidate_centers[-1], "expected_source": outfit_objects[0].name}, ensure_ascii=False), flush=True)
     expected_belt_source = outfit_objects[0].name
 
     for candidate_center_z in candidate_centers:
@@ -479,6 +480,14 @@ def create_wardrobe_details(scene, basemesh, clothing_objects):
             and hit_sources == [expected_belt_source]
             and max_abs_x <= 0.30
         )
+        print("V370_BELT_RING_CANDIDATE " + json.dumps({
+            "center_z_m": candidate_center_z,
+            "valid_pairs": valid_pairs,
+            "missing_samples": len(candidate_missing),
+            "source_names": hit_sources,
+            "max_abs_x_m": round(float(max_abs_x), 5),
+            "eligible": is_eligible,
+        }, ensure_ascii=False), flush=True)
         belt_candidate_audit.append({
             "center_z_m": candidate_center_z,
             "bottom_z_m": candidate_bottom_z,
@@ -511,6 +520,7 @@ def create_wardrobe_details(scene, basemesh, clothing_objects):
 
     # Use the highest level that is fully supported by the trouser mesh.
     selected_ring = eligible_belt_rings[-1]
+    print("V370_BELT_RING_SELECTED " + json.dumps({"center_z_m": selected_ring["center_z"], "z_range_m": [selected_ring["bottom_z"], selected_ring["top_z"]], "valid_pairs": selected_ring["valid_pairs"], "max_abs_x_m": round(float(selected_ring["max_abs_x"]), 5), "sources": selected_ring["source_names"], "eligible_centers_m": [ring["center_z"] for ring in eligible_belt_rings]}, ensure_ascii=False), flush=True)
     belt_center_z = selected_ring["center_z"]
     belt_bottom_z = selected_ring["bottom_z"]
     belt_top_z = selected_ring["top_z"]
@@ -3992,7 +4002,7 @@ def main():
         "status": "EXPERIMENTAL_V370_GLTFSKIN_FACE_ACCESSORY_CANDIDATE_NOT_APPROVED",
         "mpfb_source_commit": mpfb_source_commit,
         "version": "V370",
-        "purpose": "V370 preserves the V366 human, face, hair, eyes, necklace, body silhouette, morphs and animation while recoloring only the sportsuit and shoes textures/materials toward dark teal and neutral gray; geometry is unchanged.",
+        "purpose": "V370 dynamically searches for the highest stable waistband ring using only the sportsuit garment mesh, limits the belt lateral extent, aligns the buckle with the selected waist height, and preserves cargo pockets and all previous avatar elements.",
         "blender_version": bpy.app.version_string,
         "mpfb_version": list(getattr(mpfb, "VERSION", ())),
         "mpfb_user_data": LocationService.get_user_data(),
