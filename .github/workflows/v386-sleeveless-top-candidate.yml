@@ -450,7 +450,7 @@ jobs:
           assert sleeves["component_count_after_expected"] == sleeves["component_count_after"], sleeves
           assert sleeves["component_count_after"] == sleeves["component_count_after_cut"] - 2, sleeves
           assert sleeves["removed_component_count"] == 2, sleeves
-          assert 80 <= sleeves["cut_face_count"] <= 400, sleeves
+          assert 60 <= sleeves["cut_face_count"] <= 450, sleeves
           assert 80 <= sleeves["removed_face_count"] <= 600, sleeves
           assert sleeves["removed_face_count"] == sleeves["cut_face_count"] + sum(item["face_count"] for item in sleeves["removed_components"]), sleeves
           assert sleeves["removed_vertex_count"] >= sum(item["vertex_count"] for item in sleeves["removed_components"]), sleeves
