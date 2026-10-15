@@ -667,7 +667,7 @@ def create_wardrobe_details(scene, basemesh, clothing_objects):
     cuff_sample_count = 64
     body_matrix = basemesh.matrix_world.copy()
     body_world_points = [body_matrix @ vertex.co for vertex in basemesh.data.vertices]
-    allowed_cuff_sources = {basemesh.name, outfit_objects[0].name}
+    allowed_cuff_sources = {basemesh.name, outfit_objects[0].name} | {obj.name for obj in clothing_objects if "shoes06" in obj.name.lower()}
 
     def estimate_leg_centerline(side_sign, target_z):
         expected_x = side_sign * 0.14
@@ -798,7 +798,7 @@ def create_wardrobe_details(scene, basemesh, clothing_objects):
     ankle_patch_cover_audit = {
         "status": "APPLIED",
         "working_hypothesis": "The embedded sportsuit pants texture is uniformly charcoal in the affected UV regions; pale shin marks appear to be skin/clothing overlap or coverage gaps rather than painted bright texture patches.",
-        "treatment": "Two low-profile surface-conformed charcoal lower-leg cover rings extend the trouser silhouette through the patch region without changing the body mesh or skin material.",
+        "treatment": "Two low-profile surface-conformed charcoal lower-leg cover rings extend the trouser silhouette through the patch region; their lower edges may conform to the shoe collar so the cuff-to-sneaker transition stays continuous. The body mesh and skin material are unchanged.",
         "z_range_m": [cuff_z_bottom, cuff_z_top],
         "cuff_count": len(ankle_cuff_objects),
         "cuffs": ankle_cuff_reports,
