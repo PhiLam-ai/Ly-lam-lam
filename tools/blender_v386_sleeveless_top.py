@@ -1356,6 +1356,7 @@ def remove_short_sleeve_components(clothing_objects):
         fall = smooth_unit((1.34 - point_z) / (1.34 - 1.26))
         weight = rise * fall
         # A22 visual candidate: modest local overlap; require front/side visual review before promotion.
+        # Keep the taper localized; the former 30 mm trial made the shoulder cap look too broad.
         delta_x = 0.022 * weight
         if delta_x < 0.002:
             continue
