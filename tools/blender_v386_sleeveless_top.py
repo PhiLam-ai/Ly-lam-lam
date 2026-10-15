@@ -1355,8 +1355,8 @@ def remove_short_sleeve_components(clothing_objects):
         rise = smooth_unit((point_z - 1.12) / (1.18 - 1.12))
         fall = smooth_unit((1.34 - point_z) / (1.34 - 1.26))
         weight = rise * fall
-        # A18 visual candidate: modest local overlap; require front/side visual review before promotion.
-        delta_x = 0.018 * weight
+        # A22 visual candidate: modest local overlap; require front/side visual review before promotion.
+        delta_x = 0.022 * weight
         if delta_x < 0.002:
             continue
         side_sign = 1.0 if point[0] >= 0.0 else -1.0
@@ -1374,7 +1374,7 @@ def remove_short_sleeve_components(clothing_objects):
     max_abs_x_after_overlap = max(abs(world_point(index)[0]) for index in range(len(mesh.vertices)))
     shoulder_edge_overlap_audit = {
         "status": "APPLIED",
-        "method": "smooth localized 18 mm maximum outward offset on the retained upper armhole boundary; tapered at underarm and shoulder-top ends",
+        "method": "smooth localized 22 mm maximum outward offset on the retained upper armhole boundary; tapered at underarm and shoulder-top ends",
         "candidate_boundary_vertex_count": len(shoulder_boundary_vertex_indices),
         "moved_vertex_count": len(shoulder_edge_offsets),
         "max_offset_m": round(max(shoulder_edge_offsets), 6),
