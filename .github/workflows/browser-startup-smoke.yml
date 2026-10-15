@@ -116,14 +116,25 @@ jobs:
               const errors = [];
               const failedRequests = [];
               const modelResponses = [];
+              const localThreeResponses = [];
+              const externalThreeRequests = [];
               page.on('pageerror', e => errors.push(e.message));
+              page.on('request', r => {
+                if (/cdn\\.jsdelivr\\.net|unpkg\\.com/.test(r.url())) externalThreeRequests.push(r.url());
+              });
               page.on('requestfailed', r => failedRequests.push({
                 url: r.url(),
                 error: r.failure()?.errorText || 'unknown'
               }));
               page.on('response', r => {
-                if (new URL(r.url()).pathname.endsWith('/lam-default.glb')) {
+                const url = new URL(r.url());
+                if (url.pathname.endsWith('/lam-default.glb')) {
                   modelResponses.push({ url: r.url(), status: r.status() });
+                }
+                if (url.pathname.endsWith('/vendor/three/build/three.module.js') ||
+                    url.pathname.endsWith('/vendor/three/examples/jsm/loaders/GLTFLoader.js') ||
+                    url.pathname.endsWith('/vendor/three/examples/jsm/controls/OrbitControls.js')) {
+                  localThreeResponses.push({ url: r.url(), status: r.status() });
                 }
               });
               const response = await page.goto('https://philam-ai.github.io/Ly-lam-lam/', {
@@ -157,6 +168,8 @@ jobs:
               console.log('PRODUCTION_PAGE_ERRORS=' + JSON.stringify(errors));
               console.log('PRODUCTION_FAILED_REQUESTS=' + JSON.stringify(failedRequests));
               console.log('PRODUCTION_MODEL_RESPONSES=' + JSON.stringify(modelResponses));
+              console.log('PRODUCTION_LOCAL_THREE_RESPONSES=' + JSON.stringify(localThreeResponses));
+              console.log('PRODUCTION_EXTERNAL_THREE_REQUESTS=' + JSON.stringify(externalThreeRequests));
               if (!state.booted || state.bootFailed) throw new Error('Production avatar boot failed: ' + state.status);
               if (!state.rendererReady || state.canvasCount !== 1) throw new Error('Production WebGL renderer/canvas not initialized');
               if (!state.webgl) throw new Error('Production browser does not expose WebGL');
@@ -164,6 +177,12 @@ jobs:
                 throw new Error('One or more mobile quick controls are missing or too small: ' + JSON.stringify(state.controls));
               }
               if (!modelResponses.some(r => r.status === 200)) throw new Error('Production GLB did not return HTTP 200: ' + JSON.stringify(modelResponses));
+              if (localThreeResponses.length !== 3 || localThreeResponses.some(r => r.status !== 200)) {
+                throw new Error('Default mode must load the three self-hosted Three.js modules: ' + JSON.stringify(localThreeResponses));
+              }
+              if (externalThreeRequests.length) {
+                throw new Error('Default mode unexpectedly requested an external Three.js CDN: ' + JSON.stringify(externalThreeRequests));
+              }
               if (errors.length) throw new Error('Production browser errors: ' + errors.join(' | '));
               if (failedRequests.length) throw new Error('Production resource requests failed: ' + JSON.stringify(failedRequests));
               await page.screenshot({ path: '/tmp/lll-production-smoke.png' });
