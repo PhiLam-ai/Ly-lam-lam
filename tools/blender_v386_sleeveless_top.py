@@ -1215,15 +1215,16 @@ def remove_short_sleeve_components(clothing_objects):
         (1.135, 0.185),
         (1.165, 0.175),
         (1.200, 0.170),
-        (1.235, 0.175),
-        (1.265, 0.185),
-        (1.295, 0.205),
-        # Keep a little more fabric over the upper shoulder so the exposed
-        # arm cap doesn't read as a detached triangular skin patch in front view.
-        (1.310, 0.212),
-        (1.325, 0.207),
-        (1.340, 0.195),
-        (1.360, 0.180),
+        (1.235, 0.180),
+        (1.265, 0.200),
+        (1.290, 0.225),
+        # Widen the retained upper shoulder cap enough to overlap the arm head;
+        # the former narrow envelope left a visible triangular skin patch.
+        (1.310, 0.255),
+        (1.325, 0.260),
+        (1.340, 0.245),
+        (1.355, 0.220),
+        (1.370, 0.190),
         (1.380, 0.160),
     ]
 
