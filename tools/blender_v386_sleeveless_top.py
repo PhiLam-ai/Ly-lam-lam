@@ -1349,6 +1349,144 @@ def remove_short_sleeve_components(clothing_objects):
             "shirt_before": shirt_before, "shirt_after": shirt_after,
         }))
 
+    # Add a very narrow, fabric-colored binding on the exposed armhole edges.
+    # This softens the hard, single-sided cut without filling the armhole or
+    # changing the skin, shoulder pose, shirt silhouette or trouser geometry.
+    edge_face_counts = {}
+    for polygon in mesh.polygons:
+        ids = list(polygon.vertices)
+        for a, b in zip(ids, ids[1:] + ids[:1]):
+            key = (a, b) if a < b else (b, a)
+            edge_face_counts[key] = edge_face_counts.get(key, 0) + 1
+
+    boundary_graph = {}
+    selected_boundary_edges = []
+    for (a, b), face_count in edge_face_counts.items():
+        if face_count != 1:
+            continue
+        point_a = world_point(a)
+        point_b = world_point(b)
+        mid_x = (point_a[0] + point_b[0]) / 2.0
+        mid_z = (point_a[2] + point_b[2]) / 2.0
+        limit = lateral_limit(mid_z)
+        if limit is None or not (1.08 < mid_z < 1.39):
+            continue
+        if not (0.10 < abs(mid_x) < 0.24):
+            continue
+        if abs(abs(mid_x) - limit) > 0.07:
+            continue
+        selected_boundary_edges.append((a, b))
+        boundary_graph.setdefault(a, set()).add(b)
+        boundary_graph.setdefault(b, set()).add(a)
+
+    remaining_vertices = set(boundary_graph)
+    binding_chains = []
+    while remaining_vertices:
+        seed = remaining_vertices.pop()
+        component = {seed}
+        stack = [seed]
+        while stack:
+            current = stack.pop()
+            for neighbor in boundary_graph[current]:
+                if neighbor in remaining_vertices:
+                    remaining_vertices.remove(neighbor)
+                    component.add(neighbor)
+                    stack.append(neighbor)
+        if len(component) < 20:
+            continue
+
+        endpoints = sorted(vertex for vertex in component if len(boundary_graph[vertex] & component) == 1)
+        start_vertex = endpoints[0] if endpoints else min(component)
+        ordered = [start_vertex]
+        visited_vertices = {start_vertex}
+        previous = None
+        current = start_vertex
+        closed = False
+        while True:
+            options = sorted(
+                neighbor for neighbor in (boundary_graph[current] & component)
+                if neighbor != previous and (neighbor not in visited_vertices or neighbor == start_vertex)
+            )
+            if not options:
+                break
+            next_vertex = options[0]
+            if next_vertex == start_vertex:
+                closed = True
+                break
+            ordered.append(next_vertex)
+            visited_vertices.add(next_vertex)
+            previous, current = current, next_vertex
+            if len(ordered) > len(component) + 2:
+                raise RuntimeError("V386 armhole binding path ordering exceeded component size")
+        if len(ordered) >= 20:
+            binding_chains.append({"vertices": ordered, "closed": closed})
+
+    if len(binding_chains) < 4:
+        raise RuntimeError("V386 could not trace both front/back armhole edges on each side: " + repr({
+            "selected_boundary_edge_count": len(selected_boundary_edges),
+            "binding_chain_sizes": [len(chain["vertices"]) for chain in binding_chains],
+        }))
+
+    binding_curve = bpy.data.curves.new("V386_ArmholeBindingCurve", type="CURVE")
+    binding_curve.dimensions = "3D"
+    binding_curve.resolution_u = 2
+    binding_curve.bevel_depth = 0.0018
+    binding_curve.bevel_resolution = 3
+    binding_curve.fill_mode = "FULL"
+    for chain in binding_chains:
+        points = chain["vertices"]
+        spline = binding_curve.splines.new(type="POLY")
+        spline.points.add(len(points) - 1)
+        for point_index, vertex_index in enumerate(points):
+            co = mesh.vertices[vertex_index].co
+            spline.points[point_index].co = (float(co.x), float(co.y), float(co.z), 1.0)
+        spline.use_cyclic_u = bool(chain["closed"])
+
+    binding_obj = bpy.data.objects.new("V386_ArmholeBinding", binding_curve)
+    bpy.context.scene.collection.objects.link(binding_obj)
+    binding_obj.parent = obj
+    binding_obj.location = (0.0, 0.0, 0.0)
+    binding_obj.rotation_euler = (0.0, 0.0, 0.0)
+    binding_obj.scale = (1.0, 1.0, 1.0)
+    binding_material = _make_solid_material(
+        "V386_DarkTeal_ArmholeBinding",
+        (0.018, 0.060, 0.050, 1.0),
+        metallic=0.0,
+        roughness=0.72,
+        specular=0.16,
+    )
+    binding_curve.materials.append(binding_material)
+
+    for selected in list(bpy.context.selected_objects):
+        selected.select_set(False)
+    binding_obj.select_set(True)
+    bpy.context.view_layer.objects.active = binding_obj
+    conversion_result = bpy.ops.object.convert(target="MESH")
+    if "FINISHED" not in conversion_result:
+        raise RuntimeError("V386 failed to convert the armhole binding into exportable mesh geometry")
+    binding_obj = bpy.context.view_layer.objects.active
+    binding_obj.name = "V386_ArmholeBinding"
+    binding_obj.data.name = "V386_ArmholeBinding_Mesh"
+    if binding_obj.parent is not obj:
+        binding_obj.parent = obj
+    if len(binding_obj.data.vertices) < 100 or len(binding_obj.data.polygons) < 100:
+        raise RuntimeError("V386 armhole binding mesh is unexpectedly small: " + repr({
+            "vertices": len(binding_obj.data.vertices), "faces": len(binding_obj.data.polygons),
+        }))
+    clothing_objects.append(binding_obj)
+    armhole_binding_audit = {
+        "status": "APPLIED",
+        "object": binding_obj.name,
+        "material": binding_material.name,
+        "method": "four-or-more bevelled polyline chains sampled from exposed armhole boundary edges; 1.8 mm radius",
+        "selected_boundary_edge_count": len(selected_boundary_edges),
+        "chain_count": len(binding_chains),
+        "chain_vertex_counts": [len(chain["vertices"]) for chain in binding_chains],
+        "binding_mesh_vertex_count": len(binding_obj.data.vertices),
+        "binding_mesh_face_count": len(binding_obj.data.polygons),
+        "visual_warning": "Confirm the narrow binding follows the visible cut edge and does not appear as floating trim in front, side and three-quarter views.",
+    }
+
     removed_components = []
     for side in ("left", "right"):
         points = cut_points_by_side[side]
@@ -1388,6 +1526,7 @@ def remove_short_sleeve_components(clothing_objects):
         "shirt_region_before": shirt_before,
         "shirt_region_after": shirt_after,
         "trouser_region_after": pants_after,
+        "armhole_binding_audit": armhole_binding_audit,
         "preserved": [
             "body skin and both arm meshes",
             "retained central sleeveless shirt torso/shoulder region",
