@@ -1210,22 +1210,22 @@ def remove_short_sleeve_components(clothing_objects):
 
     components_before = connected_components(mesh)
     cut_profile = [
-        (1.095, 0.205),
-        (1.115, 0.195),
-        (1.135, 0.185),
-        (1.165, 0.175),
-        (1.200, 0.170),
-        (1.235, 0.180),
-        (1.265, 0.200),
-        (1.290, 0.225),
-        # Widen the retained upper shoulder cap enough to overlap the arm head;
-        # the former narrow envelope left a visible triangular skin patch.
-        (1.310, 0.255),
-        (1.325, 0.260),
-        (1.340, 0.245),
-        (1.355, 0.220),
-        (1.370, 0.190),
-        (1.380, 0.160),
+        # Carry the fabric farther over the upper arm near the underarm opening,
+        # then taper the shoulder tip instead of leaving an outward-pointing flap.
+        (1.095, 0.210),
+        (1.115, 0.210),
+        (1.135, 0.215),
+        (1.165, 0.215),
+        (1.200, 0.220),
+        (1.235, 0.220),
+        (1.265, 0.225),
+        (1.290, 0.235),
+        (1.310, 0.240),
+        (1.325, 0.240),
+        (1.340, 0.225),
+        (1.355, 0.195),
+        (1.370, 0.165),
+        (1.380, 0.145),
     ]
 
     def lateral_limit(z_value):
@@ -1355,7 +1355,7 @@ def remove_short_sleeve_components(clothing_objects):
         rise = smooth_unit((point_z - 1.12) / (1.18 - 1.12))
         fall = smooth_unit((1.34 - point_z) / (1.34 - 1.26))
         weight = rise * fall
-        delta_x = 0.030 * weight
+        delta_x = 0.010 * weight
         if delta_x < 0.002:
             continue
         side_sign = 1.0 if point[0] >= 0.0 else -1.0
@@ -1373,7 +1373,7 @@ def remove_short_sleeve_components(clothing_objects):
     max_abs_x_after_overlap = max(abs(world_point(index)[0]) for index in range(len(mesh.vertices)))
     shoulder_edge_overlap_audit = {
         "status": "APPLIED",
-        "method": "smooth 30 mm maximum outward offset on the retained upper armhole boundary; tapered at underarm and shoulder-top ends",
+        "method": "smooth 10 mm maximum outward offset on the retained upper armhole boundary; tapered at underarm and shoulder-top ends",
         "candidate_boundary_vertex_count": len(shoulder_boundary_vertex_indices),
         "moved_vertex_count": len(shoulder_edge_offsets),
         "max_offset_m": round(max(shoulder_edge_offsets), 6),
