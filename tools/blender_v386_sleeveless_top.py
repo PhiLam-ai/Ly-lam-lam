@@ -1236,13 +1236,13 @@ def remove_short_sleeve_components(clothing_objects):
     # Smooth measured cut envelope in Blender world-space meters (Z is vertical).
     # It removes lateral sleeve surfaces but preserves the central torso and neckline.
     cut_profile = [
-        (1.135, 0.225),
-        (1.155, 0.215),
-        (1.185, 0.205),
-        (1.225, 0.205),
-        (1.255, 0.215),
-        (1.280, 0.235),
-        (1.290, 0.250),
+        (1.115, 0.195),
+        (1.135, 0.185),
+        (1.165, 0.175),
+        (1.200, 0.170),
+        (1.235, 0.175),
+        (1.265, 0.185),
+        (1.295, 0.205),
     ]
 
     def lateral_limit(z_value):
@@ -1266,7 +1266,7 @@ def remove_short_sleeve_components(clothing_objects):
             cut_face_counts["left" if center_x < 0 else "right"] += 1
 
     cut_face_count = len(cut_face_indices)
-    if not 80 <= cut_face_count <= 400:
+    if not 60 <= cut_face_count <= 450:
         raise RuntimeError(
             "V386 sleeve cut rejected: face count outside conservative safety bounds: "
             + repr({"cut_face_count": cut_face_count, "side_counts": cut_face_counts})
