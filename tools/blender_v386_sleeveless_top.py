@@ -1217,6 +1217,10 @@ def remove_short_sleeve_components(clothing_objects):
         (1.235, 0.175),
         (1.265, 0.185),
         (1.295, 0.205),
+        (1.310, 0.195),
+        (1.325, 0.180),
+        (1.340, 0.165),
+        (1.355, 0.150),
     ]
 
     def lateral_limit(z_value):
