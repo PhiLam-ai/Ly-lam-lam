@@ -1568,8 +1568,11 @@ def apply_relaxed_arm_pose(basemesh, clothing_objects):
     max_angle_deg = 22.0
     lateral_inner_m = 0.29
     lateral_outer_m = 0.39
-    vertical_start_z_m = 1.13
-    vertical_full_z_m = 0.90
+    # Continue the smooth inward/downward arm rotation through the upper-arm
+    # cap. The previous fade stopped at z=1.13 m, leaving the shoulder head
+    # static above the shirt armhole and exposing a sharp triangular skin patch.
+    vertical_start_z_m = 1.42
+    vertical_full_z_m = 1.15
     lower_cutoff_z_m = 0.60
     lower_full_z_m = 0.78
 
