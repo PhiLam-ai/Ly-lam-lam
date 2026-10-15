@@ -1193,14 +1193,14 @@ def apply_relaxed_arm_pose(basemesh, clothing_objects):
         shape_keys = getattr(obj.data, "shape_keys", None)
         key_blocks = list(shape_keys.key_blocks) if shape_keys and shape_keys.key_blocks else []
         basis = next((key for key in key_blocks if key.name == "Basis"), None)
-        measure_points = basis.data if basis is not None else obj.data.vertices
+        measure_block = basis if basis is not None else (key_blocks[0] if key_blocks else None)
 
         mesh_before_x, mesh_after_x, mesh_lateral, mesh_drop, mesh_disp = [], [], [], [], []
-        # Measure from Basis (or vertices when no shape keys exist), but transform every key block
+        # Measure from Basis (or the first available key block / raw vertices), but transform every key block
         # by the same spatial rule so any existing keys remain aligned.
         for block in (key_blocks if key_blocks else [None]):
             points = block.data if block is not None else obj.data.vertices
-            is_measure_block = (block is basis) if basis is not None else (block is None)
+            is_measure_block = (block is measure_block) if key_blocks else (block is None)
             for vertex in points:
                 original = matrix @ vertex.co
                 transformed, weight = transform_world_point(original)
