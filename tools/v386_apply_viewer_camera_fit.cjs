@@ -14,7 +14,7 @@ if (!fs.existsSync(htmlPath)) throw new Error('Missing temporary viewer HTML: ' 
 // margin because the narrower, more natural arm pose makes horizontal fit less
 // restrictive and the old width-first fit makes the figure too tall on an iPhone.
 const beforeToken = 'cameraDistance=Math.max(fitVertical,fitHorizontal,1.0)*1.20;';
-const afterToken = 'cameraDistance=Math.max(fitVertical,fitHorizontal,1.0)*1.30;';
+const afterToken = 'cameraDistance=Math.max(fitVertical,fitHorizontal,1.0)*1.35;';
 const source = fs.readFileSync(htmlPath, 'utf8');
 const occurrences = source.split(beforeToken).length - 1;
 if (occurrences !== 1) throw new Error('Expected exactly one candidate camera-fit formula; found ' + occurrences);
@@ -32,9 +32,9 @@ const report = {
   replacementCount: occurrences,
   cameraDistanceFormulaBefore: beforeToken,
   cameraDistanceFormulaAfter: afterToken,
-  distanceScaleIncreaseFraction: 0.0833333333,
+  distanceScaleIncreaseFraction: 0.125,
   modelGlbUnchanged: true,
-  intent: 'Keep the narrowed-arm candidate within the mobile projected-bounds gate with a little extra vertical margin; do not relax the smoke-test threshold.'
+  intent: 'Keep the narrowed-arm candidate within the mobile projected-bounds gate with enough extra vertical margin; do not relax the smoke-test threshold.'
 };
 fs.mkdirSync(path.dirname(reportPath), { recursive: true });
 fs.writeFileSync(reportPath, JSON.stringify(report, null, 2) + '\n', 'utf8');

@@ -469,6 +469,14 @@ jobs:
           binding = sleeves["armhole_binding_audit"]
           assert binding["status"] == "APPLIED", binding
           assert binding["object"] == "V386_ArmholeBinding", binding
+          overlap = sleeves["shoulder_edge_overlap_audit"]
+          assert overlap["status"] == "APPLIED", overlap
+          assert overlap["candidate_boundary_vertex_count"] >= 20, overlap
+          assert overlap["moved_vertex_count"] >= 12, overlap
+          assert 0.008 <= overlap["mean_offset_m"] <= 0.030, overlap
+          assert 0.020 <= overlap["max_offset_m"] <= 0.031, overlap
+          assert overlap["max_abs_x_after_m"] <= sleeves["shirt_region_before"]["max_abs_x_m"] - 0.025, overlap
+          assert "underarm opening remains open" in overlap["preserved"], overlap
           assert binding["chain_count"] >= 2, binding
           assert binding["selected_boundary_edge_count"] >= 40, binding
           assert binding["binding_mesh_vertex_count"] >= 100, binding
@@ -715,7 +723,7 @@ jobs:
           assert camera_patch["originalHtmlSha256"] != camera_patch["patchedHtmlSha256"], camera_patch
           patched_html = Path("artifacts/v386-browser-test/index-v386-experimental-preview.html").read_text(encoding="utf-8")
           assert "const faceFill=new THREE.DirectionalLight(0xfff4e8,0.45)" in patched_html, "V386 browser capture did not use the V353 lighting patch"
-          assert "cameraDistance=Math.max(fitVertical,fitHorizontal,1.0)*1.30;" in patched_html, "V386 mobile preview is missing the extra camera framing margin"
+          assert "cameraDistance=Math.max(fitVertical,fitHorizontal,1.0)*1.35;" in patched_html, "V386 mobile preview is missing the extra camera framing margin"
           assert report["avatarDiagnostics"]["framing"]["projectedBoundsNdc"]["minY"] >= -0.98 and report["avatarDiagnostics"]["framing"]["projectedBoundsNdc"]["maxY"] <= 0.98, report["avatarDiagnostics"]
           print("V386_BROWSER_WEBGL_LIGHTING_CAMERA_FIT=PASS_EXPERIMENTAL_ONLY")
           print(json.dumps({"state": report["state"], "avatarDiagnostics": report.get("avatarDiagnostics"), "visualFraming": report["visualFraming"]}, ensure_ascii=False, indent=2))
@@ -733,7 +741,7 @@ jobs:
           cat > "$stage/v312-work/V386-EXPERIMENTAL-AVATAR.md" <<'MD'
           # V386 Experimental Real Human-Topology Avatar — Not Yet Approved
 
-          This V386 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body), cuts a measured lateral sleeve band from the integrated MPFB sportsuit garment, and removes only the two resulting sleeve islands after bounds and left/right checks. The intent is a sleeveless cropped top closer to Phi's saved reference. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder must discover exactly two isolated sleeve components or fail safely; all remaining shirt torso and trouser components are checked. The preview-only camera fit remains +8.3% for portrait framing. The arm pose now includes a smooth upper-arm-cap fade into the shoulder to reduce exposed triangular skin at the armhole. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
+          This V386 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body), cuts a measured lateral sleeve band from the integrated MPFB sportsuit garment, and removes only the two resulting sleeve islands after bounds and left/right checks. The intent is a sleeveless cropped top closer to Phi's saved reference. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder must discover exactly two isolated sleeve components or fail safely; all remaining shirt torso and trouser components are checked. The preview-only camera fit remains +8.3% for portrait framing. The arm pose includes a smooth upper-arm-cap fade and a measured outward offset on the retained upper armhole edge to reduce exposed triangular skin at the shoulder. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
 
           - This is an experimental human-mesh candidate, not a claim of final photorealism.
           - It includes a subtle Lam_Idle_GentleSway common-root animation and 12 base-mesh facial morph names. The five separate face accessory meshes are restored with export-safe materials so the browser image can be compared against the V335 texture-only diagnostic.
