@@ -189,12 +189,15 @@ A separate V343 run was created from the earlier V342 conversation checkpoint af
 - Visual review: the reference-inspired dark teal crop top, charcoal trousers, belt/buckle, cargo pocket flaps, necklace, hair and gentle smile are now visible together. **Wardrobe still NOT APPROVED**: dark ankle cover rings are too blocky, pale ankle/skin fragments remain at their lower edge, and small skin-colored gaps remain beside the belt.
 - Next: V373 shifts the same 12 cm ankle cover down from `z=0.18–0.30 m` to `z=0.125–0.245 m`, retaining the 64-point surface conformation and the 0.13 m radial guard. This aims to bridge the remaining pale strip between trouser hem and sneakers without editing the body or clothing textures.
 
-## V373 — lower ankle cuff transition (run in progress)
-- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38662236966.
-- Script: `tools/blender_v373_ankle_cuff_transition.py`.
-- Only intended change from V372: shift cuff sample planes and the resulting two charcoal covers down to `z=0.125–0.245 m` while retaining 0.12 m height, 64 angular samples, skin/garment/shoe source checks and a 0.13 m radial extent guard.
-- The base-body, V340 central-x hip/thigh profile, V341 darkened hair, V343+ face/eye work, V365 necklace, V371 belt/pockets, clothing meshes/textures, 12 morphs and idle animation remain as in V372.
-- Visual decision pending. Inspect whether the exposed pale ankle fragments are covered without swallowing the shoe collar or creating a cuff that looks like a separate rigid block. If V373 still fails visually, keep V372/V371 ZIPs as rollback and refine the ankle geometry again; do not promote to production.
+## V373 — lower ankle cuff transition
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38662236966 — **SUCCESS**.
+- Artifact: [V373 GitHub Actions artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38662236966/artifacts/11939985160), ID `11939985160`, 49,064,712 bytes; digest `sha256:15bb07fa67cc9cc26a292c5390425e04a6e13d4c1fbe986fa04581e1a9450326`.
+- GLB `lam-v373-gltf-materials-full-face-candidate.glb`, 13,955,464 bytes; SHA-256 `e310a1636bb924ae27f5d7daf19f490685e20d88348c98977cb79264921dfeaf`. Keeps 0 glTF skins, 9 images, 18 materials, all 12 morphs and `Lam_Idle_GentleSway`.
+- Windows preview ZIP `ly-lam-lam-v373-experimental-windows.zip`, 15,077,227 bytes, 81 entries; ZIP integrity passed. SHA-256 `9d97d6f166a788a26dce88f658a67f49ce8c9d4aaadb848c09b8ace4d4802956` matches the sidecar.
+- Ankle cover audit: both cuffs span `z=0.125–0.245 m`, 64/64 surface hits each, 0 missing samples, radial extents `0.06809 m` / `0.06690 m` within the `0.13 m` guard. The right cuff follows the sportsuit surface; the left follows the sportsuit and shoe surface.
+- Mobile browser: PASS at 390×844; WebGL/renderer ready, 12 morphs, idle animation advanced, no page/console errors or failed requests, visible in safe area.
+- Visual decision: **ANKLE-GAP IMPROVEMENT ACCEPTED FOR FURTHER WORK**. V372's two pale jagged skin fragments below the cover are no longer apparent; only a fine light sneaker-collar line remains in side view, which is acceptable pending later footwear review. The overall outfit remains **NOT APPROVED** because the top is still short-sleeved and not all cargo-trouser seam/waist details match the chosen reference.
+- Next: V374 will add a narrow trouser-color waistband bridge just below/overlapping the black belt's lower edge to hide the two skin-colored triangular gaps. Body/face/hair, belt position/buckle, pockets, ankle cuffs, morphs and animation remain unchanged.
 ## Safety and rollback
 
 - Do not copy any experimental GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
