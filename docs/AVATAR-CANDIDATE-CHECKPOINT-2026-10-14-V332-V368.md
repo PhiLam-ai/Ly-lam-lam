@@ -180,13 +180,12 @@ A separate V343 run was created from the earlier V342 conversation checkpoint af
 - Mobile browser: `PASS_BROWSER_WEBGL_CANDIDATE_ONLY` at 390×844; GLB loaded, WebGL ready, idle animation advanced, no page/console errors and model visible in safe area.
 - Visual decision: **BELT FIT ACCEPTED FOR FURTHER WORK**. The front strap and silver buckle are visible, the strap follows the waist, and neither arm is pulled into the belt. **Full wardrobe NOT APPROVED**: pale ankle/shin patches remain obvious, the top still has short sleeves, and the bottoms read as tight leggings rather than loose cargo trousers.
 - Texture inspection shows the trouser UV regions are uniformly charcoal with no matching bright painted patches; the pale marks appear to be skin/clothing coverage gaps. V372 therefore adds two surface-conformed charcoal lower-leg cover rings while keeping the belt/pockets, face, hair, necklace, top color, shoes, body mesh, morphs and animation unchanged. The sleeveless shoulder shape and looser cargo-trouser silhouette remain separate later experiments.
-## V372 — ankle/shin skin-gap cover geometry (run in progress)
-- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38658926594.
-- Script: `tools/blender_v372_ankle_gap_cover_geometry.py`; workflow `.github/workflows/v372-ankle-gap-cover-geometry.yml`.
-- Inspection of the embedded `female_sportsuit01_diffuse` shows the trouser UV islands are uniformly charcoal at the ankle/shin area, while the front render has light ragged shapes peeking through. The working hypothesis is a body/clothing coverage mismatch rather than a painted texture patch.
-- V372 preserves the V371 belt, buckle, cargo pockets and all prior avatar elements. It adds two surface-conformed charcoal cover rings at `z=0.18–0.30 m`, each sampled from the outermost visible skin/clothing surface with a `0.13 m` radial-extent guard. This makes the treatment geometry-first and avoids altering the body mesh or global skin material.
-- Workflow gates require two cuffs, at least 60/64 surface pairs each, only body/sportsuit sources, correct GLB node/material export, unchanged 12 morphs and idle animation, mobile WebGL/browser clean, ZIP integrity and recomputed SHA-256.
-- Visual decision pending. Check that the pale marks are gone without making obvious dark blocks, and that V371's belt/buckle and cargo pockets remain unchanged. Production GLB is not touched.
+## V372 — ankle/shin skin-gap cover geometry (corrected rerun in progress)
+- First workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38658926594 — **FAILURE** at the source guard: the lower ring's surface samples included `Human.shoes06` at the ankle/shoe transition. The workflow correctly stopped instead of allowing an untracked object.
+- Script fix: the ankle cover now permits exactly three legitimate lower-leg surfaces—`Human`, `Human.female_sportsuit01`, and `Human.shoes06`—so the cuff can blend into the sneaker collar while preserving the 0.13 m radial extent guard.
+- Corrected workflow run: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38659152192. (The intermediate run `38659130732` was triggered by the script-only commit before the workflow's allowed-source set was updated.)
+- Cuff geometry remains at `z=0.18–0.30 m`, with 64 angular samples and at least 60 expected surface pairs per cuff. This is a lower-leg coverage fix only; it does not alter the base body mesh, skin texture, face, hair, body proportions, belt, necklace or morph definitions.
+- Visual decision pending after the corrected package renders. Inspect whether the pale shins are covered without obvious dark blocks, whether the covers meet the shoe collars smoothly, and whether V371's visible belt/pockets remain unchanged.
 ## Safety and rollback
 
 - Do not copy any experimental GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
