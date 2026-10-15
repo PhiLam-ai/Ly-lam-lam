@@ -1421,10 +1421,15 @@ def remove_short_sleeve_components(clothing_objects):
         if len(ordered) >= 20:
             binding_chains.append({"vertices": ordered, "closed": closed})
 
-    if len(binding_chains) < 4:
-        raise RuntimeError("V386 could not trace both front/back armhole edges on each side: " + repr({
+    for chain in binding_chains:
+        mean_x = sum(world_point(index)[0] for index in chain["vertices"]) / len(chain["vertices"])
+        chain["side"] = "left" if mean_x < 0 else "right"
+    chain_sides = {chain["side"] for chain in binding_chains}
+    if len(binding_chains) < 2 or chain_sides != {"left", "right"}:
+        raise RuntimeError("V386 could not trace a substantial armhole boundary on both sides: " + repr({
             "selected_boundary_edge_count": len(selected_boundary_edges),
             "binding_chain_sizes": [len(chain["vertices"]) for chain in binding_chains],
+            "binding_chain_sides": [chain["side"] for chain in binding_chains],
         }))
 
     binding_curve = bpy.data.curves.new("V386_ArmholeBindingCurve", type="CURVE")
@@ -1478,10 +1483,11 @@ def remove_short_sleeve_components(clothing_objects):
         "status": "APPLIED",
         "object": binding_obj.name,
         "material": binding_material.name,
-        "method": "four-or-more bevelled polyline chains sampled from exposed armhole boundary edges; 1.8 mm radius",
+        "method": "bevelled left/right polyline chains sampled from exposed armhole boundary edges; 1.8 mm radius",
         "selected_boundary_edge_count": len(selected_boundary_edges),
         "chain_count": len(binding_chains),
         "chain_vertex_counts": [len(chain["vertices"]) for chain in binding_chains],
+        "chain_sides": [chain["side"] for chain in binding_chains],
         "binding_mesh_vertex_count": len(binding_obj.data.vertices),
         "binding_mesh_face_count": len(binding_obj.data.polygons),
         "visual_warning": "Confirm the narrow binding follows the visible cut edge and does not appear as floating trim in front, side and three-quarter views.",
