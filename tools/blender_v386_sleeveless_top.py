@@ -1435,7 +1435,7 @@ def remove_short_sleeve_components(clothing_objects):
     binding_curve = bpy.data.curves.new("V386_ArmholeBindingCurve", type="CURVE")
     binding_curve.dimensions = "3D"
     binding_curve.resolution_u = 2
-    binding_curve.bevel_depth = 0.0018
+    binding_curve.bevel_depth = 0.00125
     binding_curve.bevel_resolution = 3
     binding_curve.fill_mode = "FULL"
     for chain in binding_chains:
@@ -1455,7 +1455,7 @@ def remove_short_sleeve_components(clothing_objects):
     binding_obj.scale = (1.0, 1.0, 1.0)
     binding_material = _make_solid_material(
         "V386_DarkTeal_ArmholeBinding",
-        (0.018, 0.060, 0.050, 1.0),
+        (0.006, 0.020, 0.017, 1.0),
         metallic=0.0,
         roughness=0.72,
         specular=0.16,
@@ -1483,7 +1483,7 @@ def remove_short_sleeve_components(clothing_objects):
         "status": "APPLIED",
         "object": binding_obj.name,
         "material": binding_material.name,
-        "method": "bevelled left/right polyline chains sampled from exposed armhole boundary edges; 1.8 mm radius",
+        "method": "bevelled left/right polyline chains sampled from exposed armhole boundary edges; 1.25 mm radius",
         "selected_boundary_edge_count": len(selected_boundary_edges),
         "chain_count": len(binding_chains),
         "chain_vertex_counts": [len(chain["vertices"]) for chain in binding_chains],
