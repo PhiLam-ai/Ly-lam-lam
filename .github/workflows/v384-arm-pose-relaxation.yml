@@ -429,6 +429,11 @@ jobs:
           assert arm_pose["mean_lateral_reduction_m"] >= 0.025, arm_pose
           assert arm_pose["mean_vertical_drop_m"] >= 0.015, arm_pose
           assert 0 < arm_pose["max_vertex_displacement_m"] <= 0.30, arm_pose
+          assert arm_pose["protected_torso_vertex_count"] >= 25, arm_pose
+          assert arm_pose["protected_torso_max_displacement_m"] <= 1e-7, arm_pose
+          assert arm_pose["protected_lower_body_vertex_count"] >= 25, arm_pose
+          assert arm_pose["protected_lower_body_max_displacement_m"] <= 1e-7, arm_pose
+          assert arm_pose["rotation"]["lower_body_cutoff_z_m"] == 0.82, arm_pose
           adjusted_arm_objects = {item["object"] for item in arm_pose["per_mesh"]}
           assert {"Human", "Human.female_sportsuit01"}.issubset(adjusted_arm_objects), arm_pose
           assert "head and facial profile; eyes, iris texture, hair and necklace" in arm_pose["preserved"], arm_pose
