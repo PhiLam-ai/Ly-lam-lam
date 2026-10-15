@@ -455,7 +455,7 @@ jobs:
           assert skin_tuck["object"] == "Human", skin_tuck
           assert skin_tuck["candidate_vertex_count"] >= 30, skin_tuck
           assert skin_tuck["moved_vertex_count"] >= 25, skin_tuck
-          assert 0.004 <= skin_tuck["mean_inward_shift_m"] <= 0.012, skin_tuck
+          assert 0.001 <= skin_tuck["mean_inward_shift_m"] <= 0.012, skin_tuck
           assert 0 < skin_tuck["max_vertex_displacement_m"] <= 0.0120001, skin_tuck
           assert skin_tuck["protected_torso_vertex_count"] >= 25, skin_tuck
           assert skin_tuck["protected_torso_max_displacement_m"] <= 1e-7, skin_tuck

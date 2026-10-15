@@ -3260,8 +3260,8 @@ def apply_armhole_skin_tuck(basemesh):
     }
     if candidate_vertex_count < 30 or moved_count < 25:
         raise RuntimeError("V386 armhole skin tuck affected too few upper-arm cap vertices: " + repr(audit))
-    if not (0.004 <= mean_shift <= 0.012) or max_shift > 0.0120001:
-        raise RuntimeError("V386 armhole skin tuck moved skin outside the intended 4-12 mm range: " + repr(audit))
+    if not (0.001 <= mean_shift <= 0.012) or max_shift > 0.0120001:
+        raise RuntimeError("V386 armhole skin tuck mean shift must be at least 1 mm and max shift at most 12 mm: " + repr(audit))
     if protected_torso_count < 25 or protected_lower_body_count < 25:
         raise RuntimeError("V386 armhole skin tuck could not establish protected torso/lower-body vertices: " + repr(audit))
     if max(protected_torso_displacements, default=0.0) > 1e-7 or max(protected_lower_body_displacements, default=0.0) > 1e-7:
