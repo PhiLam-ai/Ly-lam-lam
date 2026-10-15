@@ -6,6 +6,7 @@ on:
       - avatar/v385-arm-pose-continuity
     paths:
       - "tools/blender_v385_arm_pose_continuity.py"
+      - "tools/v385_apply_viewer_camera_fit.cjs"
       - ".github/workflows/v385-arm-pose-continuity.yml"
   workflow_dispatch:
 
@@ -651,7 +652,11 @@ jobs:
           V352_VIEWER_ROOT="$RUNNER_TEMP/v385-viewer" \
             V352_PATCH_REPORT_PATH="$GITHUB_WORKSPACE/artifacts/v385-browser-test/viewer-lighting-patch-report.json" \
             node tools/v352_apply_viewer_fill_lighting.cjs
-          cp "$RUNNER_TEMP/v385-viewer/index.html" artifacts/v385-browser-test/index-v385-experimental-lighting.html
+          node --check tools/v385_apply_viewer_camera_fit.cjs
+          V385_VIEWER_ROOT="$RUNNER_TEMP/v385-viewer" \
+            V385_CAMERA_FIT_REPORT_PATH="$GITHUB_WORKSPACE/artifacts/v385-browser-test/viewer-camera-fit-report.json" \
+            node tools/v385_apply_viewer_camera_fit.cjs
+          cp "$RUNNER_TEMP/v385-viewer/index.html" artifacts/v385-browser-test/index-v385-experimental-preview.html
           node --check tools/v314_candidate_webgl_smoke.cjs
           node tools/v314_candidate_webgl_smoke.cjs
           test -s artifacts/v385-browser-test/v314-candidate-browser-report.json
@@ -670,9 +675,15 @@ jobs:
           patch = json.loads(Path("artifacts/v385-browser-test/viewer-lighting-patch-report.json").read_text(encoding="utf-8"))
           assert patch["status"] == "V352_TEMP_VIEWER_LIGHTING_PATCH_APPLIED" and patch["replacementCount"] == 1, patch
           assert patch["modelUnchanged"] is True and patch["originalHtmlSha256"] != patch["patchedHtmlSha256"], patch
-          patched_html = Path("artifacts/v385-browser-test/index-v385-experimental-lighting.html").read_text(encoding="utf-8")
+          camera_patch = json.loads(Path("artifacts/v385-browser-test/viewer-camera-fit-report.json").read_text(encoding="utf-8"))
+          assert camera_patch["status"] == "V385_TEMP_VIEWER_CAMERA_FIT_PATCH_APPLIED", camera_patch
+          assert camera_patch["replacementCount"] == 1 and camera_patch["modelGlbUnchanged"] is True, camera_patch
+          assert camera_patch["originalHtmlSha256"] != camera_patch["patchedHtmlSha256"], camera_patch
+          patched_html = Path("artifacts/v385-browser-test/index-v385-experimental-preview.html").read_text(encoding="utf-8")
           assert "const faceFill=new THREE.DirectionalLight(0xfff4e8,0.45)" in patched_html, "V385 browser capture did not use the V353 lighting patch"
-          print("V385_BROWSER_WEBGL_LIGHTING_NECKLACE=PASS_EXPERIMENTAL_ONLY")
+          assert "cameraDistance=Math.max(fitVertical,fitHorizontal,1.0)*1.30;" in patched_html, "V385 mobile preview is missing the extra camera framing margin"
+          assert report["avatarDiagnostics"]["framing"]["projectedBoundsNdc"]["minY"] >= -0.98 and report["avatarDiagnostics"]["framing"]["projectedBoundsNdc"]["maxY"] <= 0.98, report["avatarDiagnostics"]
+          print("V385_BROWSER_WEBGL_LIGHTING_CAMERA_FIT=PASS_EXPERIMENTAL_ONLY")
           print(json.dumps({"state": report["state"], "avatarDiagnostics": report.get("avatarDiagnostics"), "visualFraming": report["visualFraming"]}, ensure_ascii=False, indent=2))
           PY
 
@@ -688,7 +699,7 @@ jobs:
           cat > "$stage/v312-work/V385-EXPERIMENTAL-AVATAR.md" <<'MD'
           # V385 Experimental Real Human-Topology Avatar — Not Yet Approved
 
-          This V385 candidate is a corrective continuation of V384. It uses a gentler 22-degree arm rotation and extends the lower smooth fade through the palm/finger region to avoid the long, stretched finger artifacts visible in the V384 preview. A lateral gate keeps the deformation away from the legs, while the measured torso and below-cutoff guard vertices must remain unchanged. It preserves the face, eyes/iris treatment, hair, necklace, waist/hip/thigh details, 12 facial morphs and idle animation. The V352 fill-light patch is preview-only; production main branch is unchanged. This is a diagnostic candidate, not the final avatar. Inspect wrist/finger continuity, shoulder/sleeve seams and hand-to-thigh clearance before approval.
+          This V385 candidate is a corrective continuation of V384. It uses a gentler 22-degree arm rotation and extends the lower smooth fade through the palm/finger region to avoid the long, stretched finger artifacts visible in the V384 preview. A lateral gate keeps the deformation away from the legs, while the measured torso and below-cutoff guard vertices must remain unchanged. It preserves the face, eyes/iris treatment, hair, necklace, waist/hip/thigh details, 12 facial morphs and idle animation. The preview-only viewer also increases camera distance by about 8.3% so the narrower arm pose retains vertical framing on portrait screens. Both viewer patches affect only this experimental package; the production main branch and GLB geometry are unchanged by the viewer patches. This is a diagnostic candidate, not the final avatar. Inspect wrist/finger continuity, shoulder/sleeve seams and hand-to-thigh clearance before approval.
 
           - This is an experimental human-mesh candidate, not a claim of final photorealism.
           - It includes a subtle Lam_Idle_GentleSway common-root animation and 12 base-mesh facial morph names. The five separate face accessory meshes are restored with export-safe materials so the browser image can be compared against the V335 texture-only diagnostic.
@@ -727,6 +738,8 @@ jobs:
               html = archive.read("v312-work/index.html").decode("utf-8")
               if "const faceFill=new THREE.DirectionalLight(0xfff4e8,0.45)" not in html:
                   raise SystemExit("V385 packaged preview is missing the V353/V352 fill-lighting patch")
+              if "cameraDistance=Math.max(fitVertical,fitHorizontal,1.0)*1.30;" not in html:
+                  raise SystemExit("V385 packaged preview is missing the portrait camera-fit margin")
           print(f"V385_WINDOWS_PREVIEW_BYTES={package.stat().st_size}")
           print(f"V385_WINDOWS_PREVIEW_SHA256={digest}")
           print("V385_WINDOWS_PREVIEW_ZIP_INTEGRITY=PASS")
