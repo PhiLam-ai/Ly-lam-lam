@@ -3149,6 +3149,125 @@ def _face_profile_measurements(points):
     return result
 
 
+def apply_armhole_skin_tuck(basemesh):
+    """Narrow only the exposed upper-arm skin cap near the armhole by at most 12 mm.
+
+    The shirt width is intentionally kept at the visually-tested A22 value.
+    A localized, smooth inward shift of the skin directly beneath the armhole
+    helps the arm cap sit behind the retained shirt edge without adding a broad
+    shoulder flap or moving the central torso, face, hair, clothing or trousers.
+    """
+    obj = basemesh
+    if obj.type != "MESH":
+        raise RuntimeError("V386 armhole skin tuck requires the base Human mesh")
+    shape_keys = getattr(obj.data, "shape_keys", None)
+    if shape_keys is not None and len(shape_keys.key_blocks):
+        raise RuntimeError("V386 armhole skin tuck refuses to edit a body mesh with shape keys")
+
+    matrix = obj.matrix_world.copy()
+    inverse = matrix.inverted()
+    max_inward_shift_m = 0.012
+    lateral_inner_m = 0.16
+    lateral_outer_m = 0.30
+    vertical_start_z_m = 1.18
+    vertical_full_z_m = 1.24
+    vertical_full_end_z_m = 1.29
+    vertical_end_z_m = 1.34
+
+    selected_shifts = []
+    selected_before_x = []
+    selected_after_x = []
+    protected_torso_displacements = []
+    protected_lower_body_displacements = []
+    protected_torso_count = 0
+    protected_lower_body_count = 0
+    candidate_vertex_count = 0
+
+    for vertex in obj.data.vertices:
+        original = matrix @ vertex.co
+        abs_x = abs(float(original.x))
+        z = float(original.z)
+
+        lateral_weight = _v386_smooth_unit(
+            (abs_x - lateral_inner_m) / (lateral_outer_m - lateral_inner_m)
+        )
+        rise_weight = _v386_smooth_unit(
+            (z - vertical_start_z_m) / (vertical_full_z_m - vertical_start_z_m)
+        )
+        fall_weight = _v386_smooth_unit(
+            (vertical_end_z_m - z) / (vertical_end_z_m - vertical_full_end_z_m)
+        )
+        weight = lateral_weight * rise_weight * fall_weight
+
+        if lateral_inner_m < abs_x < lateral_outer_m and vertical_start_z_m < z < vertical_end_z_m:
+            candidate_vertex_count += 1
+
+        if abs_x <= lateral_inner_m + 1e-9:
+            protected_torso_displacements.append(0.0)
+            protected_torso_count += 1
+        if z <= 1.16 + 1e-9:
+            protected_lower_body_displacements.append(0.0)
+            protected_lower_body_count += 1
+
+        if weight <= 0.01:
+            continue
+        shift = max_inward_shift_m * weight
+        new_abs_x = max(0.0, abs_x - shift)
+        side_sign = 1.0 if float(original.x) >= 0.0 else -1.0
+        transformed = Vector((side_sign * new_abs_x, float(original.y), float(original.z)))
+        displacement = float((transformed - original).length)
+        vertex.co = inverse @ transformed
+
+        selected_shifts.append(shift)
+        selected_before_x.append(abs_x)
+        selected_after_x.append(new_abs_x)
+
+    obj.data.update()
+    bpy.context.view_layer.update()
+
+    moved_count = len(selected_shifts)
+    mean_shift = sum(selected_shifts) / moved_count if moved_count else 0.0
+    max_shift = max(selected_shifts) if selected_shifts else 0.0
+    mean_lateral_reduction = (
+        sum(a - b for a, b in zip(selected_before_x, selected_after_x)) / moved_count
+        if moved_count else 0.0
+    )
+
+    audit = {
+        "status": "APPLIED" if moved_count >= 25 else "INSUFFICIENT_SKIN_CAP_VERTICES",
+        "object": obj.name,
+        "scope": "base skin vertices in the lateral upper-arm/armhole transition only",
+        "zone_abs_x_m": [lateral_inner_m, lateral_outer_m],
+        "zone_z_m": [vertical_start_z_m, vertical_end_z_m],
+        "vertical_full_weight_z_m": [vertical_full_z_m, vertical_full_end_z_m],
+        "candidate_vertex_count": candidate_vertex_count,
+        "moved_vertex_count": moved_count,
+        "max_inward_shift_m": max_inward_shift_m,
+        "mean_inward_shift_m": round(mean_shift, 6),
+        "mean_lateral_reduction_m": round(mean_lateral_reduction, 6),
+        "max_vertex_displacement_m": round(max_shift, 6),
+        "protected_torso_vertex_count": protected_torso_count,
+        "protected_torso_max_displacement_m": max(protected_torso_displacements, default=0.0),
+        "protected_lower_body_vertex_count": protected_lower_body_count,
+        "protected_lower_body_max_displacement_m": max(protected_lower_body_displacements, default=0.0),
+        "preserved": [
+            "central torso x<=0.16 m",
+            "lower body z<=1.16 m",
+            "upper head/face/hair and all clothing geometry",
+            "12 facial morph controls are loaded after this bounded skin adjustment",
+        ],
+    }
+    if candidate_vertex_count < 30 or moved_count < 25:
+        raise RuntimeError("V386 armhole skin tuck affected too few upper-arm cap vertices: " + repr(audit))
+    if not (0.004 <= mean_shift <= 0.012) or max_shift > 0.0120001:
+        raise RuntimeError("V386 armhole skin tuck moved skin outside the intended 4-12 mm range: " + repr(audit))
+    if protected_torso_count < 25 or protected_lower_body_count < 25:
+        raise RuntimeError("V386 armhole skin tuck could not establish protected torso/lower-body vertices: " + repr(audit))
+    if max(protected_torso_displacements, default=0.0) > 1e-7 or max(protected_lower_body_displacements, default=0.0) > 1e-7:
+        raise RuntimeError("V386 armhole skin tuck unexpectedly moved a protected region: " + repr(audit))
+    return audit
+
+
 def apply_face_profile_refinement(basemesh):
     """Subtly fuller cheek and tapered lower jaw on the skin face only.
 
@@ -4614,6 +4733,7 @@ def main():
 
     body_shape_adjustment = apply_targeted_body_shape_adjustment(basemesh, clothing_objects)
     arm_pose_refinement = apply_relaxed_arm_pose(basemesh, clothing_objects)
+    armhole_skin_tuck_audit = apply_armhole_skin_tuck(basemesh)
     face_shape_refinement = apply_face_profile_refinement(basemesh)
     sleeve_removal_audit = remove_short_sleeve_components(clothing_objects)
     wardrobe_detail_objects, wardrobe_detail_audit = create_wardrobe_details(bpy.context.scene, basemesh, clothing_objects)
@@ -5081,6 +5201,7 @@ def main():
         "morphometric_audit": morphometric_audit,
         "body_shape_adjustment": body_shape_adjustment,
         "arm_pose_refinement": arm_pose_refinement,
+        "armhole_skin_tuck_audit": armhole_skin_tuck_audit,
         "face_shape_refinement": face_shape_refinement,
         "sleeve_removal_audit": sleeve_removal_audit,
         "face_framing_hair_audit": face_framing_hair_audit,

@@ -450,6 +450,20 @@ jobs:
           assert {"Human", "Human.female_sportsuit01"}.issubset(adjusted_arm_objects), arm_pose
           assert "head and facial profile; eyes, iris texture, hair and necklace" in arm_pose["preserved"], arm_pose
           assert "shoes are excluded from the arm deformation" in arm_pose["preserved"], arm_pose
+          skin_tuck = report["armhole_skin_tuck_audit"]
+          assert skin_tuck["status"] == "APPLIED", skin_tuck
+          assert skin_tuck["object"] == "Human", skin_tuck
+          assert skin_tuck["candidate_vertex_count"] >= 30, skin_tuck
+          assert skin_tuck["moved_vertex_count"] >= 25, skin_tuck
+          assert 0.004 <= skin_tuck["mean_inward_shift_m"] <= 0.012, skin_tuck
+          assert 0 < skin_tuck["max_vertex_displacement_m"] <= 0.0120001, skin_tuck
+          assert skin_tuck["protected_torso_vertex_count"] >= 25, skin_tuck
+          assert skin_tuck["protected_torso_max_displacement_m"] <= 1e-7, skin_tuck
+          assert skin_tuck["protected_lower_body_vertex_count"] >= 25, skin_tuck
+          assert skin_tuck["protected_lower_body_max_displacement_m"] <= 1e-7, skin_tuck
+          assert "central torso x<=0.16 m" in skin_tuck["preserved"], skin_tuck
+          assert "lower body z<=1.16 m" in skin_tuck["preserved"], skin_tuck
+          print("V386_ARMHOLE_SKIN_TUCK_GATE=PASS_EXPERIMENTAL_ONLY")
           print("V386_ARM_POSE_GATE=PASS_EXPERIMENTAL_ONLY")
           sleeves = report["sleeve_removal_audit"]
           assert sleeves["status"] == "APPLIED", sleeves
@@ -759,7 +773,7 @@ jobs:
           cat > "$stage/v312-work/V386-EXPERIMENTAL-AVATAR.md" <<'MD'
           # V386 Experimental Real Human-Topology Avatar — Not Yet Approved
 
-          This V386 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body), trims a measured lateral surface band from the integrated MPFB sportsuit garment, validates the retained shirt and trouser regions, and fails safely if left/right bounds, shoulder overlap or mesh-count checks do not pass. The intent is a sleeveless cropped top closer to Phi's saved reference. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder validates the two expected connected shells (shirt and trousers), trims only measured lateral shirt faces, and checks the retained shoulder edge and armhole binding instead of assuming the sleeve surfaces are detached islands. The preview-only camera distance is increased by 12.5% for portrait framing; the browser bounds gate itself is not relaxed. The arm pose rotates about a higher shoulder pivot (z=1.23 m) with a nearer lateral fade (0.18–0.34 m). The armhole profile adds coverage near the lower upper-arm transition and tapers the outer shoulder tip; the exposed boundary chain receives four controlled smoothing passes; its measured mean roughness must drop by at least 15% before the localized 22 mm edge offset and matching binding. A dedicated audit measures the shoulder-cap deformation and boundary smoothing. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
+          This V386 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body), trims a measured lateral surface band from the integrated MPFB sportsuit garment, validates the retained shirt and trouser regions, and fails safely if left/right bounds, shoulder overlap or mesh-count checks do not pass. The intent is a sleeveless cropped top closer to Phi's saved reference. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder validates the two expected connected shells (shirt and trousers), trims only measured lateral shirt faces, and checks the retained shoulder edge and armhole binding instead of assuming the sleeve surfaces are detached islands. The preview-only camera distance is increased by 12.5% for portrait framing; the browser bounds gate itself is not relaxed. The arm pose rotates about a higher shoulder pivot (z=1.23 m) with a nearer lateral fade (0.18–0.34 m); a separately audited 12 mm maximum skin-cap tuck narrows only the exposed upper-arm/armhole transition and protects the central torso and lower body. The armhole profile adds coverage near the lower upper-arm transition and tapers the outer shoulder tip; the exposed boundary chain receives four controlled smoothing passes; its measured mean roughness must drop by at least 15% before the localized 22 mm edge offset and matching binding. A dedicated audit measures the shoulder-cap deformation and boundary smoothing. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
 
           - This is an experimental human-mesh candidate, not a claim of final photorealism.
           - It includes a subtle Lam_Idle_GentleSway common-root animation and 12 base-mesh facial morph names. The five separate face accessory meshes are restored with export-safe materials so the browser image can be compared against the V335 texture-only diagnostic.
