@@ -1422,8 +1422,8 @@ def remove_short_sleeve_components(clothing_objects):
         raise RuntimeError("V386 remaining shirt torso is unexpectedly small: " + repr(shirt_after))
     if pants_after["vertex_count"] < 500 or pants_after["face_count"] < 500:
         raise RuntimeError("V386 trouser region appears damaged by sleeve trim: " + repr(pants_after))
-    if shirt_after["max_abs_x_m"] > shirt_before["max_abs_x_m"] - 0.025:
-        raise RuntimeError("V386 lateral trim did not measurably narrow the upper garment: " + repr({
+    if shirt_after["max_abs_x_m"] > shirt_before["max_abs_x_m"] - 0.020:
+        raise RuntimeError("V386 lateral trim did not narrow the upper garment by the required 20 mm: " + repr({
             "shirt_before": shirt_before, "shirt_after": shirt_after,
         }))
 

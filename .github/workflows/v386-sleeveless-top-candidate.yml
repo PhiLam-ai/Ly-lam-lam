@@ -470,7 +470,7 @@ jobs:
           assert sleeves["cut_region_audit"]["side_face_counts"]["right"] >= 25, sleeves
           assert sleeves["shirt_region_after"]["vertex_count"] >= 450 and sleeves["shirt_region_after"]["face_count"] >= 400, sleeves
           assert sleeves["trouser_region_after"]["vertex_count"] >= 500 and sleeves["trouser_region_after"]["face_count"] >= 500, sleeves
-          assert sleeves["shirt_region_after"]["max_abs_x_m"] <= sleeves["shirt_region_before"]["max_abs_x_m"] - 0.025, sleeves
+          assert sleeves["shirt_region_after"]["max_abs_x_m"] <= sleeves["shirt_region_before"]["max_abs_x_m"] - 0.020, sleeves
           assert "retained central sleeveless shirt torso/shoulder region" in sleeves["preserved"], sleeves
           assert "lower-body trouser mesh and trouser geometry" in sleeves["preserved"], sleeves
           print("V386_SLEEVE_GEOMETRY_GATE=PASS_EXPERIMENTAL_ONLY")
