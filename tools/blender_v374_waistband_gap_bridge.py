@@ -3983,7 +3983,7 @@ def main():
             "all_nodes": node_names,
         }))
     expected_detail_materials = {
-        "V374_MatteBlackBelt", "V374_CargoPocketCharcoal", "V374_CargoFlapCharcoal",
+        "V374_MatteBlackBelt", "V374_TrouserWaistbandBridge", "V374_CargoPocketCharcoal", "V374_CargoFlapCharcoal",
         "V374_AnkleCuffCharcoal",
         "V374_BuckleSilver", "V374_BucklePinSilver",
     }
