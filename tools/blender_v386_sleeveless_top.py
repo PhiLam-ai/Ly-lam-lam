@@ -1210,6 +1210,7 @@ def remove_short_sleeve_components(clothing_objects):
 
     components_before = connected_components(mesh)
     cut_profile = [
+        (1.095, 0.205),
         (1.115, 0.195),
         (1.135, 0.185),
         (1.165, 0.175),
@@ -1220,7 +1221,8 @@ def remove_short_sleeve_components(clothing_objects):
         (1.310, 0.195),
         (1.325, 0.180),
         (1.340, 0.165),
-        (1.355, 0.150),
+        (1.360, 0.150),
+        (1.380, 0.145),
     ]
 
     def lateral_limit(z_value):
@@ -1239,10 +1241,19 @@ def remove_short_sleeve_components(clothing_objects):
     for polygon in mesh.polygons:
         points = [world_point(index) for index in polygon.vertices]
         center_x = sum(point[0] for point in points) / len(points)
-        center_z = sum(point[2] for point in points) / len(points)
-        limit = lateral_limit(center_z)
-        if limit is not None and abs(center_x) > limit:
-            side = "left" if center_x < 0 else "right"
+        side = "left" if center_x < 0 else "right"
+        # A triangle is trimmed if any corner protrudes beyond the measured
+        # envelope. Centroid-only selection leaves long shoulder triangles
+        # outside the cut and causes visible flaps after the sleeve surface is removed.
+        outside_envelope = False
+        for point in points:
+            limit = lateral_limit(point[2])
+            if limit is None:
+                continue
+            if (side == "left" and -point[0] > limit) or (side == "right" and point[0] > limit):
+                outside_envelope = True
+                break
+        if outside_envelope:
             cut_face_indices.add(polygon.index)
             cut_face_counts[side] += 1
             cut_vertex_indices[side].update(polygon.vertices)
