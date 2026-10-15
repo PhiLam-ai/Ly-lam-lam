@@ -3150,7 +3150,7 @@ def _face_profile_measurements(points):
 
 
 def apply_armhole_skin_tuck(basemesh):
-    # A22 skin-tuck experiment: visually inspect front, side and three-quarter seams before promotion.
+    # A22 skin-tuck experiment: use measured vertex displacement, then inspect front/side/three-quarter seams before promotion.
     """Narrow only the exposed upper-arm skin cap near the armhole by at most 12 mm.
 
     The shirt width is intentionally kept at the visually-tested A22 value.
