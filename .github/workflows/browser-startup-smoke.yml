@@ -180,6 +180,73 @@ jobs:
               await page.locator('#help-toggle').click();
               if (await page.locator('#help').isVisible()) throw new Error('Help panel did not close');
               if (errors.length) throw new Error('Browser errors after mobile control interactions: ' + errors.join(' | '));
+              const localPage = await browser.newPage({
+                viewport: { width: 390, height: 844 },
+                deviceScaleFactor: 2,
+                isMobile: true,
+                hasTouch: true
+              });
+              const localErrors = [];
+              const localFailedRequests = [];
+              const localModelResponses = [];
+              const localThreeResponses = [];
+              const externalThreeRequests = [];
+              localPage.on('pageerror', e => localErrors.push(e.message));
+              localPage.on('requestfailed', r => localFailedRequests.push({
+                url: r.url(),
+                error: r.failure()?.errorText || 'unknown'
+              }));
+              localPage.on('request', r => {
+                if (/cdn\.jsdelivr\.net|unpkg\.com/.test(r.url())) externalThreeRequests.push(r.url());
+              });
+              localPage.on('response', r => {
+                const url = new URL(r.url());
+                if (url.pathname.endsWith('/lam-default.glb')) localModelResponses.push({url:r.url(),status:r.status()});
+                if (url.pathname.endsWith('/vendor/three/build/three.module.js') ||
+                    url.pathname.endsWith('/vendor/three/examples/jsm/loaders/GLTFLoader.js') ||
+                    url.pathname.endsWith('/vendor/three/examples/jsm/controls/OrbitControls.js')) {
+                  localThreeResponses.push({url:r.url(),status:r.status()});
+                }
+              });
+              const localResponse = await localPage.goto('https://philam-ai.github.io/Ly-lam-lam/?three=local', {
+                waitUntil: 'domcontentloaded',
+                timeout: 45000
+              });
+              if (!localResponse || !localResponse.ok()) throw new Error('Local-Three Pages HTML response failed');
+              await localPage.waitForFunction(
+                () => window.__lyLamAppBooted === true || window.__lyLamBootFailed === true,
+                { timeout: 60000 }
+              );
+              const localState = await localPage.evaluate(() => ({
+                booted: window.__lyLamAppBooted === true,
+                bootFailed: window.__lyLamBootFailed === true,
+                rendererReady: window.__lyLamRendererReady === true,
+                canvasCount: document.querySelectorAll('#stage canvas').length,
+                status: document.querySelector('#status-message')?.textContent || ''
+              }));
+              console.log('LOCAL_THREE_STATE=' + JSON.stringify(localState));
+              console.log('LOCAL_THREE_RESPONSES=' + JSON.stringify(localThreeResponses));
+              console.log('LOCAL_THREE_MODEL_RESPONSES=' + JSON.stringify(localModelResponses));
+              console.log('LOCAL_THREE_EXTERNAL_REQUESTS=' + JSON.stringify(externalThreeRequests));
+              console.log('LOCAL_THREE_ERRORS=' + JSON.stringify(localErrors));
+              console.log('LOCAL_THREE_FAILED_REQUESTS=' + JSON.stringify(localFailedRequests));
+              if (!localState.booted || localState.bootFailed || !localState.rendererReady || localState.canvasCount !== 1) {
+                throw new Error('Locally hosted Three.js did not start the avatar: ' + localState.status);
+              }
+              if (!localModelResponses.some(r => r.status === 200)) {
+                throw new Error('GLB did not return HTTP 200 with local Three.js: ' + JSON.stringify(localModelResponses));
+              }
+              if (localThreeResponses.length !== 3 || localThreeResponses.some(r => r.status !== 200)) {
+                throw new Error('Expected the locally hosted Three.js entrypoints to return HTTP 200: ' + JSON.stringify(localThreeResponses));
+              }
+              if (externalThreeRequests.length) {
+                throw new Error('Local mode unexpectedly requested a Three.js CDN: ' + JSON.stringify(externalThreeRequests));
+              }
+              if (localErrors.length || localFailedRequests.length) {
+                throw new Error('Local Three.js errors or failed requests: ' + JSON.stringify({errors:localErrors,failed:localFailedRequests}));
+              }
+              await localPage.screenshot({ path: '/tmp/lll-local-three-smoke.png' });
+              console.log('LOCAL_THREE_MODE=PASS (all Three.js entrypoints and GLB loaded from the deployed site)');
               console.log('PRODUCTION_CONTROLS=PASS (face, full body, zoom in/out, reset, help open/close)');
             } finally {
               await browser.close();
@@ -197,6 +264,7 @@ jobs:
             /tmp/lll-browser-smoke.png
             /tmp/lll-production-smoke.png
             /tmp/lll-production-smoke.log
+            /tmp/lll-local-three-smoke.png
             /tmp/lll-preview-server.log
           if-no-files-found: warn
           retention-days: 14
