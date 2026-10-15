@@ -1218,11 +1218,13 @@ def remove_short_sleeve_components(clothing_objects):
         (1.235, 0.175),
         (1.265, 0.185),
         (1.295, 0.205),
-        (1.310, 0.195),
-        (1.325, 0.180),
-        (1.340, 0.165),
-        (1.360, 0.150),
-        (1.380, 0.145),
+        # Keep a little more fabric over the upper shoulder so the exposed
+        # arm cap doesn't read as a detached triangular skin patch in front view.
+        (1.310, 0.212),
+        (1.325, 0.207),
+        (1.340, 0.195),
+        (1.360, 0.180),
+        (1.380, 0.160),
     ]
 
     def lateral_limit(z_value):
