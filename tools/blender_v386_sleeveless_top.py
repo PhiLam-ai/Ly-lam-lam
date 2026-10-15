@@ -1623,12 +1623,13 @@ def remove_short_sleeve_components(clothing_objects):
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
-    """Reduce the broad A-pose with a modest, continuous rotation that includes palm/finger vertices and avoids the previous wrist-tip stretch.
+    """Relax the A-pose about a higher shoulder pivot with a continuous arm-cap blend.
 
-    The deformation is limited to the base skin and the upper sportsuit garment. The lower fade now reaches the hand/finger region; the lateral gate keeps it away from the legs.
-    It is applied before facial targets are loaded and does not edit hair, eyes,
-    the necklace, shoes, or the lower-body silhouette. A smooth spatial weight
-    fades the transformation into the shoulder/torso to avoid a hard seam.
+    The earlier pivot (z=1.14 m) sat below much of the upper-arm cap, so rotating
+    the arm down could push the skin away from the sleeveless shoulder edge.
+    This variant raises the pivot and brings the lateral fade inward while
+    keeping x<=0.18 m and z<=0.60 m exactly protected. It is an experimental
+    candidate; inspect the shoulder/armhole in front, side and three-quarter views.
     """
     targets = [("body", basemesh)]
     upper_garments = [
@@ -1640,10 +1641,10 @@ def apply_relaxed_arm_pose(basemesh, clothing_objects):
     targets.extend(("upper_clothing", obj) for obj in upper_garments)
 
     pivot_abs_x = 0.205
-    pivot_z = 1.14
+    pivot_z = 1.23
     max_angle_deg = 22.0
-    lateral_inner_m = 0.29
-    lateral_outer_m = 0.39
+    lateral_inner_m = 0.18
+    lateral_outer_m = 0.34
     # Continue the smooth inward/downward arm rotation through the upper-arm
     # cap. The previous fade stopped at z=1.13 m, leaving the shoulder head
     # static above the shirt armhole and exposing a sharp triangular skin patch.
@@ -1688,6 +1689,10 @@ def apply_relaxed_arm_pose(basemesh, clothing_objects):
     selected_lateral_reductions = []
     selected_vertical_drops = []
     selected_displacements = []
+    shoulder_cap_displacements = []
+    shoulder_cap_vertical_drops = []
+    shoulder_cap_lateral_changes = []
+    shoulder_cap_candidate_count = 0
     protected_torso_displacements = []
     protected_lower_body_displacements = []
     protected_torso_count = 0
@@ -1719,6 +1724,14 @@ def apply_relaxed_arm_pose(basemesh, clothing_objects):
                 transformed, weight = transform_world_point(original)
                 if is_measure_block:
                     displacement = float((transformed - original).length)
+                    abs_x = abs(float(original.x))
+                    z_world = float(original.z)
+                    if role == "body" and 0.22 <= abs_x <= 0.31 and 1.10 <= z_world <= 1.31:
+                        shoulder_cap_candidate_count += 1
+                        if weight > 0.01:
+                            shoulder_cap_displacements.append(displacement)
+                            shoulder_cap_vertical_drops.append(z_world - float(transformed.z))
+                            shoulder_cap_lateral_changes.append(abs_x - abs(float(transformed.x)))
                     if abs(float(original.x)) <= lateral_inner_m + 1e-9:
                         mesh_torso_guard_disp.append(displacement)
                         mesh_torso_guard_count += 1
@@ -1809,6 +1822,18 @@ def apply_relaxed_arm_pose(basemesh, clothing_objects):
             "interpolation": "product of cubic smoothstep lateral, upper-vertical and lower-vertical gates",
         },
         "weighted_vertex_count": selected_count,
+        "shoulder_cap_audit": {
+            "status": "APPLIED" if shoulder_cap_displacements else "NO_WEIGHTED_VERTICES",
+            "object": "Human",
+            "zone_abs_x_m": [0.22, 0.31],
+            "zone_z_m": [1.10, 1.31],
+            "candidate_vertex_count": shoulder_cap_candidate_count,
+            "transformed_vertex_count": len(shoulder_cap_displacements),
+            "mean_displacement_m": round(sum(shoulder_cap_displacements) / len(shoulder_cap_displacements), 6) if shoulder_cap_displacements else 0.0,
+            "mean_downward_shift_m": round(sum(shoulder_cap_vertical_drops) / len(shoulder_cap_vertical_drops), 6) if shoulder_cap_vertical_drops else 0.0,
+            "mean_inward_lateral_change_m": round(sum(shoulder_cap_lateral_changes) / len(shoulder_cap_lateral_changes), 6) if shoulder_cap_lateral_changes else 0.0,
+            "max_displacement_m": round(max(shoulder_cap_displacements), 6) if shoulder_cap_displacements else 0.0,
+        },
         "max_abs_x_before_m": round(max_before, 6),
         "max_abs_x_after_m": round(max_after, 6),
         "mean_lateral_reduction_m": round(lateral_gain, 6),
