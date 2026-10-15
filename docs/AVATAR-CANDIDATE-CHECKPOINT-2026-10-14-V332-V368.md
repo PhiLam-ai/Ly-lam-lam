@@ -171,12 +171,15 @@ A separate V343 run was created from the earlier V342 conversation checkpoint af
 - The dynamic search selected belt center `z=0.870 m`, range `0.850–0.890 m`, 64/64 complete pairs from `Human.female_sportsuit01`, maximum lateral extent `0.1775 m`; it successfully avoids arm hits.
 - Visual review: **NOT APPROVED**. The belt is reduced to a narrow edge at the trousers and the abdomen occludes much of the front strap/buckle. V370 solves the width/arm-hit problem but not the visible-front-surface problem.
 
-## V371 — outermost visible waist belt fit (run in progress)
-- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38658009192.
-- Script: `tools/blender_v371_outer_surface_belt_fit.py`; workflow `.github/workflows/v371-outer-surface-belt-fit.yml`.
-- V371 samples from the character centerline outwards and selects the outermost visible hit across only the base body and wardrobe meshes. This keeps the strap on the visible abdomen/garment surface, rather than behind the abdomen as in V370, while maintaining the hard `0.30 m` lateral cap that prevents reaching the arms.
-- The buckle is sampled outward from the centerline at the same selected height. The report and workflow allow only the base body (`Human`) and sportsuit garment (`Human.female_sportsuit01`) as sources; they validate the selected ring is the highest eligible among 23 candidate heights, at least 60/64 complete pairs, matching buckle height, mobile WebGL, clean browser console, ZIP integrity and SHA-256.
-- Visual decision pending. Inspect the front/side/browser screenshots carefully; production `main/v312-work/lam-default.glb` is still unchanged.
+## V371 — outermost visible waist belt fit
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38658009192 — **SUCCESS**.
+- Artifact: [V371 GitHub Actions artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38658009192/artifacts/11937865918), ID `11937865918`, 49,020,603 bytes; digest `sha256:1d8eb99b61185bab670eb9a112eecbd28e0f04091657ad23066b8c4cb208a6bc`.
+- GLB `lam-v371-gltf-materials-full-face-candidate.glb`, 13,941,684 bytes; SHA-256 `e3ccf98c11cb6475f0b3bf1ed69eccb2887b78ca4409f8e9198aa370528ffc30` independently recomputed from artifact bytes. 0 glTF skins, 9 images, 26 meshes, all 12 morphs and `Lam_Idle_GentleSway` remain.
+- Windows preview ZIP `ly-lam-lam-v371-experimental-windows.zip`, 15,066,300 bytes, 81 entries, ZIP integrity passed; SHA-256 `a72489288af6e0a457561b6c29c0b7a056bd9411023b58a6021761695bed78c6` matched its `.sha256` sidecar and was independently recomputed.
+- Belt fit audit: selected center `z=0.890 m` (range `0.870–0.910 m`); 64/64 complete pairs; sources were `Human` + `Human.female_sportsuit01`; maximum lateral extent `0.16789 m` (below the `0.30 m` guard). Buckle center matches belt center and is sampled from the visible front surface.
+- Mobile browser: `PASS_BROWSER_WEBGL_CANDIDATE_ONLY` at 390×844; GLB loaded, WebGL ready, idle animation advanced, no page/console errors and model visible in safe area.
+- Visual decision: **BELT FIT ACCEPTED FOR FURTHER WORK**. The front strap and silver buckle are visible, the strap follows the waist, and neither arm is pulled into the belt. **Full wardrobe NOT APPROVED**: pale ankle/shin patches remain obvious, the top still has short sleeves, and the bottoms read as tight leggings rather than loose cargo trousers.
+- Next V372 is limited to recoloring/darkening the pale ankle/shin patches on the sportsuit texture/material only. Keep belt/pockets, face, hair, necklace, top color, shoes, body shape, morphs and animation unchanged. The sleeveless shoulder shape and looser cargo-trouser silhouette remain separate later experiments.
 ## Safety and rollback
 
 - Do not copy any experimental GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
