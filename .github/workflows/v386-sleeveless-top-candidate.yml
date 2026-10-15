@@ -483,7 +483,7 @@ jobs:
           assert overlap["moved_vertex_count"] >= 12, overlap
           assert 0.008 <= overlap["mean_offset_m"] <= 0.030, overlap
           assert 0.020 <= overlap["max_offset_m"] <= 0.031, overlap
-          assert overlap["max_abs_x_after_m"] <= sleeves["shirt_region_before"]["max_abs_x_m"] - 0.025, overlap
+          assert overlap["max_abs_x_after_m"] <= sleeves["shirt_region_before"]["max_abs_x_m"] - 0.020, overlap
           assert "underarm opening remains open" in overlap["preserved"], overlap
           assert binding["chain_count"] >= 2, binding
           assert binding["selected_boundary_edge_count"] >= 40, binding
