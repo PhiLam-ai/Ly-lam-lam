@@ -95,6 +95,99 @@ jobs:
           JS
           NODE_PATH="$GITHUB_WORKSPACE/node_modules" node /tmp/lll-browser-smoke.cjs
 
+      - name: Test deployed GitHub Pages on mobile-sized Chromium
+        shell: bash
+        run: |
+          set -o pipefail
+          cat > /tmp/lll-production-smoke.cjs <<'JS'
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch({
+              headless: true,
+              args: ['--enable-webgl', '--use-gl=angle', '--use-angle=swiftshader', '--ignore-gpu-blocklist']
+            });
+            try {
+              const page = await browser.newPage({
+                viewport: { width: 390, height: 844 },
+                deviceScaleFactor: 2,
+                isMobile: true,
+                hasTouch: true
+              });
+              const errors = [];
+              const failedRequests = [];
+              const modelResponses = [];
+              page.on('pageerror', e => errors.push(e.message));
+              page.on('requestfailed', r => failedRequests.push({
+                url: r.url(),
+                error: r.failure()?.errorText || 'unknown'
+              }));
+              page.on('response', r => {
+                if (new URL(r.url()).pathname.endsWith('/lam-default.glb')) {
+                  modelResponses.push({ url: r.url(), status: r.status() });
+                }
+              });
+              const response = await page.goto('https://philam-ai.github.io/Ly-lam-lam/', {
+                waitUntil: 'domcontentloaded',
+                timeout: 45000
+              });
+              if (!response || !response.ok()) throw new Error('Deployed Pages HTML response failed');
+              await page.waitForFunction(
+                () => window.__lyLamAppBooted === true || window.__lyLamBootFailed === true,
+                { timeout: 60000 }
+              );
+              const state = await page.evaluate(() => {
+                const canvas = document.querySelector('#stage canvas');
+                const controls = Array.from(document.querySelectorAll('#quick-controls button'));
+                return {
+                  url: location.href,
+                  booted: window.__lyLamAppBooted === true,
+                  bootFailed: window.__lyLamBootFailed === true,
+                  rendererReady: window.__lyLamRendererReady === true,
+                  canvasCount: document.querySelectorAll('#stage canvas').length,
+                  status: document.querySelector('#status-message')?.textContent || '',
+                  webgl: !!canvas && (typeof WebGLRenderingContext !== 'undefined'),
+                  controls: controls.map(button => ({
+                    id: button.id,
+                    visible: !!(button.offsetWidth && button.offsetHeight),
+                    minHeight: Math.round(button.getBoundingClientRect().height)
+                  }))
+                };
+              });
+              console.log('PRODUCTION_STATE=' + JSON.stringify(state));
+              console.log('PRODUCTION_PAGE_ERRORS=' + JSON.stringify(errors));
+              console.log('PRODUCTION_FAILED_REQUESTS=' + JSON.stringify(failedRequests));
+              console.log('PRODUCTION_MODEL_RESPONSES=' + JSON.stringify(modelResponses));
+              if (!state.booted || state.bootFailed) throw new Error('Production avatar boot failed: ' + state.status);
+              if (!state.rendererReady || state.canvasCount !== 1) throw new Error('Production WebGL renderer/canvas not initialized');
+              if (!state.webgl) throw new Error('Production browser does not expose WebGL');
+              if (state.controls.length !== 6 || state.controls.some(button => !button.visible || button.minHeight < 40)) {
+                throw new Error('One or more mobile quick controls are missing or too small: ' + JSON.stringify(state.controls));
+              }
+              if (!modelResponses.some(r => r.status === 200)) throw new Error('Production GLB did not return HTTP 200: ' + JSON.stringify(modelResponses));
+              if (errors.length) throw new Error('Production browser errors: ' + errors.join(' | '));
+              if (failedRequests.length) throw new Error('Production resource requests failed: ' + JSON.stringify(failedRequests));
+              await page.screenshot({ path: '/tmp/lll-production-smoke.png' });
+              await page.locator('#view-face').click();
+              await page.locator('#view-full').click();
+              await page.locator('#zoom-in').click();
+              await page.locator('#zoom-out').click();
+              await page.locator('#view-reset').click();
+              await page.locator('#help-toggle').click();
+              if (!(await page.locator('#help').isVisible())) throw new Error('Help panel did not open');
+              if (await page.locator('#help-toggle').getAttribute('aria-expanded') !== 'true') {
+                throw new Error('Help toggle did not set aria-expanded=true');
+              }
+              await page.locator('#help-toggle').click();
+              if (await page.locator('#help').isVisible()) throw new Error('Help panel did not close');
+              if (errors.length) throw new Error('Browser errors after mobile control interactions: ' + errors.join(' | '));
+              console.log('PRODUCTION_CONTROLS=PASS (face, full body, zoom in/out, reset, help open/close)');
+            } finally {
+              await browser.close();
+            }
+          })().catch(e => { console.error(e.stack || e); process.exit(1); });
+          JS
+          NODE_PATH="$GITHUB_WORKSPACE/node_modules" node /tmp/lll-production-smoke.cjs 2>&1 | tee /tmp/lll-production-smoke.log
+
       - name: Upload browser screenshot and server logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -102,6 +195,8 @@ jobs:
           name: lll-browser-smoke-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             /tmp/lll-browser-smoke.png
+            /tmp/lll-production-smoke.png
+            /tmp/lll-production-smoke.log
             /tmp/lll-preview-server.log
           if-no-files-found: warn
           retention-days: 14
