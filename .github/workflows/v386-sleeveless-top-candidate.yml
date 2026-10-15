@@ -445,17 +445,24 @@ jobs:
           sleeves = report["sleeve_removal_audit"]
           assert sleeves["status"] == "APPLIED", sleeves
           assert sleeves["object"] == "Human.female_sportsuit01", sleeves
-          assert sleeves["component_count_before"] == 6, sleeves
-          assert sleeves["component_count_after_expected"] == 4, sleeves
+          assert 1 <= sleeves["component_count_before"] <= 4, sleeves
+          assert sleeves["component_count_after_cut"] >= sleeves["component_count_before"] + 2, sleeves
+          assert sleeves["component_count_after_expected"] == sleeves["component_count_after"], sleeves
+          assert sleeves["component_count_after"] == sleeves["component_count_after_cut"] - 2, sleeves
           assert sleeves["removed_component_count"] == 2, sleeves
-          assert sleeves["removed_vertex_count"] == sum(item["vertex_count"] for item in sleeves["removed_components"]), sleeves
-          assert sleeves["removed_face_count"] == sum(item["face_count"] for item in sleeves["removed_components"]), sleeves
+          assert 80 <= sleeves["cut_face_count"] <= 400, sleeves
+          assert 80 <= sleeves["removed_face_count"] <= 600, sleeves
+          assert sleeves["removed_face_count"] == sleeves["cut_face_count"] + sum(item["face_count"] for item in sleeves["removed_components"]), sleeves
+          assert sleeves["removed_vertex_count"] >= sum(item["vertex_count"] for item in sleeves["removed_components"]), sleeves
           assert sleeves["vertex_count_after"] == sleeves["vertex_count_before"] - sleeves["removed_vertex_count"], sleeves
           assert sleeves["face_count_after"] == sleeves["face_count_before"] - sleeves["removed_face_count"], sleeves
           assert all(item["classified_as_sleeve"] is True for item in sleeves["removed_components"]), sleeves
-          assert all(item["max_abs_x_m"] >= 0.235 and 1.00 < item["bounds_world_m"]["min"][2] < 1.24 and 1.20 < item["bounds_world_m"]["max"][2] < 1.40 for item in sleeves["removed_components"]), sleeves
-          assert "shirt torso/shoulder panels after detached sleeve removal" in sleeves["preserved"], sleeves
-          assert "left and right trouser-leg components" in sleeves["preserved"], sleeves
+          assert {item["side"] for item in sleeves["removed_components"]} == {"left", "right"}, sleeves
+          assert all(item["max_abs_x_m"] >= 0.17 and 1.08 < item["bounds_world_m"]["min"][2] < 1.24 and 1.24 < item["bounds_world_m"]["max"][2] < 1.36 for item in sleeves["removed_components"]), sleeves
+          assert sleeves["cut_region_audit"]["side_face_counts"]["left"] >= 25, sleeves
+          assert sleeves["cut_region_audit"]["side_face_counts"]["right"] >= 25, sleeves
+          assert "central shirt torso and shoulder panels outside the measured sleeve-cut envelope" in sleeves["preserved"], sleeves
+          assert "lower-body trouser mesh outside the measured sleeve-cut envelope" in sleeves["preserved"], sleeves
           print("V386_SLEEVE_GEOMETRY_GATE=PASS_EXPERIMENTAL_ONLY")
           face = report["face_shape_refinement"]
           assert face["status"] == "APPLIED", face
@@ -714,7 +721,7 @@ jobs:
           cat > "$stage/v312-work/V386-EXPERIMENTAL-AVATAR.md" <<'MD'
           # V386 Experimental Real Human-Topology Avatar — Not Yet Approved
 
-          This V386 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body) and removes the two detached short-sleeve shells from the MPFB sportsuit garment using connected-component bounds, not hard-coded vertex IDs. The intent is a sleeveless cropped top closer to Phi's saved reference. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder must discover exactly two isolated sleeve components or fail safely; all remaining shirt torso and trouser components are checked. The preview-only camera fit remains +8.3% for portrait framing. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
+          This V386 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body), cuts a measured lateral sleeve band from the integrated MPFB sportsuit garment, and removes only the two resulting sleeve islands after bounds and left/right checks. The intent is a sleeveless cropped top closer to Phi's saved reference. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder must discover exactly two isolated sleeve components or fail safely; all remaining shirt torso and trouser components are checked. The preview-only camera fit remains +8.3% for portrait framing. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
 
           - This is an experimental human-mesh candidate, not a claim of final photorealism.
           - It includes a subtle Lam_Idle_GentleSway common-root animation and 12 base-mesh facial morph names. The five separate face accessory meshes are restored with export-safe materials so the browser image can be compared against the V335 texture-only diagnostic.
