@@ -223,13 +223,15 @@ A separate V343 run was created from the earlier V342 conversation checkpoint af
 - Visual decision: **NOT APPROVED**. The full circumferential dark bridge conceals the small skin gaps but reads like a second belt. Keep V374 as a diagnostic only; V373 is the better visual rollback.
 - Next: V375 replaces the full ring with two small localized surface-conformed patches at the exact skin-gap locations.
 
-## V375 — local waist-gap patches (run in progress)
-- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38663687888.
-- Script: `tools/blender_v375_local_waist_gap_patches.py`.
-- V375 is based on V373, not V374. It adds only two `2.9 × 2.2 cm` surface-conformed charcoal patches near x `±0.135 m`, centered just below the belt with the top edge tucked under the strap. It does not create a continuous waist ring.
-- Each panel is projected onto the visible body/trouser surface by a front-facing ray grid, with a gate requiring at least 92% valid samples, sources restricted to the body/trouser mesh, and material/node presence in the exported GLB.
-- The V373 ankle-cuff z-band remains `0.125–0.245 m`; belt center and height, buckle, cargo pockets, face, hair, necklace, body silhouette, 12 morphs and idle animation remain unchanged.
-- Visual decision pending. The target is to remove the two skin-colored triangles below the belt while keeping a single clearly defined black strap.
+## V375 — local waist-gap patches
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38663687888 — **SUCCESS**.
+- Artifact: [V375 GitHub Actions artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38663687888/artifacts/11939849008), ID `11939849008`, 49,075,879 bytes; digest `sha256:06bd9647c286a305a83f4ab5414ecd41af7be64fdee2e46c34607282462871d4`.
+- GLB `lam-v375-gltf-materials-full-face-candidate.glb`, 13,959,472 bytes; SHA-256 `0a490066d98ee4b546a03f4f96e00af1921d77a0fa2455e37506b044e4a30d06`. Retains 0 glTF skins, 9 images, 19 materials, 30 meshes, all 12 expected morphs and `Lam_Idle_GentleSway`.
+- Windows preview ZIP `ly-lam-lam-v375-experimental-windows.zip`, 15,079,493 bytes, 81 entries; ZIP integrity passed. SHA-256 `d4681e1b0efc7b6cda9b097adfc271b6db3d154df4899b30831cf79b445edb64` matched the `.sha256` sidecar.
+- Local patch audit: two patches (`V375_WaistGapPatch_Left/Right`), each `0.029 × 0.022 m`; 20/20 valid surface samples each, 0 filled points. Source surfaces are limited to `Human` and `Human.female_sportsuit01`; patch top tucks under belt by 1 mm. No circumferential bridge/ring is present.
+- Browser: PASS at 390×844; WebGL/renderer ready, 12 morphs, idle animation advanced, no page/console errors, visible in safe area. The captured report lists one aborted localhost GLB request during the test harness, but the final state booted normally and the workflow passed.
+- Visual decision: **WAIST-GAP FIX ACCEPTED FOR FURTHER WORK**. The two small dark patches read like belt loops and the former skin-colored triangles are no longer apparent; the unwanted second-belt stripe from V374 is gone. The full avatar/wardrobe still remains **NOT APPROVED** for production because the trousers still fit like leggings rather than loose cargo trousers, and the top still has short sleeves.
+- Next: V376 adjusts only the lower-garment mesh with a smooth localized volume increase at upper-thigh, thigh, knee and calf bands to create a looser cargo-pant silhouette. Body mesh, waistband/belt/buckle, pockets, ankle cuffs, face, hair, necklace, clothing textures, 12 morphs and idle animation must remain unchanged.
 ## Safety and rollback
 
 - Do not copy any experimental GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
