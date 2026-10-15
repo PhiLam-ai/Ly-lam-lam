@@ -163,12 +163,20 @@ A separate V343 run was created from the earlier V342 conversation checkpoint af
 - Failure reason: using only the clothing caster at the original belt height `0.87–0.91 m` produced 0/64 valid pairs. This confirms the old V368 belt ring was above the actual clothing waistband and was being propped up by invalid body/arm hits.
 - This is an expected fail-closed diagnostic, not a regression to the production avatar. The production GLB remains unchanged.
 
-## V370 — dynamic waist belt (run in progress)
-- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38657218078.
-- Script: `tools/blender_v370_dynamic_waist_belt.py`; workflow `.github/workflows/v370-dynamic-waist-belt.yml`.
-- V370 searches 23 candidate belt center heights between `0.780 m` and `0.890 m` at 5 mm increments. At each height it samples both belt edges against only the `Human.female_sportsuit01` garment mesh, requires at least 60/64 complete angular pairs, rejects any hit outside `0.30 m` from the centerline, and selects the highest eligible ring.
-- The silver buckle is sampled and positioned at the chosen center height. The report includes every candidate height, valid sample count, source object names, lateral extent, selected height and eligible-height set; workflow gates require the chosen ring to be the highest eligible one.
-- V370 preserves the V368 pocket geometry and previous face, hair, necklace, wardrobe color, morph and animation work. Visual decision pending: review front/side/browser captures to ensure the belt follows the trouser waist and never extends toward the hands.
+## V370 — dynamic waist belt (artifact reviewed; visual NOT APPROVED)
+- Workflow attempt: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38657218078 — final run status **CANCELLED** during a follow-up commit after model/browser/package steps had completed and the artifact was uploaded. A progress-logging rerun `38657600909` was also started.
+- Artifact: [V370 GitHub Actions artifact](https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38657218078/artifacts/11936354639), ID `11936354639`, 49,016,942 bytes; digest `sha256:caa8b93c3e1d2d614cf906485ae325d335f421e2b6d20566e747f823edbccb2e`.
+- GLB `lam-v370-gltf-materials-full-face-candidate.glb`, 13,941,692 bytes; SHA-256 `93c2f436cd6043fb3ec00de9ab406f2423c6eeeb6778f9043e2928577cf33f84`. 12 morphs and `Lam_Idle_GentleSway` remain.
+- Windows ZIP `ly-lam-lam-v370-experimental-windows.zip`, 15,066,367 bytes, 81 entries, ZIP integrity passed; SHA-256 `312188f1b60bfd64defa24f7adf940f7307e9fd228740fbfeffbc1f55cc07335` matched its sidecar and was independently recomputed.
+- The dynamic search selected belt center `z=0.870 m`, range `0.850–0.890 m`, 64/64 complete pairs from `Human.female_sportsuit01`, maximum lateral extent `0.1775 m`; it successfully avoids arm hits.
+- Visual review: **NOT APPROVED**. The belt is reduced to a narrow edge at the trousers and the abdomen occludes much of the front strap/buckle. V370 solves the width/arm-hit problem but not the visible-front-surface problem.
+
+## V371 — outermost visible waist belt fit (run in progress)
+- Workflow: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38658009192.
+- Script: `tools/blender_v371_outer_surface_belt_fit.py`; workflow `.github/workflows/v371-outer-surface-belt-fit.yml`.
+- V371 samples from the character centerline outwards and selects the outermost visible hit across only the base body and wardrobe meshes. This keeps the strap on the visible abdomen/garment surface, rather than behind the abdomen as in V370, while maintaining the hard `0.30 m` lateral cap that prevents reaching the arms.
+- The buckle is sampled outward from the centerline at the same selected height. The report and workflow allow only the base body (`Human`) and sportsuit garment (`Human.female_sportsuit01`) as sources; they validate the selected ring is the highest eligible among 23 candidate heights, at least 60/64 complete pairs, matching buckle height, mobile WebGL, clean browser console, ZIP integrity and SHA-256.
+- Visual decision pending. Inspect the front/side/browser screenshots carefully; production `main/v312-work/lam-default.glb` is still unchanged.
 ## Safety and rollback
 
 - Do not copy any experimental GLB into production `v312-work/lam-default.glb` or promote it through the stable registry.
