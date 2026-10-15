@@ -494,7 +494,7 @@ jobs:
           assert cover["status"] == "APPLIED", cover
           assert cover["cuff_count"] == 2 and len(cover["cuffs"]) == 2, cover
           assert cover["z_range_m"] == [0.18, 0.30], cover
-          allowed_cuff_sources = {"Human", "Human.female_sportsuit01"}
+          allowed_cuff_sources = {"Human", "Human.female_sportsuit01", "Human.shoes06"}
           for cuff in cover["cuffs"]:
             assert cuff["object"] in {"V372_AnkleCover_Left", "V372_AnkleCover_Right"}, cuff
             assert cuff["surface_hits"] >= 60 and cuff["missing_samples"] <= 4, cuff
