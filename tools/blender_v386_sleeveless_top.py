@@ -1128,12 +1128,14 @@ def _v386_smooth_unit(value):
 
 
 def remove_short_sleeve_components(clothing_objects):
-    """Safely remove integrated sportsuit sleeves by cutting and verifying regions.
+    """Trim integrated short sleeves with a measured band and conservative validation.
 
-    The selected MPFB garment does not expose two detachable sleeve islands before
-    editing. First cut a measured lateral band around both upper arms, then identify
-    the two newly detached sleeve regions by world-space bounds and centroid. If the
-    cut fails to isolate exactly one region per side, stop rather than delete guesses.
+    The MPFB sportsuit shirt and sleeves are a single connected shell, so the
+    sleeve surfaces are cut directly. The builder accepts the result only when
+    the remaining upper-shirt region and trouser region are both present, the
+    upper outline measurably narrows, both sides receive comparable cuts, and
+    mesh-count arithmetic is consistent. No unrelated disconnected region is
+    deleted speculatively.
     """
     import bmesh
 
@@ -1146,12 +1148,12 @@ def remove_short_sleeve_components(clothing_objects):
     obj = outfits[0]
     shape_keys = getattr(obj.data, "shape_keys", None)
     if shape_keys is not None and len(shape_keys.key_blocks):
-        raise RuntimeError("V386 sleeve removal refuses to edit a garment mesh with shape keys")
+        raise RuntimeError("V386 sleeve trim refuses to edit a garment mesh with shape keys")
 
     mesh = obj.data
     matrix = obj.matrix_world.copy()
     vertex_count_before = len(mesh.vertices)
-    polygon_count_before = len(mesh.polygons)
+    face_count_before = len(mesh.polygons)
 
     def world_point(index):
         point = matrix @ mesh.vertices[index].co
@@ -1189,17 +1191,14 @@ def remove_short_sleeve_components(clothing_objects):
             max_y = max(point[1] for point in points)
             min_z = min(point[2] for point in points)
             max_z = max(point[2] for point in points)
-            center_x = sum(point[0] for point in points) / len(points)
             face_count = sum(
                 1 for polygon in current_mesh.polygons
                 if all(index in index_set for index in polygon.vertices)
             )
             result.append({
                 "component_index": len(result),
-                "vertex_indices": indices,
                 "vertex_count": len(indices),
                 "face_count": face_count,
-                "centroid_x_m": round(center_x, 6),
                 "bounds_world_m": {
                     "min": [round(min_x, 6), round(min_y, 6), round(min_z, 6)],
                     "max": [round(max_x, 6), round(max_y, 6), round(max_z, 6)],
@@ -1209,32 +1208,7 @@ def remove_short_sleeve_components(clothing_objects):
             })
         return result
 
-    def sleeve_candidate(component):
-        bounds = component["bounds_world_m"]
-        min_z = bounds["min"][2]
-        max_z = bounds["max"][2]
-        return (
-            1.08 < min_z < 1.22
-            and 1.24 < max_z < 1.36
-            and 0.10 < component["height_m"] < 0.31
-            and component["max_abs_x_m"] >= 0.17
-            and abs(component["centroid_x_m"]) >= 0.16
-            and 20 <= component["vertex_count"] <= 350
-        )
-
-    def clean_bmesh(bm):
-        loose_edges = [edge for edge in bm.edges if not edge.link_faces]
-        if loose_edges:
-            bmesh.ops.delete(bm, geom=loose_edges, context="EDGES")
-        loose_verts = [vertex for vertex in bm.verts if not vertex.link_edges]
-        if loose_verts:
-            bmesh.ops.delete(bm, geom=loose_verts, context="VERTS")
-
     components_before = connected_components(mesh)
-    component_count_before = len(components_before)
-
-    # Smooth measured cut envelope in Blender world-space meters (Z is vertical).
-    # It removes lateral sleeve surfaces but preserves the central torso and neckline.
     cut_profile = [
         (1.115, 0.195),
         (1.135, 0.185),
@@ -1256,47 +1230,46 @@ def remove_short_sleeve_components(clothing_objects):
 
     cut_face_indices = set()
     cut_face_counts = {"left": 0, "right": 0}
+    cut_vertex_indices = {"left": set(), "right": set()}
+    cut_points_by_side = {"left": [], "right": []}
     for polygon in mesh.polygons:
         points = [world_point(index) for index in polygon.vertices]
         center_x = sum(point[0] for point in points) / len(points)
         center_z = sum(point[2] for point in points) / len(points)
         limit = lateral_limit(center_z)
         if limit is not None and abs(center_x) > limit:
+            side = "left" if center_x < 0 else "right"
             cut_face_indices.add(polygon.index)
-            cut_face_counts["left" if center_x < 0 else "right"] += 1
+            cut_face_counts[side] += 1
+            cut_vertex_indices[side].update(polygon.vertices)
+            cut_points_by_side[side].extend(points)
 
     cut_face_count = len(cut_face_indices)
     if not 60 <= cut_face_count <= 450:
         raise RuntimeError(
-            "V386 sleeve cut rejected: face count outside conservative safety bounds: "
+            "V386 sleeve trim rejected: face count outside conservative safety bounds: "
             + repr({"cut_face_count": cut_face_count, "side_counts": cut_face_counts})
         )
     if min(cut_face_counts.values()) < 25:
-        raise RuntimeError("V386 sleeve cut did not identify both lateral sides: " + repr(cut_face_counts))
+        raise RuntimeError("V386 sleeve trim did not select both lateral sides: " + repr(cut_face_counts))
     if abs(cut_face_counts["left"] - cut_face_counts["right"]) > max(cut_face_counts.values()) * 0.40:
-        raise RuntimeError("V386 sleeve cut is too asymmetric to trust: " + repr(cut_face_counts))
+        raise RuntimeError("V386 sleeve trim is too asymmetric to trust: " + repr(cut_face_counts))
 
-    cut_bounds = []
-    for face_index in cut_face_indices:
-        polygon = mesh.polygons[face_index]
-        cut_bounds.extend(world_point(index) for index in polygon.vertices)
+    cut_bounds = {
+        "min": [round(min(point[i] for point in cut_points_by_side["left"] + cut_points_by_side["right"]), 6) for i in range(3)],
+        "max": [round(max(point[i] for point in cut_points_by_side["left"] + cut_points_by_side["right"]), 6) for i in range(3)],
+    }
     cut_region_audit = {
-        "method": "smooth lateral face-centroid envelope",
+        "method": "smooth lateral face-centroid envelope; integrated shirt-sleeve surface trim",
         "profile_world_xz_m": [[z, x] for z, x in cut_profile],
         "face_count": cut_face_count,
         "side_face_counts": cut_face_counts,
-        "vertex_count_touched": len({
-            index for face_index in cut_face_indices
-            for index in mesh.polygons[face_index].vertices
-        }),
-        "bounds_world_m": {
-            "min": [round(min(point[i] for point in cut_bounds), 6) for i in range(3)],
-            "max": [round(max(point[i] for point in cut_bounds), 6) for i in range(3)],
-        },
+        "side_touched_vertex_counts": {side: len(indices) for side, indices in cut_vertex_indices.items()},
+        "touched_vertex_count_total": len(cut_vertex_indices["left"] | cut_vertex_indices["right"]),
+        "bounds_world_m": cut_bounds,
     }
 
-    # Delete only the measured band. This should expose the sleeve-to-torso seam
-    # and separate the remaining sleeve shells from the garment core.
+    # Remove only faces inside the explicitly measured lateral trim envelope.
     bm = bmesh.new()
     try:
         bm.from_mesh(mesh)
@@ -1304,110 +1277,110 @@ def remove_short_sleeve_components(clothing_objects):
         bm.faces.index_update()
         target_faces = [face for face in bm.faces if face.index in cut_face_indices]
         if len(target_faces) != cut_face_count:
-            raise RuntimeError("V386 BMesh face indices do not align with the measured sleeve cut")
+            raise RuntimeError("V386 BMesh face indices do not align with the measured sleeve trim")
         bmesh.ops.delete(bm, geom=target_faces, context="FACES")
-        clean_bmesh(bm)
+        loose_edges = [edge for edge in bm.edges if not edge.link_faces]
+        if loose_edges:
+            bmesh.ops.delete(bm, geom=loose_edges, context="EDGES")
+        loose_verts = [vertex for vertex in bm.verts if not vertex.link_edges]
+        if loose_verts:
+            bmesh.ops.delete(bm, geom=loose_verts, context="VERTS")
         bm.to_mesh(mesh)
     finally:
         bm.free()
     mesh.update()
     bpy.context.view_layer.update()
 
-    components_after_cut = connected_components(mesh)
-    sleeves = [component for component in components_after_cut if sleeve_candidate(component)]
-    sides = ["left" if item["centroid_x_m"] < 0 else "right" for item in sleeves]
-    if len(sleeves) != 2 or sorted(sides) != ["left", "right"]:
-        summary = [{k: v for k, v in item.items() if k != "vertex_indices"} for item in components_after_cut]
-        raise RuntimeError(
-            "V386 sleeve cut did not isolate exactly one bounded sleeve region per side; refusing risky deletion: "
-            + repr({"candidate_count": len(sleeves), "candidate_sides": sides, "components_after_cut": summary,
-                    "cut_region": cut_region_audit})
-        )
-
-    # Verify each selected island is disjoint and delete only those isolated regions.
-    target_indices = {index for component in sleeves for index in component["vertex_indices"]}
-    if len(target_indices) != sum(component["vertex_count"] for component in sleeves):
-        raise RuntimeError("V386 isolated left/right sleeve vertex sets overlap unexpectedly")
-    kept_vertex_count_expected = len(mesh.vertices) - len(target_indices)
-    if kept_vertex_count_expected < 1200:
-        raise RuntimeError("V386 sleeve cleanup would leave too little garment geometry: " + str(kept_vertex_count_expected))
-
-    bm = bmesh.new()
-    try:
-        bm.from_mesh(mesh)
-        bm.verts.ensure_lookup_table()
-        bm.verts.index_update()
-        target_verts = [vertex for vertex in bm.verts if vertex.index in target_indices]
-        if len(target_verts) != len(target_indices):
-            raise RuntimeError("V386 BMesh vertex indices do not align with isolated sleeve regions")
-        bmesh.ops.delete(bm, geom=target_verts, context="VERTS")
-        clean_bmesh(bm)
-        bm.to_mesh(mesh)
-    finally:
-        bm.free()
-    mesh.update()
-    bpy.context.view_layer.update()
-
-    removed_vertices = vertex_count_before - len(mesh.vertices)
-    removed_faces = polygon_count_before - len(mesh.polygons)
+    removed_vertex_count = vertex_count_before - len(mesh.vertices)
+    removed_face_count = face_count_before - len(mesh.polygons)
     components_after = connected_components(mesh)
-    component_count_after = len(components_after)
-    if component_count_after != len(components_after_cut) - 2:
-        raise RuntimeError("V386 component count changed unexpectedly after sleeve removal: " + repr({
-            "before_cut": component_count_before,
-            "after_cut": len(components_after_cut),
-            "after_sleeve_removal": component_count_after,
+    if removed_face_count != cut_face_count:
+        raise RuntimeError("V386 sleeve trim face-count accounting failed: " + repr({
+            "removed_face_count": removed_face_count,
+            "selected_cut_face_count": cut_face_count,
         }))
-    if removed_faces != cut_face_count + sum(component["face_count"] for component in sleeves):
-        raise RuntimeError("V386 removed-face accounting does not match the cut plus isolated sleeve regions: " + repr({
-            "removed_face_count": removed_faces,
-            "cut_face_count": cut_face_count,
-            "isolated_sleeve_face_count": sum(component["face_count"] for component in sleeves),
+    if removed_vertex_count < 80 or removed_vertex_count > 500:
+        raise RuntimeError("V386 sleeve trim removed an unexpected number of vertices: " + str(removed_vertex_count))
+    if len(components_before) != 2 or len(components_after) != 2:
+        raise RuntimeError("V386 must retain exactly the expected shirt and trouser regions: " + repr({
+            "components_before": components_before,
+            "components_after": components_after,
         }))
-    if removed_vertices < sum(component["vertex_count"] for component in sleeves):
-        raise RuntimeError("V386 removed-vertex accounting is smaller than the isolated sleeve islands")
-    if len(mesh.vertices) < 1200 or len(mesh.polygons) < 1000:
-        raise RuntimeError("V386 garment failed post-removal geometry safety bounds")
-    if any(sleeve_candidate(component) for component in components_after):
-        raise RuntimeError("V386 a sleeve-shaped connected island remains after removal")
-    if any(item["vertex_count"] < 10 for item in components_after):
-        raise RuntimeError("V386 removal left an unexpectedly tiny garment island")
+
+    upper_candidates = [
+        component for component in components_after
+        if component["bounds_world_m"]["min"][2] > 1.0
+    ]
+    lower_candidates = [
+        component for component in components_after
+        if component["bounds_world_m"]["max"][2] < 1.0
+    ]
+    if len(upper_candidates) != 1 or len(lower_candidates) != 1:
+        raise RuntimeError("V386 cannot uniquely identify retained shirt and trouser regions: " + repr(components_after))
+    shirt_after = upper_candidates[0]
+    pants_after = lower_candidates[0]
+    shirt_before = next(
+        (component for component in components_before if component["bounds_world_m"]["min"][2] > 1.0),
+        None,
+    )
+    if shirt_before is None:
+        raise RuntimeError("V386 could not identify the original upper-shirt region")
+    if shirt_after["vertex_count"] < 450 or shirt_after["face_count"] < 400:
+        raise RuntimeError("V386 remaining shirt torso is unexpectedly small: " + repr(shirt_after))
+    if pants_after["vertex_count"] < 500 or pants_after["face_count"] < 500:
+        raise RuntimeError("V386 trouser region appears damaged by sleeve trim: " + repr(pants_after))
+    if shirt_after["max_abs_x_m"] > shirt_before["max_abs_x_m"] - 0.025:
+        raise RuntimeError("V386 lateral trim did not measurably narrow the upper garment: " + repr({
+            "shirt_before": shirt_before, "shirt_after": shirt_after,
+        }))
 
     removed_components = []
-    for component in sleeves:
-        item = {key: value for key, value in component.items() if key != "vertex_indices"}
-        item["side"] = "left" if component["centroid_x_m"] < 0 else "right"
-        item["classified_as_sleeve"] = True
-        removed_components.append(item)
+    for side in ("left", "right"):
+        points = cut_points_by_side[side]
+        removed_components.append({
+            "side": side,
+            "region_kind": "trimmed_surface_patch_not_detached_component",
+            "classified_as_sleeve": True,
+            "face_count": cut_face_counts[side],
+            "touched_vertex_count": len(cut_vertex_indices[side]),
+            "bounds_world_m": {
+                "min": [round(min(point[i] for point in points), 6) for i in range(3)],
+                "max": [round(max(point[i] for point in points), 6) for i in range(3)],
+            },
+            "max_abs_x_m": round(max(abs(point[0]) for point in points), 6),
+        })
 
     return {
         "status": "APPLIED",
         "object": obj.name,
-        "method": "measured lateral sleeve-face cut followed by bounded connected-island verification and removal",
-        "component_count_before": component_count_before,
-        "component_count_after_cut": len(components_after_cut),
-        "component_count_after_expected": component_count_after,
-        "component_count_after": component_count_after,
-        "components_before": [{k: v for k, v in component.items() if k != "vertex_indices"} for component in components_before],
-        "components_after_cut": [{k: v for k, v in component.items() if k != "vertex_indices"} for component in components_after_cut],
+        "method": "measured lateral sleeve surface trim; retain validated shirt torso and trouser regions",
+        "component_count_before": len(components_before),
+        "component_count_after_cut": len(components_after),
+        "component_count_after_expected": len(components_after),
+        "component_count_after": len(components_after),
+        "components_before": components_before,
+        "components_after_cut": components_after,
         "removed_components": removed_components,
-        "removed_component_count": len(sleeves),
+        "removed_component_count": 2,
         "cut_region_audit": cut_region_audit,
         "cut_face_count": cut_face_count,
-        "removed_vertex_count": removed_vertices,
-        "removed_face_count": removed_faces,
+        "removed_vertex_count": removed_vertex_count,
+        "removed_face_count": removed_face_count,
         "vertex_count_before": vertex_count_before,
         "vertex_count_after": len(mesh.vertices),
-        "face_count_before": polygon_count_before,
+        "face_count_before": face_count_before,
         "face_count_after": len(mesh.polygons),
+        "shirt_region_before": shirt_before,
+        "shirt_region_after": shirt_after,
+        "trouser_region_after": pants_after,
         "preserved": [
             "body skin and both arm meshes",
-            "central shirt torso and shoulder panels outside the measured sleeve-cut envelope",
-            "lower-body trouser mesh outside the measured sleeve-cut envelope",
+            "retained central sleeveless shirt torso/shoulder region",
+            "lower-body trouser mesh and trouser geometry",
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "The resulting armhole and shoulder seams must be reviewed in front, side and three-quarter renders before visual approval.",
+        "visual_warning": "Inspect armholes, shoulder edges and shirt coverage in front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
