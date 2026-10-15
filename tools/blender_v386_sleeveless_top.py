@@ -1461,8 +1461,8 @@ def remove_short_sleeve_components(clothing_objects):
     # vertices along the exposed armhole boundary chain, not the shirt body,
     # so the silhouette loses the small triangular teeth introduced by face
     # trimming. Curve binding is generated afterward from this same smoothed edge.
-    boundary_smoothing_iterations = 2
-    boundary_smoothing_factor = 0.30
+    boundary_smoothing_iterations = 4
+    boundary_smoothing_factor = 0.40
     boundary_vertex_indices = sorted(boundary_graph)
     boundary_original_positions = {
         index: Vector(world_point(index)) for index in boundary_vertex_indices
@@ -1470,6 +1470,21 @@ def remove_short_sleeve_components(clothing_objects):
     boundary_smoothed_positions = {
         index: point.copy() for index, point in boundary_original_positions.items()
     }
+
+    def mean_boundary_roughness(positions):
+        residuals = []
+        for vertex_index in boundary_vertex_indices:
+            neighbor_indices = sorted(boundary_graph[vertex_index])
+            if len(neighbor_indices) < 2:
+                continue
+            neighbor_mean = sum(
+                (positions[neighbor] for neighbor in neighbor_indices),
+                Vector((0.0, 0.0, 0.0)),
+            ) / len(neighbor_indices)
+            residuals.append(float((positions[vertex_index] - neighbor_mean).length))
+        return sum(residuals) / len(residuals) if residuals else 0.0
+
+    roughness_before_m = mean_boundary_roughness(boundary_original_positions)
     for _ in range(boundary_smoothing_iterations):
         next_positions = {}
         for index in boundary_vertex_indices:
@@ -1495,12 +1510,20 @@ def remove_short_sleeve_components(clothing_objects):
         mesh.vertices[index].co = inverse_matrix_for_edge_smoothing @ after_point
     mesh.update()
     bpy.context.view_layer.update()
+    roughness_after_m = mean_boundary_roughness(boundary_smoothed_positions)
+    roughness_reduction_fraction = (
+        (roughness_before_m - roughness_after_m) / roughness_before_m
+        if roughness_before_m > 1e-12 else 0.0
+    )
     boundary_smoothing_audit = {
         "status": "APPLIED",
         "method": "two-pass boundary-chain Laplacian relaxation; interior shirt vertices remain unchanged",
         "vertex_count": len(boundary_vertex_indices),
         "iterations": boundary_smoothing_iterations,
         "relaxation_factor": boundary_smoothing_factor,
+        "mean_roughness_before_m": round(roughness_before_m, 7),
+        "mean_roughness_after_m": round(roughness_after_m, 7),
+        "roughness_reduction_fraction": round(roughness_reduction_fraction, 6),
         "mean_displacement_m": round(sum(smoothing_displacements) / len(smoothing_displacements), 6) if smoothing_displacements else 0.0,
         "max_displacement_m": round(max(smoothing_displacements), 6) if smoothing_displacements else 0.0,
         "preserved": "only exposed armhole boundary vertices are smoothed; shirt interior, torso and trousers are untouched",
@@ -1509,6 +1532,8 @@ def remove_short_sleeve_components(clothing_objects):
         raise RuntimeError("V386 armhole boundary smoothing found too few vertices: " + repr(boundary_smoothing_audit))
     if not smoothing_displacements or max(smoothing_displacements) > 0.035:
         raise RuntimeError("V386 armhole boundary smoothing exceeded its 35 mm safety limit: " + repr(boundary_smoothing_audit))
+    if roughness_before_m <= 1e-12 or roughness_reduction_fraction < 0.15:
+        raise RuntimeError("V386 armhole boundary smoothing did not reduce boundary roughness by at least 15%: " + repr(boundary_smoothing_audit))
 
     remaining_vertices = set(boundary_graph)
     binding_chains = []
