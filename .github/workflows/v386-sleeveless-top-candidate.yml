@@ -435,6 +435,7 @@ jobs:
           assert arm_pose["protected_lower_body_vertex_count"] >= 25, arm_pose
           assert arm_pose["protected_lower_body_max_displacement_m"] <= 1e-7, arm_pose
           assert arm_pose["rotation"]["max_inward_downward_degrees"] == 22.0, arm_pose
+          assert arm_pose["rotation"]["upper_vertical_fade_z_m"] == [1.42, 1.15], arm_pose
           assert arm_pose["rotation"]["lower_body_cutoff_z_m"] == 0.60, arm_pose
           assert arm_pose["rotation"]["lower_vertical_fade_z_m"] == [0.60, 0.78], arm_pose
           adjusted_arm_objects = {item["object"] for item in arm_pose["per_mesh"]}
@@ -732,7 +733,7 @@ jobs:
           cat > "$stage/v312-work/V386-EXPERIMENTAL-AVATAR.md" <<'MD'
           # V386 Experimental Real Human-Topology Avatar — Not Yet Approved
 
-          This V386 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body), cuts a measured lateral sleeve band from the integrated MPFB sportsuit garment, and removes only the two resulting sleeve islands after bounds and left/right checks. The intent is a sleeveless cropped top closer to Phi's saved reference. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder must discover exactly two isolated sleeve components or fail safely; all remaining shirt torso and trouser components are checked. The preview-only camera fit remains +8.3% for portrait framing. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
+          This V386 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body), cuts a measured lateral sleeve band from the integrated MPFB sportsuit garment, and removes only the two resulting sleeve islands after bounds and left/right checks. The intent is a sleeveless cropped top closer to Phi's saved reference. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder must discover exactly two isolated sleeve components or fail safely; all remaining shirt torso and trouser components are checked. The preview-only camera fit remains +8.3% for portrait framing. The arm pose now includes a smooth upper-arm-cap fade into the shoulder to reduce exposed triangular skin at the armhole. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
 
           - This is an experimental human-mesh candidate, not a claim of final photorealism.
           - It includes a subtle Lam_Idle_GentleSway common-root animation and 12 base-mesh facial morph names. The five separate face accessory meshes are restored with export-safe materials so the browser image can be compared against the V335 texture-only diagnostic.
