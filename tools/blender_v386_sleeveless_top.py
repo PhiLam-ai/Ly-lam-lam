@@ -1355,6 +1355,7 @@ def remove_short_sleeve_components(clothing_objects):
         rise = smooth_unit((point_z - 1.12) / (1.18 - 1.12))
         fall = smooth_unit((1.34 - point_z) / (1.34 - 1.26))
         weight = rise * fall
+        # A18 visual candidate: modest local overlap; require front/side visual review before promotion.
         delta_x = 0.018 * weight
         if delta_x < 0.002:
             continue
