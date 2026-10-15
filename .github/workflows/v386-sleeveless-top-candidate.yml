@@ -477,6 +477,12 @@ jobs:
           binding = sleeves["armhole_binding_audit"]
           assert binding["status"] == "APPLIED", binding
           assert binding["object"] == "V386_ArmholeBinding", binding
+          smoothing = sleeves["armhole_boundary_smoothing_audit"]
+          assert smoothing["status"] == "APPLIED", smoothing
+          assert smoothing["vertex_count"] >= 40, smoothing
+          assert smoothing["iterations"] == 2, smoothing
+          assert 0.0 <= smoothing["mean_displacement_m"] <= smoothing["max_displacement_m"] <= 0.035, smoothing
+          assert "shirt interior" in smoothing["preserved"], smoothing
           overlap = sleeves["shoulder_edge_overlap_audit"]
           assert overlap["status"] == "APPLIED", overlap
           assert overlap["candidate_boundary_vertex_count"] >= 20, overlap
@@ -749,7 +755,7 @@ jobs:
           cat > "$stage/v312-work/V386-EXPERIMENTAL-AVATAR.md" <<'MD'
           # V386 Experimental Real Human-Topology Avatar — Not Yet Approved
 
-          This V386 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body), trims a measured lateral surface band from the integrated MPFB sportsuit garment, validates the retained shirt and trouser regions, and fails safely if left/right bounds, shoulder overlap or mesh-count checks do not pass. The intent is a sleeveless cropped top closer to Phi's saved reference. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder validates the two expected connected shells (shirt and trousers), trims only measured lateral shirt faces, and checks the retained shoulder edge and armhole binding instead of assuming the sleeve surfaces are detached islands. The preview-only camera distance is increased by 12.5% for portrait framing; the browser bounds gate itself is not relaxed. The arm pose rotates about a higher shoulder pivot (z=1.23 m) with a nearer lateral fade (0.18–0.34 m). The armhole profile adds coverage around the lower upper-arm transition, tapers the outer shoulder tip, and uses a subtle 10 mm edge offset; a dedicated shoulder-cap audit measures deformation in the exposed-skin band. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
+          This V386 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body), trims a measured lateral surface band from the integrated MPFB sportsuit garment, validates the retained shirt and trouser regions, and fails safely if left/right bounds, shoulder overlap or mesh-count checks do not pass. The intent is a sleeveless cropped top closer to Phi's saved reference. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder validates the two expected connected shells (shirt and trousers), trims only measured lateral shirt faces, and checks the retained shoulder edge and armhole binding instead of assuming the sleeve surfaces are detached islands. The preview-only camera distance is increased by 12.5% for portrait framing; the browser bounds gate itself is not relaxed. The arm pose rotates about a higher shoulder pivot (z=1.23 m) with a nearer lateral fade (0.18–0.34 m). The armhole profile adds coverage near the lower upper-arm transition and tapers the outer shoulder tip; the exposed boundary chain receives two small smoothing passes before the subtle 10 mm edge offset and matching binding. A dedicated audit measures the shoulder-cap deformation and boundary smoothing. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
 
           - This is an experimental human-mesh candidate, not a claim of final photorealism.
           - It includes a subtle Lam_Idle_GentleSway common-root animation and 12 base-mesh facial morph names. The five separate face accessory meshes are restored with export-safe materials so the browser image can be compared against the V335 texture-only diagnostic.
