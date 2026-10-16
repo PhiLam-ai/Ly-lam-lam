@@ -1741,8 +1741,24 @@ def remove_short_sleeve_components(clothing_objects):
         raise RuntimeError("V386 armhole boundary smoothing found too few vertices: " + repr(boundary_smoothing_audit))
     if not smoothing_displacements or max(smoothing_displacements) > 0.035:
         raise RuntimeError("V386 armhole boundary smoothing exceeded its 35 mm safety limit: " + repr(boundary_smoothing_audit))
-    if roughness_before_m <= 1e-12 or roughness_reduction_fraction < 0.15:
-        raise RuntimeError("V386 armhole boundary smoothing did not reduce boundary roughness by at least 15%: " + repr(boundary_smoothing_audit))
+    # Dense pre-trim topology starts with a much smaller roughness residual,
+    # so a percentage-only gate can reject a cleaner absolute boundary. R6 uses
+    # a 10% minimum reduction plus a stricter 30-micrometre absolute residual cap.
+    pretrim_cuts = armhole_topology_refinement_audit["cuts_per_edge"]
+    minimum_roughness_reduction = 0.10 if pretrim_cuts >= 5 else 0.15
+    boundary_smoothing_audit["minimum_roughness_reduction_fraction"] = minimum_roughness_reduction
+    if pretrim_cuts >= 5:
+        boundary_smoothing_audit["maximum_roughness_after_m"] = 0.00003
+    if roughness_before_m <= 1e-12 or roughness_reduction_fraction < minimum_roughness_reduction:
+        raise RuntimeError(
+            "V386 armhole boundary smoothing did not meet its topology-aware roughness reduction gate: "
+            + repr(boundary_smoothing_audit)
+        )
+    if pretrim_cuts >= 5 and roughness_after_m > 0.00003:
+        raise RuntimeError(
+            "V386-R6 absolute armhole roughness exceeds the 30-micrometre limit: "
+            + repr(boundary_smoothing_audit)
+        )
 
     remaining_vertices = set(boundary_graph)
     binding_chains = []
