@@ -1747,85 +1747,12 @@ def remove_short_sleeve_components(clothing_objects):
     profile_vertex_count_before = vertex_count_before
     profile_face_count_before = face_count_before
 
-    # Widen the retained upper armhole edge itself. The profile-plane bisect now
-    # generates a true intersection edge, so this offset remains localized and
-    # is no longer being used to disguise a coarse whole-face cut.
-    # Widen the retained upper armhole edge itself. A face-centroid/vertex trim
-    # leaves a coarse topology edge too far inward; a small smooth edge offset
-    # gives the sleeveless shoulder panel enough overlap to cover the arm-cap
-    # without filling the armhole or adding a detached sleeve.
-    boundary_edge_counts = {}
-    for polygon in mesh.polygons:
-        ids = list(polygon.vertices)
-        for edge_a, edge_b in zip(ids, ids[1:] + ids[:1]):
-            edge_key = (edge_a, edge_b) if edge_a < edge_b else (edge_b, edge_a)
-            boundary_edge_counts[edge_key] = boundary_edge_counts.get(edge_key, 0) + 1
-
-    shoulder_boundary_vertex_indices = set()
-    for (edge_a, edge_b), face_count in boundary_edge_counts.items():
-        if face_count != 1:
-            continue
-        for vertex_index in (edge_a, edge_b):
-            point = world_point(vertex_index)
-            point_z = point[2]
-            limit = lateral_limit(point_z)
-            if limit is None or not (1.12 < point_z < 1.34):
-                continue
-            absolute_x = abs(point[0])
-            if not (0.10 < absolute_x < 0.255):
-                continue
-            if abs(absolute_x - limit) > 0.095:
-                continue
-            shoulder_boundary_vertex_indices.add(vertex_index)
-
-    if len(shoulder_boundary_vertex_indices) < 20:
-        raise RuntimeError("V386 could not find enough retained shoulder-edge vertices to overlap the arm cap: " + repr({
-            "candidate_boundary_vertex_count": len(shoulder_boundary_vertex_indices),
-        }))
-
-    def smooth_unit(value):
-        value = min(1.0, max(0.0, float(value)))
-        return value * value * (3.0 - 2.0 * value)
-
-    inverse_matrix = matrix.inverted()
-    shoulder_edge_offsets = []
-    max_abs_x_before_overlap = max(abs(world_point(index)[0]) for index in range(len(mesh.vertices)))
-    for vertex_index in shoulder_boundary_vertex_indices:
-        point = world_point(vertex_index)
-        point_z = point[2]
-        rise = smooth_unit((point_z - 1.12) / (1.18 - 1.12))
-        fall = smooth_unit((1.34 - point_z) / (1.34 - 1.26))
-        weight = rise * fall
-        # A22 visual candidate: modest local overlap; require front/side visual review before promotion.
-        # Keep the taper localized; the former 30 mm trial made the shoulder cap look too broad.
-        delta_x = 0.022 * weight
-        if delta_x < 0.002:
-            continue
-        side_sign = 1.0 if point[0] >= 0.0 else -1.0
-        widened_point = Vector((point[0] + side_sign * delta_x, point[1], point[2]))
-        mesh.vertices[vertex_index].co = inverse_matrix @ widened_point
-        shoulder_edge_offsets.append(delta_x)
-
-    if len(shoulder_edge_offsets) < 12:
-        raise RuntimeError("V386 shoulder edge overlap moved too few vertices to be reliable: " + repr({
-            "candidate_boundary_vertex_count": len(shoulder_boundary_vertex_indices),
-            "moved_vertex_count": len(shoulder_edge_offsets),
-        }))
-    mesh.update()
-    bpy.context.view_layer.update()
-    max_abs_x_after_overlap = max(abs(world_point(index)[0]) for index in range(len(mesh.vertices)))
-    shoulder_edge_overlap_audit = {
-        "status": "APPLIED",
-        "method": "smooth localized 22 mm maximum outward offset on the retained upper armhole boundary; tapered at underarm and shoulder-top ends",
-        "candidate_boundary_vertex_count": len(shoulder_boundary_vertex_indices),
-        "moved_vertex_count": len(shoulder_edge_offsets),
-        "max_offset_m": round(max(shoulder_edge_offsets), 6),
-        "mean_offset_m": round(sum(shoulder_edge_offsets) / len(shoulder_edge_offsets), 6),
-        "max_abs_x_before_m": round(max_abs_x_before_overlap, 6),
-        "max_abs_x_after_m": round(max_abs_x_after_overlap, 6),
-        "preserved": "underarm opening remains open; no detached sleeve or solid armhole cap added",
-        "visual_warning": "Inspect the widened upper edge from front/side/three-quarter views for cloth stretching before approval.",
-    }
+    # R10 defers the shoulder-edge overlap until the exact armhole chain has
+    # been traced and smoothed. Offsetting this edge first moves vertices away
+    # from the measured profile and causes the chain selector to drop segments.
+    max_abs_x_before_overlap = max(
+        abs(world_point(index)[0]) for index in range(len(mesh.vertices))
+    )
 
     # Counts are recorded from the actual BMesh deletions above. Profile bisect
     # may create intersection faces/vertices before deleting outside patches, so
@@ -2246,6 +2173,76 @@ def remove_short_sleeve_components(clothing_objects):
     if profile_bisect_active and profile_projection_count < 40:
         raise RuntimeError("V386-R8 profile-constrained smoothing projected too few boundary vertices: " + repr(boundary_smoothing_audit))
 
+    # R10: only after the exact profile edge has been traced and smoothed,
+    # apply the tapered 22 mm shoulder overlap to that same chain. This prevents
+    # widened vertices from falling outside the original profile-selection gate.
+    def smooth_unit(value):
+        value = min(1.0, max(0.0, float(value)))
+        return value * value * (3.0 - 2.0 * value)
+
+    max_abs_x_before_overlap = max(
+        abs(world_point(index)[0]) for index in range(len(mesh.vertices))
+    )
+    inverse_matrix_for_overlap = matrix.inverted()
+    shoulder_edge_offsets = []
+    shoulder_overlap_candidate_indices = []
+    for vertex_index in boundary_vertex_indices:
+        point = world_point(vertex_index)
+        point_z = point[2]
+        limit = lateral_limit(point_z)
+        if limit is None or not (1.12 < point_z < 1.34):
+            continue
+        absolute_x = abs(point[0])
+        if not (0.10 < absolute_x < 0.255):
+            continue
+        if abs(absolute_x - limit) > 0.003:
+            continue
+        rise = smooth_unit((point_z - 1.12) / (1.18 - 1.12))
+        fall = smooth_unit((1.34 - point_z) / (1.34 - 1.26))
+        weight = rise * fall
+        delta_x = 0.022 * weight
+        if delta_x < 0.002:
+            continue
+        side_sign = 1.0 if point[0] >= 0.0 else -1.0
+        widened_point = Vector((
+            point[0] + side_sign * delta_x,
+            point[1],
+            point[2],
+        ))
+        mesh.vertices[vertex_index].co = inverse_matrix_for_overlap @ widened_point
+        shoulder_edge_offsets.append(delta_x)
+        shoulder_overlap_candidate_indices.append(vertex_index)
+
+    if len(shoulder_edge_offsets) < 12:
+        raise RuntimeError(
+            "V386-R10 deferred shoulder overlap moved too few vertices on the traced armhole chain: "
+            + repr({
+                "traced_boundary_vertex_count": len(boundary_vertex_indices),
+                "candidate_vertex_count": len(shoulder_overlap_candidate_indices),
+                "moved_vertex_count": len(shoulder_edge_offsets),
+                "edge_profile_audit": boundary_edge_profile_audit,
+            })
+        )
+    mesh.update()
+    bpy.context.view_layer.update()
+    max_abs_x_after_overlap = max(
+        abs(world_point(index)[0]) for index in range(len(mesh.vertices))
+    )
+    shoulder_edge_overlap_audit = {
+        "status": "APPLIED",
+        "method": "tapered 22 mm maximum outward overlap applied only after tracing and smoothing the exact armhole boundary chain",
+        "candidate_boundary_vertex_count": len(boundary_vertex_indices),
+        "moved_vertex_count": len(shoulder_edge_offsets),
+        "max_offset_m": round(max(shoulder_edge_offsets), 6),
+        "mean_offset_m": round(sum(shoulder_edge_offsets) / len(shoulder_edge_offsets), 6),
+        "max_abs_x_before_m": round(max_abs_x_before_overlap, 6),
+        "max_abs_x_after_m": round(max_abs_x_after_overlap, 6),
+        "traced_boundary_vertex_count": len(boundary_vertex_indices),
+        "scope": "only the smoothed armhole boundary chain; offset applied after profile-based chain selection",
+        "preserved": "underarm opening remains open; no detached sleeve or solid armhole cap added; widened vertices remain part of the traced boundary chain",
+        "visual_warning": "Inspect the widened upper edge from front/side/three-quarter views for cloth stretching before approval.",
+    }
+
     remaining_vertices = set(boundary_graph)
     binding_chains = []
     while remaining_vertices:
@@ -2412,7 +2409,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R9 uses the same eight-subdivision PCHIP profile but localizes horizontal mesh slices to a 60 mm corridor around the measured armhole edge to avoid shading bands across the shirt. Inspect front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R10 keeps the localized PCHIP slices and defers the tapered shoulder overlap until the armhole chain is traced and smoothed, preventing widened vertices from being dropped by the smoothing selector. Inspect front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
