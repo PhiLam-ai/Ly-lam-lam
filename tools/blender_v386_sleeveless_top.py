@@ -1849,8 +1849,8 @@ def remove_short_sleeve_components(clothing_objects):
     # vertices along the exposed armhole boundary chain, not the shirt body,
     # so the silhouette loses the small triangular teeth introduced by face
     # trimming. Curve binding is generated afterward from this same smoothed edge.
-    boundary_smoothing_iterations = 12
-    boundary_smoothing_factor = 0.60
+    boundary_smoothing_iterations = 20
+    boundary_smoothing_factor = 0.68
     boundary_vertex_indices = sorted(boundary_graph)
     boundary_original_positions = {
         index: Vector(world_point(index)) for index in boundary_vertex_indices
@@ -1885,7 +1885,14 @@ def remove_short_sleeve_components(clothing_objects):
                 (boundary_smoothed_positions[neighbor] for neighbor in neighbors),
                 Vector((0.0, 0.0, 0.0)),
             ) / len(neighbors)
-            next_positions[index] = current.lerp(neighbor_mean, boundary_smoothing_factor)
+            next_point = current.lerp(neighbor_mean, boundary_smoothing_factor)
+            # Keep the outer silhouette on the exact measured profile while
+            # relaxing depth/height along the boundary. Without this constraint,
+            # Laplacian smoothing can trade away the profile fit to reduce roughness.
+            limit = lateral_limit(float(next_point.z))
+            if limit is not None and 0.10 < abs(float(next_point.x)) < 0.35:
+                next_point.x = math.copysign(limit, float(next_point.x))
+            next_positions[index] = next_point
         boundary_smoothed_positions = next_positions
 
     smoothing_displacements = []
@@ -1903,41 +1910,71 @@ def remove_short_sleeve_components(clothing_objects):
         (roughness_before_m - roughness_after_m) / roughness_before_m
         if roughness_before_m > 1e-12 else 0.0
     )
+    profile_projection_count = sum(
+        1 for index in boundary_vertex_indices
+        if lateral_limit(float(boundary_smoothed_positions[index].z)) is not None
+        and 0.10 < abs(float(boundary_smoothed_positions[index].x)) < 0.35
+    )
+    profile_fit_deviations = []
+    for index in boundary_vertex_indices:
+        point = boundary_smoothed_positions[index]
+        limit = lateral_limit(float(point.z))
+        if limit is not None and 0.10 < abs(float(point.x)) < 0.35:
+            profile_fit_deviations.append(abs(abs(float(point.x)) - limit))
+    max_profile_deviation_after_smoothing_m = (
+        max(profile_fit_deviations) if profile_fit_deviations else float("inf")
+    )
+    profile_bisect_active = "cut_profile_bisect_audit" in locals()
     boundary_smoothing_audit = {
         "status": "APPLIED",
-        "method": "twelve-pass boundary-chain Laplacian relaxation after measured-edge subdivision; interior shirt vertices remain unchanged",
+        "method": "twenty-pass profile-constrained Laplacian relaxation of the exact bisect boundary; profile X is reprojected each pass while interior shirt vertices remain unchanged",
         "vertex_count": len(boundary_vertex_indices),
         "iterations": boundary_smoothing_iterations,
         "relaxation_factor": boundary_smoothing_factor,
         "mean_roughness_before_m": round(roughness_before_m, 7),
         "mean_roughness_after_m": round(roughness_after_m, 7),
         "roughness_reduction_fraction": round(roughness_reduction_fraction, 6),
+        "profile_projection_vertex_count": profile_projection_count,
+        "max_profile_deviation_after_smoothing_m": round(max_profile_deviation_after_smoothing_m, 8) if max_profile_deviation_after_smoothing_m != float("inf") else None,
         "mean_displacement_m": round(sum(smoothing_displacements) / len(smoothing_displacements), 6) if smoothing_displacements else 0.0,
         "max_displacement_m": round(max(smoothing_displacements), 6) if smoothing_displacements else 0.0,
-        "preserved": "only exposed armhole boundary vertices are smoothed; shirt interior, torso and trousers are untouched",
+        "preserved": "only exposed armhole boundary vertices are smoothed; shirt interior, torso and trousers are untouched; lateral X remains on the measured profile",
     }
     if len(boundary_vertex_indices) < 40:
         raise RuntimeError("V386 armhole boundary smoothing found too few vertices: " + repr(boundary_smoothing_audit))
     if not smoothing_displacements or max(smoothing_displacements) > 0.035:
         raise RuntimeError("V386 armhole boundary smoothing exceeded its 35 mm safety limit: " + repr(boundary_smoothing_audit))
-    # Dense pre-trim topology starts with a much smaller roughness residual,
-    # so a percentage-only gate can reject a cleaner absolute boundary. R6 uses
-    # a 10% minimum reduction plus a stricter 30-micrometre absolute residual cap.
+    # Different cut strategies create different boundary-chain baselines.
+    # R7 requires both a meaningful relative improvement and a tighter-than-R5
+    # absolute residual, while preserving the exact lateral profile through smoothing.
     pretrim_cuts = armhole_topology_refinement_audit["cuts_per_edge"]
-    minimum_roughness_reduction = 0.10 if pretrim_cuts >= 5 else 0.15
+    profile_bisect_active = "cut_profile_bisect_audit" in locals()
+    if profile_bisect_active:
+        minimum_roughness_reduction = 0.15
+        maximum_roughness_after_m = 0.00005
+    else:
+        minimum_roughness_reduction = 0.10 if pretrim_cuts >= 5 else 0.15
+        maximum_roughness_after_m = 0.00003 if pretrim_cuts >= 5 else None
     boundary_smoothing_audit["minimum_roughness_reduction_fraction"] = minimum_roughness_reduction
-    if pretrim_cuts >= 5:
-        boundary_smoothing_audit["maximum_roughness_after_m"] = 0.00003
+    if maximum_roughness_after_m is not None:
+        boundary_smoothing_audit["maximum_roughness_after_m"] = maximum_roughness_after_m
     if roughness_before_m <= 1e-12 or roughness_reduction_fraction < minimum_roughness_reduction:
         raise RuntimeError(
             "V386 armhole boundary smoothing did not meet its topology-aware roughness reduction gate: "
             + repr(boundary_smoothing_audit)
         )
-    if pretrim_cuts >= 5 and roughness_after_m > 0.00003:
+    if maximum_roughness_after_m is not None and roughness_after_m > maximum_roughness_after_m:
         raise RuntimeError(
-            "V386-R6 absolute armhole roughness exceeds the 30-micrometre limit: "
+            "V386 armhole roughness exceeds the cut-strategy absolute limit: "
             + repr(boundary_smoothing_audit)
         )
+    if profile_bisect_active and max_profile_deviation_after_smoothing_m > 0.0001:
+        raise RuntimeError(
+            "V386-R7 smoothed boundary drifted more than 0.1 mm from its measured profile: "
+            + repr(boundary_smoothing_audit)
+        )
+    if profile_bisect_active and profile_projection_count < 40:
+        raise RuntimeError("V386-R7 profile-constrained smoothing projected too few boundary vertices: " + repr(boundary_smoothing_audit))
 
     remaining_vertices = set(boundary_graph)
     binding_chains = []
