@@ -1156,7 +1156,7 @@ def remove_short_sleeve_components(clothing_objects):
     # R3: increase topology density only near the sleeve-cut/armhole band before
     # trimming. V386's original whole-face removal is intentionally conservative,
     # but the coarse sportsuit triangles leave a few visible angular teeth at the
-    # armhole. Two local edge cuts make the retained border and its later smoothing
+    # armhole. Five local edge cuts make the retained border and its later smoothing
     # finer without changing the torso, trousers, body skin, or production GLB.
     import bmesh
     vertex_count_before_refinement = len(mesh.vertices)
@@ -1189,7 +1189,7 @@ def remove_short_sleeve_components(clothing_objects):
         bmesh.ops.subdivide_edges(
             refinement_bm,
             edges=selected_refinement_edges,
-            cuts=2,
+            cuts=5,
             smooth=0.0,
         )
         refinement_bm.to_mesh(mesh)
@@ -1199,10 +1199,10 @@ def remove_short_sleeve_components(clothing_objects):
     bpy.context.view_layer.update()
     armhole_topology_refinement_audit = {
         "status": "APPLIED",
-        "method": "two local edge cuts before armhole trim; edge midpoints limited to the lateral upper-garment armhole band",
+        "method": "five local edge cuts before armhole trim; edge midpoints limited to the lateral upper-garment armhole band",
         "region_world_z_m": [1.07, 1.40],
         "region_world_abs_x_m": [0.13, 0.29],
-        "cuts_per_edge": 2,
+        "cuts_per_edge": 5,
         "selected_edge_count": len(selected_refinement_edges),
         "vertices_before": vertex_count_before_refinement,
         "vertices_after": len(mesh.vertices),
