@@ -1825,6 +1825,8 @@ def remove_short_sleeve_components(clothing_objects):
             key = (a, b) if a < b else (b, a)
             edge_face_counts[key] = edge_face_counts.get(key, 0) + 1
 
+    profile_bisect_smoothing = "cut_profile_bisect_audit" in locals()
+    boundary_edge_profile_tolerance_m = 0.003 if profile_bisect_smoothing else 0.07
     boundary_graph = {}
     selected_boundary_edges = []
     for (a, b), face_count in edge_face_counts.items():
@@ -1839,7 +1841,7 @@ def remove_short_sleeve_components(clothing_objects):
             continue
         if not (0.10 < abs(mid_x) < 0.30):
             continue
-        if abs(abs(mid_x) - limit) > 0.07:
+        if abs(abs(mid_x) - limit) > boundary_edge_profile_tolerance_m:
             continue
         selected_boundary_edges.append((a, b))
         boundary_graph.setdefault(a, set()).add(b)
@@ -1849,7 +1851,6 @@ def remove_short_sleeve_components(clothing_objects):
     # vertices along the exposed armhole boundary chain, not the shirt body,
     # so the silhouette loses the small triangular teeth introduced by face
     # trimming. Curve binding is generated afterward from this same smoothed edge.
-    profile_bisect_smoothing = "cut_profile_bisect_audit" in locals()
     boundary_smoothing_iterations = 8 if profile_bisect_smoothing else 12
     boundary_smoothing_factor = 0.40 if profile_bisect_smoothing else 0.60
     boundary_vertex_indices = sorted(boundary_graph)
@@ -1972,6 +1973,7 @@ def remove_short_sleeve_components(clothing_objects):
         "depth_roughness_reduction_fraction": round(depth_roughness_reduction_fraction, 6),
         "roughness_gate_scope": "depth Y component only for exact-profile R7; full XYZ roughness remains diagnostic because X/Z follow intentional profile curvature",
         "profile_projection_vertex_count": profile_projection_count,
+        "boundary_edge_profile_tolerance_m": boundary_edge_profile_tolerance_m,
         "max_profile_deviation_after_smoothing_m": round(max_profile_deviation_after_smoothing_m, 8) if max_profile_deviation_after_smoothing_m != float("inf") else None,
         "mean_displacement_m": round(sum(smoothing_displacements) / len(smoothing_displacements), 6) if smoothing_displacements else 0.0,
         "max_displacement_m": round(max(smoothing_displacements), 6) if smoothing_displacements else 0.0,
