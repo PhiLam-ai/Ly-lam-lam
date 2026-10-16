@@ -1,4 +1,4 @@
-name: V386-R10 Armhole Binding Diagnostic Render
+name: V386-R11 Shirt/Skin Isolation Diagnostics
 
 on:
   push:
@@ -13,6 +13,7 @@ on:
       - avatar/v386-r8-smooth-profile
       - avatar/v386-r9-overlap-envelope-smoothing
       - avatar/v386-r10-armhole-binding-diagnostic
+      - avatar/v386-r11-shirt-skin-isolation
     paths:
       - "tools/blender_v386_sleeveless_top.py"
       - "tools/v386_apply_viewer_camera_fit.cjs"
@@ -23,12 +24,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: v386-r10-armhole-binding-diagnostic
+  group: v386-r11-shirt-skin-isolation
   cancel-in-progress: true
 
 jobs:
   build-and-test:
-    name: Build V386-R10 armhole-binding diagnostic and test GLB
+    name: Build V386-R11 shirt-skin isolation candidate and test GLB
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     steps:
@@ -176,6 +177,8 @@ jobs:
           test -s artifacts/v386-gltf-face-accessories/v386-eye-closeup.png
           test -s artifacts/v386-gltf-face-accessories/v386-necklace-closeup.png
           test -s artifacts/v386-gltf-face-accessories/v386-front-no-armhole-binding.png
+          test -s artifacts/v386-gltf-face-accessories/v386-front-shirt-only-no-skin.png
+          test -s artifacts/v386-gltf-face-accessories/v386-front-skin-only-no-shirt.png
           python3 - <<'PY'
           import json
           from pathlib import Path
@@ -215,6 +218,12 @@ jobs:
           assert abs(report["character_bounds_m"]["size"][2] - 1.60) < 0.06, report
           assert 1_000_000 < report["glb_bytes"] < 200_000_000, report
           assert len(report["renders"]) >= 6, report
+          render_files = {item["file"] for item in report["renders"]}
+          assert {
+            "v386-front-no-armhole-binding.png",
+            "v386-front-shirt-only-no-skin.png",
+            "v386-front-skin-only-no-shirt.png",
+          }.issubset(render_files), render_files
           eye_geometry = report["eye_geometry_diagnostic"]
           assert eye_geometry["status"] == "MEASURED_ONLY", eye_geometry
           assert eye_geometry["geometry_changed"] is False, eye_geometry
@@ -539,7 +548,7 @@ jobs:
           assert boundary_refinement["uv_layer_names_preserved"] is True, boundary_refinement
           assert boundary_refinement["material_slots_preserved"] is True, boundary_refinement
           assert "exposed armhole boundary only" in boundary_refinement["scope"], boundary_refinement
-          print("V386_R10_ARMHOLE_PROFILE_GATE=PASS_EXPERIMENTAL_ONLY")
+          print("V386_R11_ARMHOLE_PROFILE_GATE=PASS_EXPERIMENTAL_ONLY")
           binding = sleeves["armhole_binding_audit"]
           assert binding["status"] == "APPLIED", binding
           assert binding["object"] == "V386_ArmholeBinding", binding
@@ -841,11 +850,11 @@ jobs:
           cp -a "$RUNNER_TEMP/v386-viewer/." "$stage/v312-work/"
           cp artifacts/v386-gltf-face-accessories/lam-v386-gltf-materials-full-face-candidate.glb "$stage/v312-work/lam-default.glb"
           cat > "$stage/v312-work/V386-EXPERIMENTAL-AVATAR.md" <<'MD'
-          # V386-R10 Experimental Real Human-Topology Avatar — Not Yet Approved
+          # V386-R11 Experimental Real Human-Topology Avatar — Not Yet Approved
 
-          This V386-R10 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body). Before sleeve trimming, it uses five local edge cuts only within the measured shoulder/armhole band and verifies UV/material preservation. R8 applies shape-preserving monotone PCHIP interpolation to the 14 measured armhole control points, samples each control segment at eight subdivisions (105 samples total), then slices the lateral garment at the sampled heights and bisects each strip along the resulting profile segments. This aims to reduce the visible kinks between profile control points while keeping the generated edge within 0.1 mm of both the sampled envelope and the smooth curve. R9 used one matching post-overlap target envelope for boundary selection and smoothing. R10 keeps that geometry unchanged, but adds a diagnostic front render with the bevelled armhole binding hidden while the regular six renders keep it visible. This isolates whether the remaining underarm teeth come from the separate binding mesh or from the shirt/skin boundary itself. The binding is restored before GLB export; production and prior candidate assets are not modified. The intent is a cleaner sleeveless cropped top closer to Phi's saved reference. The candidate remains experimental and must be compared from front, side and three-quarter images. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder validates the two expected connected shells (shirt and trousers), trims only measured lateral shirt faces, and checks the retained shoulder edge and armhole binding instead of assuming the sleeve surfaces are detached islands. The preview-only camera distance is increased by 12.5% for portrait framing; the browser bounds gate itself is not relaxed. The arm pose rotates about a higher shoulder pivot (z=1.23 m) with a nearer lateral fade (0.18–0.34 m); a separately audited 12 mm maximum skin-cap tuck narrows only the exposed upper-arm/armhole transition and protects the central torso and lower body. The armhole profile adds coverage near the lower upper-arm transition and tapers the outer shoulder tip; R10 adds `v386-front-no-armhole-binding.png` as a diagnostic only and restores binding visibility immediately. Compare this image with `v386-front.png` to identify whether the trim artifacts are caused by the binding or by garment geometry. A dedicated audit measures the shoulder-cap deformation and boundary smoothing. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
+          This V386-R11 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body). It retains the R8 shape-preserving PCHIP armhole contour and R9 consistent post-overlap envelope. R10's paired render with the separate bevelled binding hidden showed the same underarm teeth, so the binding alone is not the cause. R11 adds two further front diagnostics: `v386-front-shirt-only-no-skin.png` hides the Human body/skin while leaving the sportsuit visible, and `v386-front-skin-only-no-shirt.png` hides the whole sportsuit source mesh (shirt and trousers) and binding while leaving the body visible. The normal visible-binding render and no-binding render remain included. Diagnostic visibility flags, camera settings and resolution are restored before GLB export; production and prior candidate assets are not modified. The intent is a cleaner sleeveless cropped top closer to Phi's saved reference. The candidate remains experimental and must be compared from front, side and three-quarter images. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder validates the two expected connected shells (shirt and trousers), trims only measured lateral shirt faces, and checks the retained shoulder edge and armhole binding instead of assuming the sleeve surfaces are detached islands. The preview-only camera distance is increased by 12.5% for portrait framing; the browser bounds gate itself is not relaxed. The arm pose rotates about a higher shoulder pivot (z=1.23 m) with a nearer lateral fade (0.18–0.34 m); a separately audited 12 mm maximum skin-cap tuck narrows only the exposed upper-arm/armhole transition and protects the central torso and lower body. The armhole profile adds coverage near the lower upper-arm transition and tapers the outer shoulder tip; R10 adds `v386-front-no-armhole-binding.png` as a diagnostic only and restores binding visibility immediately. Compare this image with `v386-front.png` to identify whether the trim artifacts are caused by the binding or by garment geometry. A dedicated audit measures the shoulder-cap deformation and boundary smoothing. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
 
-          - This is an experimental human-mesh candidate, not a claim of final photorealism. R10 preserves the R9 post-overlap envelope geometry and adds a paired front render with `V386_ArmholeBinding` hidden. Use the normal front render and the no-binding diagnostic together before selecting a further geometry or binding change. The binding visibility is restored before GLB export. Compare front, side and three-quarter renders to R9 before approval.
+          - This is an experimental human-mesh candidate, not a claim of final photorealism. R11 retains the R9 post-overlap envelope and R10 no-binding comparison, and adds shirt-only/no-skin plus skin-only/no-shirt diagnostic renders to separate cloth-edge shape from body/arm intersection. All visibility flags are restored before GLB export. Compare the matched front diagnostics before changing geometry or binding again.
           - It includes a subtle Lam_Idle_GentleSway common-root animation and 12 base-mesh facial morph names. The five separate face accessory meshes are restored with export-safe materials so the browser image can be compared against the V335 texture-only diagnostic.
           - Voice/chat integration is not included in this avatar-only package.
           - The production lam-default.glb in the main branch is unchanged.
@@ -893,7 +902,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ly-lam-lam-v386-r10-binding-diagnostic-${{ github.run_id }}
+          name: ly-lam-lam-v386-r11-shirt-skin-isolation-${{ github.run_id }}
           path: |
             artifacts/v386-gltf-face-accessories/
             artifacts/v386-browser-test/
