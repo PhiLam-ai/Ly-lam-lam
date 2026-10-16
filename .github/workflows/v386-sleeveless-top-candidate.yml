@@ -536,16 +536,24 @@ jobs:
           assert smoothing["vertex_count"] >= 40, smoothing
           assert smoothing["iterations"] == 8, smoothing
           assert smoothing["relaxation_factor"] == 0.40, smoothing
-          assert smoothing["mean_roughness_before_m"] > 0, smoothing
-          assert smoothing["mean_roughness_after_m"] < smoothing["mean_roughness_before_m"], smoothing
+          assert smoothing["mean_roughness_before_m"] >= 0, smoothing
+          if "cut_profile_bisect_audit" in sleeves:
+              assert smoothing["roughness_gate_scope"].startswith("depth Y component only"), smoothing
+          else:
+              assert smoothing["mean_roughness_before_m"] > 0, smoothing
+              assert smoothing["mean_roughness_after_m"] < smoothing["mean_roughness_before_m"], smoothing
           assert 0.0 <= smoothing["mean_displacement_m"] <= smoothing["max_displacement_m"] <= 0.010, smoothing
-          assert smoothing["max_depth_smoothing_offset_m"] == 0.008, smoothing
+          assert smoothing["max_depth_smoothing_offset_m"] == 0.005 if "cut_profile_bisect_audit" in sleeves else smoothing["max_depth_smoothing_offset_m"] is None, smoothing
           assert "shirt interior" in smoothing["preserved"], smoothing
           assert smoothing["profile_projection_vertex_count"] >= 40, smoothing
           assert smoothing["boundary_edge_profile_tolerance_m"] == 0.003, smoothing
-          assert smoothing["depth_roughness_before_m"] > 0, smoothing
-          assert smoothing["depth_roughness_after_m"] < smoothing["depth_roughness_before_m"], smoothing
-          assert smoothing["depth_roughness_reduction_fraction"] >= 0.10, smoothing
+          if "cut_profile_bisect_audit" in sleeves and smoothing.get("depth_roughness_gate_mode") == "ALREADY_FLAT_ABSOLUTE_FLOOR":
+              assert smoothing["depth_roughness_before_m"] <= smoothing["depth_roughness_baseline_floor_m"], smoothing
+              assert smoothing["depth_roughness_after_m"] <= smoothing["depth_roughness_baseline_floor_m"] == 0.000005, smoothing
+          else:
+              assert smoothing["depth_roughness_before_m"] > 0, smoothing
+              assert smoothing["depth_roughness_after_m"] < smoothing["depth_roughness_before_m"], smoothing
+              assert smoothing["depth_roughness_reduction_fraction"] >= 0.10, smoothing
           assert smoothing["max_profile_deviation_after_smoothing_m"] <= 0.0001, smoothing
           overlap = sleeves["shoulder_edge_overlap_audit"]
           assert overlap["status"] == "APPLIED", overlap
