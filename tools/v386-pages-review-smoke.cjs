@@ -100,7 +100,7 @@ const screenshotPath = path.join(ARTIFACT_DIR, 'v386-https-review-smoke.png');
       throw new Error('Three.js core, GLTFLoader and OrbitControls did not all return HTTP 200.');
     }
     if (report.externalThreeRequests.length) throw new Error('Unexpected external Three.js CDN request.');
-    if (report.pageErrors.length || report.failedRequests.length) throw new Error('Browser page errors or failed requests detected.');
+    if (report.pageErrors.length || report.consoleErrors.length || report.failedRequests.length) throw new Error('Browser page/console errors or failed requests detected.');
 
     await page.screenshot({ path: screenshotPath, fullPage: true });
     await page.locator('#view-face').click();
@@ -115,9 +115,9 @@ const screenshotPath = path.join(ARTIFACT_DIR, 'v386-https-review-smoke.png');
     }
     await page.locator('#help-toggle').click();
     if (await page.locator('#help').isVisible()) throw new Error('Mobile help panel did not close.');
-    if (report.pageErrors.length || report.failedRequests.length) throw new Error('Browser errors occurred during mobile controls.');
+    if (report.pageErrors.length || report.consoleErrors.length || report.failedRequests.length) throw new Error('Browser page/console errors occurred during mobile controls.');
     report.status = 'PASS_HTTPS_REVIEW_ROUTE';
-    report.checks = { ...report.checks, localThreeModules200: true, candidateGlb200: true, mobileControls: 'PASS', helpToggle: 'PASS', noExternalCDN: true, noPageErrors: true, noFailedRequests: true };
+    report.checks = { ...report.checks, localThreeModules200: true, candidateGlb200: true, mobileControls: 'PASS', helpToggle: 'PASS', noExternalCDN: true, noPageErrors: true, noConsoleErrors: true, noFailedRequests: true };
   } catch (error) {
     report.error = error && error.stack ? error.stack : String(error);
     console.error(report.error);
