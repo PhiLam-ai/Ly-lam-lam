@@ -1,4 +1,4 @@
-name: V386-R6 Armhole Pre-Trim Density Candidate
+name: V386-R7 Exact Armhole Profile Bisect Candidate
 
 on:
   push:
@@ -9,6 +9,7 @@ on:
       - avatar/v386-r4-armhole-boundary-refinement
       - avatar/v386-r5-armhole-smoothing
       - avatar/v386-r6-pretrim-density
+      - avatar/v386-r7-profile-bisect-trim
     paths:
       - "tools/blender_v386_sleeveless_top.py"
       - "tools/v386_apply_viewer_camera_fit.cjs"
@@ -19,12 +20,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: v386-r6-pretrim-density
+  group: v386-r7-profile-bisect-trim
   cancel-in-progress: true
 
 jobs:
   build-and-test:
-    name: Build V386-R6 pre-trim-density armhole candidate and test GLB
+    name: Build V386-R7 exact-profile armhole candidate and test GLB
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     steps:
@@ -478,14 +479,21 @@ jobs:
           print("V386_ARM_POSE_GATE=PASS_EXPERIMENTAL_ONLY")
           sleeves = report["sleeve_removal_audit"]
           assert sleeves["status"] == "APPLIED", sleeves
-          profile_clamp = sleeves.get("cut_profile_vertex_clamp_audit")
-          assert profile_clamp and profile_clamp["status"] == "APPLIED", profile_clamp
-          assert profile_clamp["profile_point_count"] == 14, profile_clamp
-          assert profile_clamp["clamped_vertex_count"] >= 20, profile_clamp
-          assert profile_clamp["max_clamp_distance_m"] <= 0.12, profile_clamp
-          assert profile_clamp["world_y_preserved"] is True and profile_clamp["world_z_preserved"] is True, profile_clamp
-          assert sleeves["cut_region_audit"]["method"].startswith("profile-clamped retained vertices"), sleeves["cut_region_audit"]
-          print("V386_R3_PROFILE_CLAMP_GATE=PASS_EXPERIMENTAL_ONLY")
+          profile_clip = sleeves.get("cut_profile_bisect_audit")
+          assert profile_clip and profile_clip["status"] == "APPLIED", profile_clip
+          assert profile_clip["profile_point_count"] == 14, profile_clip
+          assert profile_clip["profile_segment_count"] == 13, profile_clip
+          assert profile_clip["horizontal_slice_plane_count"] >= 8, profile_clip
+          assert profile_clip["profile_segment_plane_count"] >= 20, profile_clip
+          assert profile_clip["clipped_face_count"] == sleeves["cut_face_count"], profile_clip
+          assert profile_clip["profile_boundary_vertex_count"] >= 40, profile_clip
+          assert profile_clip["max_profile_deviation_m"] <= 0.0001, profile_clip
+          assert profile_clip["uv_layer_names_preserved"] is True, profile_clip
+          assert profile_clip["material_slots_preserved"] is True, profile_clip
+          assert profile_clip["world_y_interpolated"] is True, profile_clip
+          assert "lateral armhole profile only" in profile_clip["scope"], profile_clip
+          assert sleeves["cut_region_audit"]["method"].startswith("profile-segment plane bisect clipping"), sleeves["cut_region_audit"]
+          print("V386_R7_PROFILE_BISECT_GATE=PASS_EXPERIMENTAL_ONLY")
           assert sleeves["object"] == "Human.female_sportsuit01", sleeves
           assert sleeves["component_count_before"] == 2, sleeves
           assert sleeves["component_count_after_cut"] == 2, sleeves
@@ -493,8 +501,10 @@ jobs:
           assert sleeves["removed_component_count"] == 2, sleeves
           assert 60 <= sleeves["cut_face_count"] <= 1400, sleeves
           assert sleeves["removed_face_count"] == sleeves["cut_face_count"], sleeves
-          assert sleeves["removed_vertex_count"] == sleeves["vertex_count_before"] - sleeves["vertex_count_after"], sleeves
-          assert sleeves["removed_face_count"] == sleeves["face_count_before"] - sleeves["face_count_after"], sleeves
+          assert 0 <= sleeves["removed_vertex_count"] <= sleeves["vertex_count_before"], sleeves
+          assert sleeves["vertex_count_after"] > 0 and sleeves["face_count_after"] > 0, sleeves
+          # Plane clipping creates intersection vertices and splits faces before
+          # deleting outside fragments, so raw before/after deltas are not removal counts.
           assert all(item["classified_as_sleeve"] is True for item in sleeves["removed_components"]), sleeves
           assert all(item["region_kind"] == "trimmed_surface_patch_not_detached_component" for item in sleeves["removed_components"]), sleeves
           assert {item["side"] for item in sleeves["removed_components"]} == {"left", "right"}, sleeves
@@ -517,7 +527,7 @@ jobs:
           assert boundary_refinement["uv_layer_names_preserved"] is True, boundary_refinement
           assert boundary_refinement["material_slots_preserved"] is True, boundary_refinement
           assert "exposed armhole boundary only" in boundary_refinement["scope"], boundary_refinement
-          print("V386_R6_ARMHOLE_PRETRIM_DENSITY_GATE=PASS_EXPERIMENTAL_ONLY")
+          print("V386_R7_ARMHOLE_PROFILE_BISECT_GATE=PASS_EXPERIMENTAL_ONLY")
           binding = sleeves["armhole_binding_audit"]
           assert binding["status"] == "APPLIED", binding
           assert binding["object"] == "V386_ArmholeBinding", binding
@@ -804,11 +814,11 @@ jobs:
           cp -a "$RUNNER_TEMP/v386-viewer/." "$stage/v312-work/"
           cp artifacts/v386-gltf-face-accessories/lam-v386-gltf-materials-full-face-candidate.glb "$stage/v312-work/lam-default.glb"
           cat > "$stage/v312-work/V386-EXPERIMENTAL-AVATAR.md" <<'MD'
-          # V386-R6 Experimental Real Human-Topology Avatar — Not Yet Approved
+          # V386-R7 Experimental Real Human-Topology Avatar — Not Yet Approved
 
-          This V386-R6 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body). Before sleeve trimming, it uses five local edge cuts only within the measured shoulder/armhole band to reduce the large silhouette steps left by the coarse source garment mesh; it verifies the UV-layer and material-slot names remain unchanged. After trimming, it subdivides exposed boundary edges and applies twelve controlled boundary-relaxation passes and rechecks left/right bounds, shoulder overlap and mesh-count accounting. The intent is a cleaner sleeveless cropped top closer to Phi's saved reference. The candidate remains experimental and must be compared from front, side and three-quarter images. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder validates the two expected connected shells (shirt and trousers), trims only measured lateral shirt faces, and checks the retained shoulder edge and armhole binding instead of assuming the sleeve surfaces are detached islands. The preview-only camera distance is increased by 12.5% for portrait framing; the browser bounds gate itself is not relaxed. The arm pose rotates about a higher shoulder pivot (z=1.23 m) with a nearer lateral fade (0.18–0.34 m); a separately audited 12 mm maximum skin-cap tuck narrows only the exposed upper-arm/armhole transition and protects the central torso and lower body. The armhole profile adds coverage near the lower upper-arm transition and tapers the outer shoulder tip; the exposed boundary chain receives twelve controlled smoothing passes; on the denser R6 mesh, mean boundary roughness must fall by at least 10% and end at or below 0.03 mm before the localized 22 mm edge offset and matching binding. A dedicated audit measures the shoulder-cap deformation and boundary smoothing. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
+          This V386-R7 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body). Before sleeve trimming, it uses five local edge cuts only within the measured shoulder/armhole band to reduce the large silhouette steps left by the coarse source garment mesh; it verifies the UV-layer and material-slot names remain unchanged. During sleeve trimming, it slices only the lateral shirt patches at profile Z knots and bisects each strip against the measured profile line, producing true profile intersection vertices instead of deleting whole faces by centroid; afterward it subdivides the newly exposed boundary and applies twelve controlled boundary-relaxation passes and rechecks left/right bounds, shoulder overlap and mesh-count accounting. The intent is a cleaner sleeveless cropped top closer to Phi's saved reference. The candidate remains experimental and must be compared from front, side and three-quarter images. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder validates the two expected connected shells (shirt and trousers), trims only measured lateral shirt faces, and checks the retained shoulder edge and armhole binding instead of assuming the sleeve surfaces are detached islands. The preview-only camera distance is increased by 12.5% for portrait framing; the browser bounds gate itself is not relaxed. The arm pose rotates about a higher shoulder pivot (z=1.23 m) with a nearer lateral fade (0.18–0.34 m); a separately audited 12 mm maximum skin-cap tuck narrows only the exposed upper-arm/armhole transition and protects the central torso and lower body. The armhole profile adds coverage near the lower upper-arm transition and tapers the outer shoulder tip; the exposed boundary chain receives twelve controlled smoothing passes; on the denser mesh, mean boundary roughness must fall by at least 10% and end at or below 0.03 mm before the localized 22 mm edge offset and matching binding. A dedicated audit measures the shoulder-cap deformation and boundary smoothing. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
 
-          - This is an experimental human-mesh candidate, not a claim of final photorealism. R6 increases topology density inside the measured shoulder/armhole band before trimming, then subdivides the exposed boundary and performs twelve controlled relaxation passes while asserting that UV-layer names and material slots remain unchanged. Compare front, side and three-quarter renders to R5 before approval.
+          - This is an experimental human-mesh candidate, not a claim of final photorealism. R7 uses piecewise-linear profile-plane clipping with local Z-knot slicing, then refines and smooths the actual intersection boundary. It asserts that the measured boundary stays within 0.1 mm of the profile and that UV-layer names and material slots remain unchanged. Compare front, side and three-quarter renders to R6 before approval.
           - It includes a subtle Lam_Idle_GentleSway common-root animation and 12 base-mesh facial morph names. The five separate face accessory meshes are restored with export-safe materials so the browser image can be compared against the V335 texture-only diagnostic.
           - Voice/chat integration is not included in this avatar-only package.
           - The production lam-default.glb in the main branch is unchanged.
@@ -856,7 +866,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ly-lam-lam-v386-r6-pretrim-density-${{ github.run_id }}
+          name: ly-lam-lam-v386-r7-profile-bisect-${{ github.run_id }}
           path: |
             artifacts/v386-gltf-face-accessories/
             artifacts/v386-browser-test/
