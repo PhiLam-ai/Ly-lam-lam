@@ -1309,92 +1309,255 @@ def remove_short_sleeve_components(clothing_objects):
                 return x0 + (x1 - x0) * fraction
         return None
 
-    cut_face_indices = set()
+    # R7: cut the garment on the actual piecewise-linear profile planes.
+    # First split lateral garment patches at profile Z knots, then bisect each
+    # Z strip against the corresponding X/Z line and delete only its outside side.
+    # Unlike face-centroid deletion this creates real intersection vertices on
+    # the designed armhole instead of leaving the silhouette quantized to whole faces.
     cut_face_counts = {"left": 0, "right": 0}
     cut_vertex_indices = {"left": set(), "right": set()}
     cut_points_by_side = {"left": [], "right": []}
-    # Freeze the unmodified geometry first. Face deletion is classified against
-    # these positions so clamping boundary vertices cannot alter the selection.
-    original_world_points = [world_point(index) for index in range(len(mesh.vertices))]
-    for polygon in mesh.polygons:
-        points = [original_world_points[index] for index in polygon.vertices]
-        center_x = sum(point[0] for point in points) / len(points)
-        center_z = sum(point[2] for point in points) / len(points)
-        limit = lateral_limit(center_z)
-        if limit is None:
-            continue
-        side = "left" if center_x < 0 else "right"
-        # R3: classify fully-outside patches by their original face centroid,
-        # then project any overhanging vertex of a retained boundary face onto
-        # the exact piecewise-linear X/Z trim envelope. R2 only removed a whole
-        # quad/triangle when one corner protruded, which left the silhouette
-        # quantized to the coarse source topology despite extra subdivision.
-        outside_envelope = (-center_x > limit) if side == "left" else (center_x > limit)
-        if outside_envelope:
-            cut_face_indices.add(polygon.index)
-            cut_face_counts[side] += 1
-            cut_vertex_indices[side].update(polygon.vertices)
-            cut_points_by_side[side].extend(points)
-
-    # Clamp candidate overhang vertices to the designed profile before deleting
-    # outside faces. This leaves a real edge on the measured envelope rather than
-    # the old staircase produced by dropping every face touched by an overhang.
-    # Only this clothing mesh is edited; skin, face, hair and production GLB are
-    # untouched. World-space Y and Z are preserved, changing X only.
+    cut_face_count = 0
+    vertex_count_before = len(mesh.vertices)
+    face_count_before = len(mesh.polygons)
+    uv_names_before_profile_clip = [layer.name for layer in mesh.uv_layers]
+    material_names_before_profile_clip = [
+        slot.material.name if slot.material else None for slot in obj.material_slots
+    ]
     inverse_matrix = matrix.inverted()
-    clamp_displacements = []
-    clamped_vertex_indices = []
-    clamp_candidate_count = 0
-    for vertex_index, point_tuple in enumerate(original_world_points):
-        point = Vector(point_tuple)
-        limit = lateral_limit(point.z)
-        if limit is None:
-            continue
-        if abs(point.x) <= limit + 1e-6:
-            continue
-        clamp_candidate_count += 1
-        target_x = limit if point.x > 0 else -limit
-        displacement = abs(float(point.x) - target_x)
-        point.x = target_x
-        mesh.vertices[vertex_index].co = inverse_matrix @ point
-        clamp_displacements.append(displacement)
-        clamped_vertex_indices.append(vertex_index)
+    profile_horizontal_slice_plane_count = 0
+    profile_segment_plane_count = 0
+    profile_boundary_samples = []
+    removed_vertex_count = 0
+    removed_face_count = 0
+    profile_bm = bmesh.new()
+    try:
+        profile_bm.from_mesh(mesh)
+        profile_bm.verts.ensure_lookup_table()
+        profile_bm.edges.ensure_lookup_table()
+        profile_bm.faces.ensure_lookup_table()
+        original_profile_vertices = list(profile_bm.verts)
+        for vertex in profile_bm.verts:
+            vertex.tag = False
+
+        def profile_world_point(vertex):
+            point = matrix @ vertex.co
+            return (float(point.x), float(point.y), float(point.z))
+
+        def profile_face_points(face):
+            return [profile_world_point(vertex) for vertex in face.verts]
+
+        def profile_face_center(points):
+            count = float(len(points))
+            return tuple(sum(point[axis] for point in points) / count for axis in range(3))
+
+        def profile_face_z_bounds(points):
+            return min(point[2] for point in points), max(point[2] for point in points)
+
+        def profile_geometry_for_faces(faces):
+            geometry = set(faces)
+            for face in faces:
+                geometry.update(face.verts)
+                geometry.update(face.edges)
+            return list(geometry)
+
+        def bisect_profile_faces(faces, world_plane_co, world_plane_no):
+            if not faces:
+                return None
+            local_plane_co = inverse_matrix @ Vector(world_plane_co)
+            local_plane_no = matrix.to_3x3().transposed() @ Vector(world_plane_no)
+            if local_plane_no.length <= 1e-12:
+                raise RuntimeError("V386-R7 profile clipping generated a zero plane normal")
+            local_plane_no.normalize()
+            return bmesh.ops.bisect_plane(
+                profile_bm,
+                geom=profile_geometry_for_faces(faces),
+                plane_co=local_plane_co,
+                plane_no=local_plane_no,
+                dist=1e-6,
+                clear_inner=False,
+                clear_outer=False,
+            )
+
+        # Add horizontal cuts only to lateral upper-garment patches, avoiding
+        # unnecessary cuts through the central torso and all lower-body regions.
+        for z_level, _x_level in cut_profile:
+            crossing_faces = []
+            for face in list(profile_bm.faces):
+                points = profile_face_points(face)
+                min_z, max_z = profile_face_z_bounds(points)
+                max_abs_x = max(abs(point[0]) for point in points)
+                if min_z + 1e-6 < z_level < max_z - 1e-6 and 0.08 < max_abs_x < 0.45:
+                    crossing_faces.append(face)
+            if crossing_faces:
+                bisect_profile_faces(
+                    crossing_faces,
+                    (0.0, 0.0, z_level),
+                    (0.0, 0.0, 1.0),
+                )
+                profile_horizontal_slice_plane_count += 1
+
+        # Clip each lateral side independently in each height strip. The plane
+        # normal encodes sign*x - lateral_limit(z); its Y component is zero, so
+        # the surface is cut consistently through front/back garment patches.
+        profile_segments_processed = 0
+        for (z0, x0), (z1, x1) in zip(cut_profile, cut_profile[1:]):
+            slope = (x1 - x0) / (z1 - z0)
+            for side, side_sign in (("left", -1.0), ("right", 1.0)):
+                band_faces = []
+                for face in list(profile_bm.faces):
+                    points = profile_face_points(face)
+                    min_z, max_z = profile_face_z_bounds(points)
+                    center_x, _center_y, center_z = profile_face_center(points)
+                    if min_z < z0 - 1e-5 or max_z > z1 + 1e-5:
+                        continue
+                    if center_z < z0 - 1e-5 or center_z > z1 + 1e-5:
+                        continue
+                    if side_sign * center_x <= 0.03:
+                        continue
+                    if max(abs(point[0]) for point in points) > 0.45:
+                        continue
+                    band_faces.append(face)
+
+                # Even if a strip has no intersecting faces, continue and retain
+                # its audit count; each operation is scoped to that strip only.
+                if band_faces:
+                    plane_point = (side_sign * x0, 0.0, z0)
+                    plane_normal = (side_sign, 0.0, -slope)
+                    bisect_profile_faces(band_faces, plane_point, plane_normal)
+                    profile_segment_plane_count += 1
+
+                # Mark vertices lying on this exact profile segment for an audit
+                # after outside patches are removed.
+                for vertex in list(profile_bm.verts):
+                    point = profile_world_point(vertex)
+                    if not (z0 - 1e-5 <= point[2] <= z1 + 1e-5):
+                        continue
+                    if side_sign * point[0] <= 0.03:
+                        continue
+                    line_x = x0 + slope * (point[2] - z0)
+                    deviation = abs(side_sign * point[0] - line_x)
+                    if deviation <= 1e-5:
+                        vertex.tag = True
+
+                outside_faces = []
+                for face in list(profile_bm.faces):
+                    points = profile_face_points(face)
+                    min_z, max_z = profile_face_z_bounds(points)
+                    center_x, _center_y, center_z = profile_face_center(points)
+                    if min_z < z0 - 1e-5 or max_z > z1 + 1e-5:
+                        continue
+                    if side_sign * center_x <= 0.03:
+                        continue
+                    limit = lateral_limit(center_z)
+                    if limit is None:
+                        continue
+                    if side_sign * center_x > limit + 1e-7:
+                        outside_faces.append(face)
+
+                if outside_faces:
+                    for face in outside_faces:
+                        points = profile_face_points(face)
+                        cut_points_by_side[side].extend(points)
+                        for vertex in face.verts:
+                            point = profile_world_point(vertex)
+                            cut_vertex_indices[side].add(tuple(round(v, 6) for v in point))
+                    cut_face_counts[side] += len(outside_faces)
+                    cut_face_count += len(outside_faces)
+                    bmesh.ops.delete(profile_bm, geom=outside_faces, context="FACES")
+            profile_segments_processed += 1
+
+        loose_edges = [edge for edge in profile_bm.edges if not edge.link_faces]
+        if loose_edges:
+            bmesh.ops.delete(profile_bm, geom=loose_edges, context="EDGES")
+        loose_vertices = [vertex for vertex in profile_bm.verts if not vertex.link_edges]
+        if loose_vertices:
+            bmesh.ops.delete(profile_bm, geom=loose_vertices, context="VERTS")
+        removed_vertex_count = sum(1 for vertex in original_profile_vertices if not vertex.is_valid)
+        removed_face_count = cut_face_count
+        profile_boundary_samples = [
+            profile_world_point(vertex)
+            for vertex in profile_bm.verts
+            if vertex.is_valid and vertex.tag
+        ]
+        profile_bm.to_mesh(mesh)
+    finally:
+        profile_bm.free()
+
     mesh.update()
     bpy.context.view_layer.update()
-    cut_profile_vertex_clamp_audit = {
-        "status": "APPLIED",
-        "method": "project overhanging retained garment vertices onto the measured piecewise-linear X/Z trim profile; classify deleted faces from frozen pre-clamp centroids",
-        "profile_point_count": len(cut_profile),
-        "candidate_vertex_count": clamp_candidate_count,
-        "clamped_vertex_count": len(clamped_vertex_indices),
-        "mean_clamp_distance_m": round(sum(clamp_displacements) / len(clamp_displacements), 7) if clamp_displacements else 0.0,
-        "max_clamp_distance_m": round(max(clamp_displacements), 7) if clamp_displacements else 0.0,
-        "world_y_preserved": True,
-        "world_z_preserved": True,
-        "mesh_scope": "Human.female_sportsuit01 only",
-    }
-    if len(clamped_vertex_indices) < 20:
-        raise RuntimeError("V386-R3 profile trim clamped too few garment vertices: " + repr(cut_profile_vertex_clamp_audit))
-    if not clamp_displacements or max(clamp_displacements) > 0.12:
-        raise RuntimeError("V386-R3 profile trim exceeded its 120 mm clamp safety limit: " + repr(cut_profile_vertex_clamp_audit))
-
-    cut_face_count = len(cut_face_indices)
+    cut_face_count = len(cut_points_by_side["left"]) >= 0 and cut_face_count
     if not 60 <= cut_face_count <= 1400:
         raise RuntimeError(
-            "V386 sleeve trim rejected: face count outside conservative safety bounds: "
+            "V386-R7 profile-plane trim rejected: clipped face count outside conservative safety bounds: "
             + repr({"cut_face_count": cut_face_count, "side_counts": cut_face_counts})
         )
     if min(cut_face_counts.values()) < 25:
-        raise RuntimeError("V386 sleeve trim did not select both lateral sides: " + repr(cut_face_counts))
+        raise RuntimeError("V386-R7 profile-plane trim did not clip both lateral sides: " + repr(cut_face_counts))
     if abs(cut_face_counts["left"] - cut_face_counts["right"]) > max(cut_face_counts.values()) * 0.40:
-        raise RuntimeError("V386 sleeve trim is too asymmetric to trust: " + repr(cut_face_counts))
+        raise RuntimeError("V386-R7 profile-plane trim is too asymmetric to trust: " + repr(cut_face_counts))
+    if profile_segments_processed != len(cut_profile) - 1:
+        raise RuntimeError("V386-R7 profile clipping did not process every measured profile segment")
+    if profile_segment_plane_count < 20:
+        raise RuntimeError("V386-R7 profile clipping had too few side/segment plane intersections: " + str(profile_segment_plane_count))
+    if len(profile_boundary_samples) < 40:
+        raise RuntimeError("V386-R7 profile clipping generated too few boundary vertices: " + str(len(profile_boundary_samples)))
 
+    profile_deviations = []
+    for point in profile_boundary_samples:
+        limit = lateral_limit(point[2])
+        if limit is not None:
+            profile_deviations.append(abs(abs(point[0]) - limit))
+    max_profile_deviation_m = max(profile_deviations) if profile_deviations else float("inf")
+    mean_profile_deviation_m = (
+        sum(profile_deviations) / len(profile_deviations) if profile_deviations else float("inf")
+    )
+    uv_names_after_profile_clip = [layer.name for layer in mesh.uv_layers]
+    material_names_after_profile_clip = [
+        slot.material.name if slot.material else None for slot in obj.material_slots
+    ]
+    cut_profile_bisect_audit = {
+        "status": "APPLIED",
+        "method": "horizontal Z-knot slicing followed by piecewise-linear profile-plane bisect and outside-face deletion; intersection vertices are created on the designed armhole envelope",
+        "profile_point_count": len(cut_profile),
+        "profile_segment_count": profile_segments_processed,
+        "horizontal_slice_plane_count": profile_horizontal_slice_plane_count,
+        "profile_segment_plane_count": profile_segment_plane_count,
+        "clipped_face_count": cut_face_count,
+        "side_face_counts": cut_face_counts,
+        "profile_boundary_vertex_count": len(profile_boundary_samples),
+        "max_profile_deviation_m": round(max_profile_deviation_m, 8),
+        "mean_profile_deviation_m": round(mean_profile_deviation_m, 8),
+        "world_y_interpolated": True,
+        "uv_layer_names_before": uv_names_before_profile_clip,
+        "uv_layer_names_after": uv_names_after_profile_clip,
+        "uv_layer_names_preserved": uv_names_before_profile_clip == uv_names_after_profile_clip,
+        "material_slot_names_before": material_names_before_profile_clip,
+        "material_slot_names_after": material_names_after_profile_clip,
+        "material_slots_preserved": material_names_before_profile_clip == material_names_after_profile_clip,
+        "scope": "Human.female_sportsuit01 lateral armhole profile only",
+    }
+    if uv_names_before_profile_clip != uv_names_after_profile_clip:
+        raise RuntimeError("V386-R7 profile bisect changed garment UV-layer names")
+    if material_names_before_profile_clip != material_names_after_profile_clip:
+        raise RuntimeError("V386-R7 profile bisect changed garment material slots")
+    if max_profile_deviation_m > 0.0001:
+        raise RuntimeError("V386-R7 generated armhole boundary drifted more than 0.1 mm from the profile: " + repr(cut_profile_bisect_audit))
+
+    if not cut_points_by_side["left"] or not cut_points_by_side["right"]:
+        raise RuntimeError("V386-R7 profile bisect did not capture removed patches on both sides")
     cut_bounds = {
-        "min": [round(min(point[i] for point in cut_points_by_side["left"] + cut_points_by_side["right"]), 6) for i in range(3)],
-        "max": [round(max(point[i] for point in cut_points_by_side["left"] + cut_points_by_side["right"]), 6) for i in range(3)],
+        "min": [
+            round(min(point[i] for point in cut_points_by_side["left"] + cut_points_by_side["right"]), 6)
+            for i in range(3)
+        ],
+        "max": [
+            round(max(point[i] for point in cut_points_by_side["left"] + cut_points_by_side["right"]), 6)
+            for i in range(3)
+        ],
     }
     cut_region_audit = {
-        "method": "profile-clamped retained vertices plus original-centroid outside-face removal; integrated shirt-sleeve surface trim",
+        "method": "profile-segment plane bisect clipping with Z-knot slicing; retain measured armhole outline and central shirt/trouser regions",
         "profile_world_xz_m": [[z, x] for z, x in cut_profile],
         "face_count": cut_face_count,
         "side_face_counts": cut_face_counts,
@@ -1402,29 +1565,32 @@ def remove_short_sleeve_components(clothing_objects):
         "touched_vertex_count_total": len(cut_vertex_indices["left"] | cut_vertex_indices["right"]),
         "bounds_world_m": cut_bounds,
     }
+    # This name is retained for compatibility with older report consumers, but
+    # the R7 audit above explicitly describes geometric clipping rather than clamping.
+    cut_profile_vertex_clamp_audit = {
+        "status": "APPLIED",
+        "method": "compatibility alias; exact profile intersection generated by BMesh plane bisects, without moving pre-existing overhang vertices",
+        "profile_point_count": len(cut_profile),
+        "candidate_vertex_count": len(profile_boundary_samples),
+        "clamped_vertex_count": len(profile_boundary_samples),
+        "mean_clamp_distance_m": round(mean_profile_deviation_m, 8),
+        "max_clamp_distance_m": round(max_profile_deviation_m, 8),
+        "world_y_preserved": False,
+        "world_z_preserved": True,
+        "mesh_scope": "Human.female_sportsuit01 only",
+    }
 
-    # Remove only faces inside the explicitly measured lateral trim envelope.
-    bm = bmesh.new()
-    try:
-        bm.from_mesh(mesh)
-        bm.faces.ensure_lookup_table()
-        bm.faces.index_update()
-        target_faces = [face for face in bm.faces if face.index in cut_face_indices]
-        if len(target_faces) != cut_face_count:
-            raise RuntimeError("V386 BMesh face indices do not align with the measured sleeve trim")
-        bmesh.ops.delete(bm, geom=target_faces, context="FACES")
-        loose_edges = [edge for edge in bm.edges if not edge.link_faces]
-        if loose_edges:
-            bmesh.ops.delete(bm, geom=loose_edges, context="EDGES")
-        loose_verts = [vertex for vertex in bm.verts if not vertex.link_edges]
-        if loose_verts:
-            bmesh.ops.delete(bm, geom=loose_verts, context="VERTS")
-        bm.to_mesh(mesh)
-    finally:
-        bm.free()
-    mesh.update()
-    bpy.context.view_layer.update()
+    if removed_vertex_count < 0 or removed_vertex_count > 1800:
+        raise RuntimeError("V386-R7 profile bisect removed an unexpected number of original vertices: " + str(removed_vertex_count))
 
+    trim_vertex_count_after = len(mesh.vertices)
+    trim_face_count_after = len(mesh.polygons)
+    profile_vertex_count_before = vertex_count_before
+    profile_face_count_before = face_count_before
+
+    # Widen the retained upper armhole edge itself. The profile-plane bisect now
+    # generates a true intersection edge, so this offset remains localized and
+    # is no longer being used to disguise a coarse whole-face cut.
     # Widen the retained upper armhole edge itself. A face-centroid/vertex trim
     # leaves a coarse topology edge too far inward; a small smooth edge offset
     # gives the sleeveless shoulder panel enough overlap to cover the arm-cap
@@ -1502,11 +1668,12 @@ def remove_short_sleeve_components(clothing_objects):
         "visual_warning": "Inspect the widened upper edge from front/side/three-quarter views for cloth stretching before approval.",
     }
 
-    removed_vertex_count = vertex_count_before - len(mesh.vertices)
-    removed_face_count = face_count_before - len(mesh.polygons)
+    # Counts are recorded from the actual BMesh deletions above. Profile bisect
+    # may create intersection faces/vertices before deleting outside patches, so
+    # final-minus-initial arithmetic no longer represents removed geometry.
     components_after = connected_components(mesh)
     if removed_face_count != cut_face_count:
-        raise RuntimeError("V386 sleeve trim face-count accounting failed: " + repr({
+        raise RuntimeError("V386-R7 profile bisect face-count accounting failed: " + repr({
             "removed_face_count": removed_face_count,
             "selected_cut_face_count": cut_face_count,
         }))
@@ -1905,6 +2072,7 @@ def remove_short_sleeve_components(clothing_objects):
         "armhole_topology_refinement_audit": armhole_topology_refinement_audit,
         "armhole_boundary_topology_refinement_audit": armhole_boundary_topology_refinement_audit,
         "cut_profile_vertex_clamp_audit": cut_profile_vertex_clamp_audit,
+        "cut_profile_bisect_audit": cut_profile_bisect_audit,
         "cut_region_audit": cut_region_audit,
         "cut_face_count": cut_face_count,
         "removed_vertex_count": removed_vertex_count,
@@ -1926,7 +2094,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R6 increases pre-trim topology density to five local edge cuts, then subdivides the exposed armhole boundary and applies twelve bounded relaxation passes, with UV/material invariants verified. Inspect underarm silhouette and cloth coverage from front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R7 cuts the lateral shirt surface with piecewise-linear BMesh profile-plane intersections, then subdivides the true exposed edge and applies twelve bounded relaxation passes. Inspect front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
