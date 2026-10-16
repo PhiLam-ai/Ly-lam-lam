@@ -1545,6 +1545,97 @@ def remove_short_sleeve_components(clothing_objects):
             "shirt_before": shirt_before, "shirt_after": shirt_after,
         }))
 
+    # R4: refine only the newly exposed armhole boundary edges after the cut.
+    # This adds geometry where the silhouette needs support instead of relying
+    # solely on relaxing the sparse original vertices. BMesh interpolates loop
+    # data, and UV/material invariants are verified before continuing.
+    trim_vertex_count_after = len(mesh.vertices)
+    trim_face_count_after = len(mesh.polygons)
+    boundary_refine_uv_before = [layer.name for layer in mesh.uv_layers]
+    boundary_refine_materials_before = [
+        slot.material.name if slot.material else None for slot in obj.material_slots
+    ]
+    boundary_refine_vertices_before = len(mesh.vertices)
+    boundary_refine_faces_before = len(mesh.polygons)
+    boundary_refine_bm = bmesh.new()
+    selected_boundary_refine_edges = []
+    try:
+        boundary_refine_bm.from_mesh(mesh)
+        boundary_refine_bm.verts.ensure_lookup_table()
+        boundary_refine_bm.edges.ensure_lookup_table()
+        for edge in boundary_refine_bm.edges:
+            if not edge.is_boundary:
+                continue
+            pa = matrix @ edge.verts[0].co
+            pb = matrix @ edge.verts[1].co
+            mid_x = (float(pa.x) + float(pb.x)) / 2.0
+            mid_z = (float(pa.z) + float(pb.z)) / 2.0
+            limit = lateral_limit(mid_z)
+            if limit is None or not (1.08 < mid_z < 1.39):
+                continue
+            if not (0.10 < abs(mid_x) < 0.30):
+                continue
+            if abs(abs(mid_x) - limit) > 0.09:
+                continue
+            selected_boundary_refine_edges.append(edge)
+        if len(selected_boundary_refine_edges) < 40:
+            raise RuntimeError(
+                "V386-R4 found too few exposed armhole boundary edges to refine: "
+                + str(len(selected_boundary_refine_edges))
+            )
+        if len(selected_boundary_refine_edges) > 1800:
+            raise RuntimeError(
+                "V386-R4 armhole boundary refinement selected an unexpectedly large region: "
+                + str(len(selected_boundary_refine_edges))
+            )
+        bmesh.ops.subdivide_edges(
+            boundary_refine_bm,
+            edges=selected_boundary_refine_edges,
+            cuts=2,
+            smooth=0.0,
+        )
+        boundary_refine_bm.to_mesh(mesh)
+    finally:
+        boundary_refine_bm.free()
+    mesh.update()
+    bpy.context.view_layer.update()
+    boundary_refine_uv_after = [layer.name for layer in mesh.uv_layers]
+    boundary_refine_materials_after = [
+        slot.material.name if slot.material else None for slot in obj.material_slots
+    ]
+    armhole_boundary_topology_refinement_audit = {
+        "status": "APPLIED",
+        "method": "subdivide only exposed trim-boundary edges within the measured armhole profile after sleeve removal; preserve original UV layers and material slots",
+        "selected_boundary_edge_count": len(selected_boundary_refine_edges),
+        "cuts_per_edge": 2,
+        "vertices_before": boundary_refine_vertices_before,
+        "vertices_after": len(mesh.vertices),
+        "vertices_added": len(mesh.vertices) - boundary_refine_vertices_before,
+        "faces_before": boundary_refine_faces_before,
+        "faces_after": len(mesh.polygons),
+        "faces_added": len(mesh.polygons) - boundary_refine_faces_before,
+        "uv_layer_names_before": boundary_refine_uv_before,
+        "uv_layer_names_after": boundary_refine_uv_after,
+        "uv_layer_names_preserved": boundary_refine_uv_before == boundary_refine_uv_after,
+        "material_slot_names_before": boundary_refine_materials_before,
+        "material_slot_names_after": boundary_refine_materials_after,
+        "material_slots_preserved": boundary_refine_materials_before == boundary_refine_materials_after,
+        "scope": "Human.female_sportsuit01 exposed armhole boundary only",
+    }
+    if boundary_refine_uv_before != boundary_refine_uv_after:
+        raise RuntimeError("V386-R4 boundary refinement changed garment UV-layer names")
+    if boundary_refine_materials_before != boundary_refine_materials_after:
+        raise RuntimeError("V386-R4 boundary refinement changed garment material slots")
+    if armhole_boundary_topology_refinement_audit["vertices_added"] < 80:
+        raise RuntimeError(
+            "V386-R4 boundary refinement added too few vertices for a meaningful density increase: "
+            + repr(armhole_boundary_topology_refinement_audit)
+        )
+    if armhole_boundary_topology_refinement_audit["faces_added"] <= 0:
+        raise RuntimeError("V386-R4 armhole boundary refinement added no faces")
+    if len(mesh.vertices) > 200_000:
+        raise RuntimeError("V386-R4 armhole boundary refinement exceeded the 200k vertex safety limit")
+
     # Add a very narrow, fabric-colored binding on the exposed armhole edges.
     # This softens the hard, single-sided cut without filling the armhole or
     # changing the skin, shoulder pose, shirt silhouette or trouser geometry.
@@ -1796,15 +1887,16 @@ def remove_short_sleeve_components(clothing_objects):
         "removed_components": removed_components,
         "removed_component_count": 2,
         "armhole_topology_refinement_audit": armhole_topology_refinement_audit,
+        "armhole_boundary_topology_refinement_audit": armhole_boundary_topology_refinement_audit,
         "cut_profile_vertex_clamp_audit": cut_profile_vertex_clamp_audit,
         "cut_region_audit": cut_region_audit,
         "cut_face_count": cut_face_count,
         "removed_vertex_count": removed_vertex_count,
         "removed_face_count": removed_face_count,
         "vertex_count_before": vertex_count_before,
-        "vertex_count_after": len(mesh.vertices),
+        "vertex_count_after": trim_vertex_count_after,
         "face_count_before": face_count_before,
-        "face_count_after": len(mesh.polygons),
+        "face_count_after": trim_face_count_after,
         "shirt_region_before": shirt_before,
         "shirt_region_after": shirt_after,
         "trouser_region_after": pants_after,
@@ -1818,7 +1910,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R3 clamps retained overhang vertices onto the measured profile after local topology refinement and applies six boundary relaxation passes. Inspect armholes, shoulder edges and shirt coverage in front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R4 additionally subdivides the exposed armhole trim boundary and verifies UV/material invariants before six boundary relaxation passes. Inspect underarm silhouette and cloth coverage from front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
