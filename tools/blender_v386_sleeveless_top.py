@@ -1281,8 +1281,9 @@ def remove_short_sleeve_components(clothing_objects):
         return result
 
     components_before = connected_components(mesh)
-    cut_profile_control = [
-        # Preserve the measured underarm and shoulder envelope, then use a
+    measured_profile_control = [
+        # Baseline measured underarm and shoulder envelope; R10 builds a second
+        # smooth profile with a bounded shoulder-region offset below.
         # shape-preserving cubic interpolation to remove hard direction changes
         # between control points. Eight slices per control segment keep the
         # polygonal clipping approximation within roughly 0.1 mm of the curve.
@@ -1311,7 +1312,7 @@ def remove_short_sleeve_components(clothing_objects):
             for index in range(len(control_points) - 1)
         ]
         if any(interval <= 0.0 for interval in intervals):
-            raise RuntimeError("V386-R8 profile control Z coordinates must be strictly increasing")
+            raise RuntimeError("V386-R10 profile control Z coordinates must be strictly increasing")
         secants = [
             (x_values[index + 1] - x_values[index]) / intervals[index]
             for index in range(len(intervals))
@@ -1345,11 +1346,29 @@ def remove_short_sleeve_components(clothing_objects):
         slopes[-1] = endpoint_slope(intervals[-1], intervals[-2], secants[-1], secants[-2])
         return slopes
 
-    profile_control_slopes = pchip_profile_slopes(cut_profile_control)
+    profile_control_offset_max_m = 0.006
 
-    def evaluate_smooth_profile_segment(segment_index, t_value):
-        z0, x0 = cut_profile_control[segment_index]
-        z1, x1 = cut_profile_control[segment_index + 1]
+    def smooth_profile_weight(value):
+        value = min(1.0, max(0.0, float(value)))
+        return value * value * (3.0 - 2.0 * value)
+
+    def shoulder_profile_offset(z_value):
+        rise = smooth_profile_weight((z_value - 1.12) / (1.18 - 1.12))
+        fall = smooth_profile_weight((1.355 - z_value) / (1.355 - 1.27))
+        return profile_control_offset_max_m * rise * fall
+
+    # R10 broadens the shoulder portion by up to 6 mm within the PCHIP control
+    # curve. There is no secondary mesh-vertex offset after clipping.
+    cut_profile_control = [
+        (z_value, x_value + shoulder_profile_offset(z_value))
+        for z_value, x_value in measured_profile_control
+    ]
+    profile_control_slopes = pchip_profile_slopes(cut_profile_control)
+    measured_profile_control_slopes = pchip_profile_slopes(measured_profile_control)
+
+    def evaluate_profile_segment(control_points, slopes, segment_index, t_value):
+        z0, x0 = control_points[segment_index]
+        z1, x1 = control_points[segment_index + 1]
         interval = z1 - z0
         t = max(0.0, min(1.0, float(t_value)))
         t2 = t * t
@@ -1360,12 +1379,22 @@ def remove_short_sleeve_components(clothing_objects):
         h11 = t3 - t2
         x_value = (
             h00 * x0
-            + h10 * interval * profile_control_slopes[segment_index]
+            + h10 * interval * slopes[segment_index]
             + h01 * x1
-            + h11 * interval * profile_control_slopes[segment_index + 1]
+            + h11 * interval * slopes[segment_index + 1]
         )
         x_value = max(min(x0, x1), min(max(x0, x1), x_value))
         return (z0 + interval * t, x_value)
+
+    def evaluate_smooth_profile_segment(segment_index, t_value):
+        return evaluate_profile_segment(
+            cut_profile_control, profile_control_slopes, segment_index, t_value
+        )
+
+    def evaluate_measured_profile_segment(segment_index, t_value):
+        return evaluate_profile_segment(
+            measured_profile_control, measured_profile_control_slopes, segment_index, t_value
+        )
 
     cut_profile = [cut_profile_control[0]]
     for segment_index in range(len(cut_profile_control) - 1):
@@ -1405,7 +1434,23 @@ def remove_short_sleeve_components(clothing_objects):
                 return evaluate_smooth_profile_segment(segment_index, fraction)[1]
         return None
 
-    # R8: cut the garment against a densely sampled, shape-preserving smooth profile.
+    def measured_profile_limit(z_value):
+        if z_value < measured_profile_control[0][0] - 1e-9 or z_value > measured_profile_control[-1][0] + 1e-9:
+            return None
+        if z_value <= measured_profile_control[0][0]:
+            return measured_profile_control[0][1]
+        if z_value >= measured_profile_control[-1][0]:
+            return measured_profile_control[-1][1]
+        for segment_index, ((z0, _x0), (z1, _x1)) in enumerate(
+            zip(measured_profile_control, measured_profile_control[1:])
+        ):
+            if z0 <= z_value <= z1:
+                fraction = (z_value - z0) / (z1 - z0)
+                return evaluate_measured_profile_segment(segment_index, fraction)[1]
+        return None
+
+    # R10: cut against the measured PCHIP armhole curve with a continuous,
+    # shoulder-localized offset (maximum 6 mm) baked into the profile itself.
     # First split lateral garment patches at profile Z knots, then bisect each
     # Z strip against the corresponding X/Z line and delete only its outside side.
     # Unlike face-centroid deletion this creates real intersection vertices on
@@ -1463,7 +1508,7 @@ def remove_short_sleeve_components(clothing_objects):
             local_plane_co = inverse_matrix @ Vector(world_plane_co)
             local_plane_no = matrix.to_3x3().transposed() @ Vector(world_plane_no)
             if local_plane_no.length <= 1e-12:
-                raise RuntimeError("V386-R8 profile clipping generated a zero plane normal")
+                raise RuntimeError("V386-R10 profile clipping generated a zero plane normal")
             local_plane_no.normalize()
             return bmesh.ops.bisect_plane(
                 profile_bm,
@@ -1600,20 +1645,20 @@ def remove_short_sleeve_components(clothing_objects):
     bpy.context.view_layer.update()
     if not 60 <= cut_face_count <= 1400:
         raise RuntimeError(
-            "V386-R8 smooth-profile trim rejected: clipped face count outside conservative safety bounds: "
+            "V386-R10 smooth-profile trim rejected: clipped face count outside conservative safety bounds: "
             + repr({"cut_face_count": cut_face_count, "side_counts": cut_face_counts})
         )
     if min(cut_face_counts.values()) < 25:
-        raise RuntimeError("V386-R8 smooth-profile trim did not clip both lateral sides: " + repr(cut_face_counts))
+        raise RuntimeError("V386-R10 smooth-profile trim did not clip both lateral sides: " + repr(cut_face_counts))
     if abs(cut_face_counts["left"] - cut_face_counts["right"]) > max(cut_face_counts.values()) * 0.40:
-        raise RuntimeError("V386-R8 smooth-profile trim is too asymmetric to trust: " + repr(cut_face_counts))
+        raise RuntimeError("V386-R10 smooth-profile trim is too asymmetric to trust: " + repr(cut_face_counts))
     if profile_segments_processed != len(cut_profile) - 1:
-        raise RuntimeError("V386-R8 profile clipping did not process every sampled profile segment")
+        raise RuntimeError("V386-R10 profile clipping did not process every sampled profile segment")
     if profile_segment_plane_count < 20:
-        raise RuntimeError("V386-R8 profile clipping had too few side/segment plane intersections: " + str(profile_segment_plane_count))
+        raise RuntimeError("V386-R10 profile clipping had too few side/segment plane intersections: " + str(profile_segment_plane_count))
     if len(profile_boundary_samples) < 40:
         raise RuntimeError(
-            "V386-R8 smooth-profile clipping generated too few boundary vertices: "
+            "V386-R10 smooth-profile clipping generated too few boundary vertices: "
             + repr({
                 "profile_boundary_vertex_count": len(profile_boundary_samples),
         "profile_vertices_within_1mm": profile_vertices_within_1mm,
@@ -1628,13 +1673,17 @@ def remove_short_sleeve_components(clothing_objects):
 
     profile_deviations = []
     smooth_profile_deviations = []
+    measured_profile_offsets = []
     for point in profile_boundary_samples:
         limit = lateral_limit(point[2])
         smooth_limit = smooth_profile_limit(point[2])
+        measured_limit = measured_profile_limit(point[2])
         if limit is not None:
             profile_deviations.append(abs(abs(point[0]) - limit))
         if smooth_limit is not None:
             smooth_profile_deviations.append(abs(abs(point[0]) - smooth_limit))
+        if measured_limit is not None:
+            measured_profile_offsets.append(abs(abs(point[0]) - measured_limit))
     max_profile_deviation_m = max(profile_deviations) if profile_deviations else float("inf")
     mean_profile_deviation_m = (
         sum(profile_deviations) / len(profile_deviations) if profile_deviations else float("inf")
@@ -1645,16 +1694,24 @@ def remove_short_sleeve_components(clothing_objects):
     mean_smooth_profile_deviation_m = (
         sum(smooth_profile_deviations) / len(smooth_profile_deviations) if smooth_profile_deviations else float("inf")
     )
+    max_actual_offset_from_measured_profile_m = (
+        max(measured_profile_offsets) if measured_profile_offsets else float("inf")
+    )
+    mean_actual_offset_from_measured_profile_m = (
+        sum(measured_profile_offsets) / len(measured_profile_offsets) if measured_profile_offsets else float("inf")
+    )
     uv_names_after_profile_clip = [layer.name for layer in mesh.uv_layers]
     material_names_after_profile_clip = [
         slot.material.name if slot.material else None for slot in obj.material_slots
     ]
     cut_profile_bisect_audit = {
         "status": "APPLIED",
-        "method": "shape-preserving PCHIP interpolation of 14 measured armhole control points, sampled at eight subdivisions per control segment, then horizontal slicing and profile-plane bisect clipping",
-        "profile_point_count": len(cut_profile_control),
-        "profile_control_point_count": len(cut_profile_control),
-        "profile_segment_count": len(cut_profile_control) - 1,
+        "method": "shape-preserving PCHIP of 14 measured armhole controls with a continuous 6 mm maximum shoulder-region profile offset, sampled at eight subdivisions per segment before plane-bisect clipping",
+        "profile_point_count": len(measured_profile_control),
+        "profile_control_point_count": len(measured_profile_control),
+        "profile_segment_count": len(measured_profile_control) - 1,
+        "profile_control_offset_max_m": profile_control_offset_max_m,
+        "profile_offset_zone_world_z_m": [1.12, 1.355],
         "sampled_profile_point_count": len(cut_profile),
         "sampled_profile_segment_count": profile_segments_processed,
         "subdivisions_per_control_segment": profile_subdivisions_per_segment,
@@ -1667,6 +1724,9 @@ def remove_short_sleeve_components(clothing_objects):
         "mean_profile_deviation_m": round(mean_profile_deviation_m, 8),
         "max_smooth_profile_deviation_m": round(max_smooth_profile_deviation_m, 8),
         "mean_smooth_profile_deviation_m": round(mean_smooth_profile_deviation_m, 8),
+        "max_actual_offset_from_measured_profile_m": round(max_actual_offset_from_measured_profile_m, 8),
+        "mean_actual_offset_from_measured_profile_m": round(mean_actual_offset_from_measured_profile_m, 8),
+        "measured_profile_control_world_xz_m": [[z, x] for z, x in measured_profile_control],
         "smooth_profile_control_points_world_xz_m": [[z, x] for z, x in cut_profile_control],
         "world_y_interpolated": True,
         "uv_layer_names_before": uv_names_before_profile_clip,
@@ -1678,14 +1738,14 @@ def remove_short_sleeve_components(clothing_objects):
         "scope": "Human.female_sportsuit01 lateral armhole profile only",
     }
     if uv_names_before_profile_clip != uv_names_after_profile_clip:
-        raise RuntimeError("V386-R8 profile bisect changed garment UV-layer names")
+        raise RuntimeError("V386-R10 profile bisect changed garment UV-layer names")
     if material_names_before_profile_clip != material_names_after_profile_clip:
-        raise RuntimeError("V386-R8 profile bisect changed garment material slots")
+        raise RuntimeError("V386-R10 profile bisect changed garment material slots")
     if max_profile_deviation_m > 0.0001:
-        raise RuntimeError("V386-R8 generated armhole boundary drifted more than 0.1 mm from the smooth profile: " + repr(cut_profile_bisect_audit))
+        raise RuntimeError("V386-R10 generated armhole boundary drifted more than 0.1 mm from the smooth profile: " + repr(cut_profile_bisect_audit))
 
     if not cut_points_by_side["left"] or not cut_points_by_side["right"]:
-        raise RuntimeError("V386-R8 profile bisect did not capture removed patches on both sides")
+        raise RuntimeError("V386-R10 profile bisect did not capture removed patches on both sides")
     cut_bounds = {
         "min": [
             round(min(point[i] for point in cut_points_by_side["left"] + cut_points_by_side["right"]), 6)
@@ -1707,19 +1767,16 @@ def remove_short_sleeve_components(clothing_objects):
         "bounds_world_m": cut_bounds,
     }
     if removed_vertex_count < 0 or removed_vertex_count > 1800:
-        raise RuntimeError("V386-R8 profile bisect removed an unexpected number of original vertices: " + str(removed_vertex_count))
+        raise RuntimeError("V386-R10 profile bisect removed an unexpected number of original vertices: " + str(removed_vertex_count))
 
     trim_vertex_count_after = len(mesh.vertices)
     trim_face_count_after = len(mesh.polygons)
     profile_vertex_count_before = vertex_count_before
     profile_face_count_before = face_count_before
 
-    # R9: preserve the freshly bisected profile edge rather than applying a
-    # second outward offset to only a subset of boundary vertices. R8 visual
-    # review showed that selective widening can create a tiny step where the
-    # widened points meet the profile-constrained smoothing chain. The existing
-    # skin tuck and the binding generated from the same cut edge provide the
-    # armhole transition; keep the outer edge on the smooth PCHIP envelope.
+    # R10 keeps the cut edge on the continuous PCHIP curve with a bounded shoulder
+    # profile offset already included before clipping; no selective post-cut
+    # mesh-vertex offset is applied. The skin tuck and binding follow this edge.
     boundary_edge_counts_for_profile = {}
     for polygon in mesh.polygons:
         ids = list(polygon.vertices)
@@ -1753,15 +1810,15 @@ def remove_short_sleeve_components(clothing_objects):
     max_abs_x_after_overlap = max_abs_x_before_overlap
     shoulder_edge_overlap_audit = {
         "status": "APPLIED",
-        "method": "R9 preserves the smooth PCHIP armhole cut edge with no second selective outward offset; localized skin tuck and matching boundary binding maintain the transition",
+        "method": "R10 integrates a continuous 6 mm maximum shoulder-region offset into the PCHIP curve before clipping; no second selective post-cut vertex offset is applied",
         "candidate_boundary_vertex_count": len(shoulder_boundary_vertex_indices),
         "moved_vertex_count": 0,
         "max_offset_m": 0.0,
         "mean_offset_m": 0.0,
         "max_abs_x_before_m": round(max_abs_x_before_overlap, 6),
         "max_abs_x_after_m": round(max_abs_x_after_overlap, 6),
-        "preserved": "underarm opening remains open; smooth profile edge is not selectively widened; binding is generated from the same exposed boundary",
-        "visual_warning": "Review underarm skin/cloth clearance and the binding in front, side and three-quarter renders. No outward overlap offset is applied in R9.",
+        "preserved": "underarm opening remains open; shoulder offset is built into the PCHIP profile; binding is generated from the same exposed boundary",
+        "visual_warning": "Review underarm skin/cloth clearance and the binding in front, side and three-quarter renders. The 6 mm shoulder offset is continuous in the curve; no post-cut vertex offset is applied.",
     }
 
     # Counts are recorded from the actual BMesh deletions above. Profile bisect
@@ -1769,7 +1826,7 @@ def remove_short_sleeve_components(clothing_objects):
     # final-minus-initial arithmetic no longer represents removed geometry.
     components_after = connected_components(mesh)
     if removed_face_count != cut_face_count:
-        raise RuntimeError("V386-R8 profile bisect face-count accounting failed: " + repr({
+        raise RuntimeError("V386-R10 profile bisect face-count accounting failed: " + repr({
             "removed_face_count": removed_face_count,
             "selected_cut_face_count": cut_face_count,
         }))
@@ -2144,19 +2201,19 @@ def remove_short_sleeve_components(clothing_objects):
             boundary_smoothing_audit["depth_roughness_gate_mode"] = "ALREADY_FLAT_ABSOLUTE_FLOOR"
             if depth_roughness_after_m > depth_roughness_baseline_floor_m:
                 raise RuntimeError(
-                    "V386-R8 depth roughness grew beyond the 5-micrometre flat-baseline floor: "
+                    "V386-R10 depth roughness grew beyond the 5-micrometre flat-baseline floor: "
                     + repr(boundary_smoothing_audit)
                 )
         else:
             boundary_smoothing_audit["depth_roughness_gate_mode"] = "RELATIVE_REDUCTION"
             if depth_roughness_reduction_fraction < minimum_depth_roughness_reduction:
                 raise RuntimeError(
-                    "V386-R8 depth roughness did not improve by the 10% minimum: "
+                    "V386-R10 depth roughness did not improve by the 10% minimum: "
                     + repr(boundary_smoothing_audit)
                 )
         if max(smoothing_displacements) > 0.010:
             raise RuntimeError(
-                "V386-R8 depth-only smoothing exceeded its 10 mm displacement limit: "
+                "V386-R10 depth-only smoothing exceeded its 10 mm displacement limit: "
                 + repr(boundary_smoothing_audit)
             )
     else:
@@ -2177,11 +2234,11 @@ def remove_short_sleeve_components(clothing_objects):
             )
     if profile_bisect_active and max_profile_deviation_after_smoothing_m > 0.0001:
         raise RuntimeError(
-            "V386-R8 smoothed boundary drifted more than 0.1 mm from its smooth profile: "
+            "V386-R10 smoothed boundary drifted more than 0.1 mm from its smooth profile: "
             + repr(boundary_smoothing_audit)
         )
     if profile_bisect_active and profile_projection_count < 40:
-        raise RuntimeError("V386-R8 profile-constrained smoothing projected too few boundary vertices: " + repr(boundary_smoothing_audit))
+        raise RuntimeError("V386-R10 profile-constrained smoothing projected too few boundary vertices: " + repr(boundary_smoothing_audit))
 
     remaining_vertices = set(boundary_graph)
     binding_chains = []
@@ -2349,7 +2406,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R8 clips the lateral shirt surface against an eight-subdivision PCHIP armhole profile, then smooths only boundary depth while keeping X/Z constrained. Inspect front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R10 clips the lateral shirt surface against a densely sampled PCHIP profile with a smooth 6 mm shoulder-region offset, then smooths only boundary depth while keeping X/Z constrained. Inspect front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
