@@ -1885,13 +1885,17 @@ def remove_short_sleeve_components(clothing_objects):
                 (boundary_smoothed_positions[neighbor] for neighbor in neighbors),
                 Vector((0.0, 0.0, 0.0)),
             ) / len(neighbors)
-            next_point = current.lerp(neighbor_mean, boundary_smoothing_factor)
-            # Keep the outer silhouette on the exact measured profile while
-            # relaxing depth/height along the boundary. Without this constraint,
-            # Laplacian smoothing can trade away the profile fit to reduce roughness.
-            limit = lateral_limit(float(next_point.z))
-            if limit is not None and 0.10 < abs(float(next_point.x)) < 0.35:
-                next_point.x = math.copysign(limit, float(next_point.x))
+            # Smooth only depth (world Y). Keep Z fixed and project X to
+            # the measured profile at that Z; full XYZ relaxation can slide a
+            # vertex along steep profile segments and distort the intended cut.
+            next_point = current.copy()
+            next_point.y = current.y + (
+                float(neighbor_mean.y) - float(current.y)
+            ) * boundary_smoothing_factor
+            limit = lateral_limit(float(current.z))
+            if limit is not None and 0.10 < abs(float(current.x)) < 0.35:
+                next_point.x = math.copysign(limit, float(current.x))
+                next_point.z = current.z
             next_positions[index] = next_point
         boundary_smoothed_positions = next_positions
 
@@ -1927,7 +1931,7 @@ def remove_short_sleeve_components(clothing_objects):
     profile_bisect_active = "cut_profile_bisect_audit" in locals()
     boundary_smoothing_audit = {
         "status": "APPLIED",
-        "method": "twenty-pass profile-constrained Laplacian relaxation of the exact bisect boundary; profile X is reprojected each pass while interior shirt vertices remain unchanged",
+        "method": "twenty-pass depth-only Laplacian relaxation (world Y) of the exact bisect boundary; measured profile X/Z remain fixed while only front/back depth is smoothed",
         "vertex_count": len(boundary_vertex_indices),
         "iterations": boundary_smoothing_iterations,
         "relaxation_factor": boundary_smoothing_factor,
@@ -1938,7 +1942,7 @@ def remove_short_sleeve_components(clothing_objects):
         "max_profile_deviation_after_smoothing_m": round(max_profile_deviation_after_smoothing_m, 8) if max_profile_deviation_after_smoothing_m != float("inf") else None,
         "mean_displacement_m": round(sum(smoothing_displacements) / len(smoothing_displacements), 6) if smoothing_displacements else 0.0,
         "max_displacement_m": round(max(smoothing_displacements), 6) if smoothing_displacements else 0.0,
-        "preserved": "only exposed armhole boundary vertices are smoothed; shirt interior, torso and trousers are untouched; lateral X remains on the measured profile",
+        "preserved": "only exposed armhole boundary depth Y is smoothed; X/Z profile, shirt interior, torso and trousers remain untouched",
     }
     if len(boundary_vertex_indices) < 40:
         raise RuntimeError("V386 armhole boundary smoothing found too few vertices: " + repr(boundary_smoothing_audit))
