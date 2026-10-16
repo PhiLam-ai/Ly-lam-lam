@@ -45,7 +45,7 @@ const screenshotPath = path.join(ARTIFACT_DIR, 'v386-https-review-smoke.png');
       error: request.failure()?.errorText || 'unknown',
     }));
     page.on('request', request => {
-      if (/cdn\\.jsdelivr\\.net|unpkg\\.com/.test(request.url())) report.externalThreeRequests.push(request.url());
+      if (request.url().includes('cdn.jsdelivr.net') || request.url().includes('unpkg.com')) report.externalThreeRequests.push(request.url());
     });
     page.on('response', response => {
       const url = new URL(response.url());
