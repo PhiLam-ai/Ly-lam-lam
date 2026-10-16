@@ -539,6 +539,7 @@ jobs:
           assert smoothing["mean_roughness_before_m"] > 0, smoothing
           assert smoothing["mean_roughness_after_m"] < smoothing["mean_roughness_before_m"], smoothing
           assert 0.0 <= smoothing["mean_displacement_m"] <= smoothing["max_displacement_m"] <= 0.010, smoothing
+          assert smoothing["max_depth_smoothing_offset_m"] == 0.008, smoothing
           assert "shirt interior" in smoothing["preserved"], smoothing
           assert smoothing["profile_projection_vertex_count"] >= 40, smoothing
           assert smoothing["depth_roughness_before_m"] > 0, smoothing
