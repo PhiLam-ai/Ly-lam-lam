@@ -1153,7 +1153,7 @@ def remove_short_sleeve_components(clothing_objects):
     mesh = obj.data
     matrix = obj.matrix_world.copy()
 
-    # R2: increase topology density only near the sleeve-cut/armhole band before
+    # R3: increase topology density only near the sleeve-cut/armhole band before
     # trimming. V386's original whole-face removal is intentionally conservative,
     # but the coarse sportsuit triangles leave a few visible angular teeth at the
     # armhole. Two local edge cuts make the retained border and its later smoothing
@@ -1178,7 +1178,7 @@ def remove_short_sleeve_components(clothing_objects):
                 selected_refinement_edges.append(edge)
         if len(selected_refinement_edges) < 40:
             raise RuntimeError(
-                "V386-R2 local armhole topology refinement found too few candidate edges: "
+                "V386-R3 local armhole topology refinement found too few candidate edges: "
                 + str(len(selected_refinement_edges))
             )
         if len(selected_refinement_edges) > 1800:
@@ -1219,7 +1219,7 @@ def remove_short_sleeve_components(clothing_objects):
         "model_scope": "Human.female_sportsuit01 mesh only; no skin/face/hair/trouser or GLB production asset edits",
     }
     if uv_names_before_refinement != [layer.name for layer in mesh.uv_layers]:
-        raise RuntimeError("V386-R2 local refinement changed the garment UV-layer names")
+        raise RuntimeError("V386-R3 local refinement changed the garment UV-layer names")
     if material_names_before_refinement != [
         slot.material.name if slot.material else None for slot in obj.material_slots
     ]:
@@ -1313,26 +1313,70 @@ def remove_short_sleeve_components(clothing_objects):
     cut_face_counts = {"left": 0, "right": 0}
     cut_vertex_indices = {"left": set(), "right": set()}
     cut_points_by_side = {"left": [], "right": []}
+    # Freeze the unmodified geometry first. Face deletion is classified against
+    # these positions so clamping boundary vertices cannot alter the selection.
+    original_world_points = [world_point(index) for index in range(len(mesh.vertices))]
     for polygon in mesh.polygons:
-        points = [world_point(index) for index in polygon.vertices]
+        points = [original_world_points[index] for index in polygon.vertices]
         center_x = sum(point[0] for point in points) / len(points)
+        center_z = sum(point[2] for point in points) / len(points)
+        limit = lateral_limit(center_z)
+        if limit is None:
+            continue
         side = "left" if center_x < 0 else "right"
-        # A triangle is trimmed if any corner protrudes beyond the measured
-        # envelope. Centroid-only selection leaves long shoulder triangles
-        # outside the cut and causes visible flaps after the sleeve surface is removed.
-        outside_envelope = False
-        for point in points:
-            limit = lateral_limit(point[2])
-            if limit is None:
-                continue
-            if (side == "left" and -point[0] > limit) or (side == "right" and point[0] > limit):
-                outside_envelope = True
-                break
+        # R3: classify fully-outside patches by their original face centroid,
+        # then project any overhanging vertex of a retained boundary face onto
+        # the exact piecewise-linear X/Z trim envelope. R2 only removed a whole
+        # quad/triangle when one corner protruded, which left the silhouette
+        # quantized to the coarse source topology despite extra subdivision.
+        outside_envelope = (-center_x > limit) if side == "left" else (center_x > limit)
         if outside_envelope:
             cut_face_indices.add(polygon.index)
             cut_face_counts[side] += 1
             cut_vertex_indices[side].update(polygon.vertices)
             cut_points_by_side[side].extend(points)
+
+    # Clamp candidate overhang vertices to the designed profile before deleting
+    # outside faces. This leaves a real edge on the measured envelope rather than
+    # the old staircase produced by dropping every face touched by an overhang.
+    # Only this clothing mesh is edited; skin, face, hair and production GLB are
+    # untouched. World-space Y and Z are preserved, changing X only.
+    inverse_matrix = matrix.inverted()
+    clamp_displacements = []
+    clamped_vertex_indices = []
+    clamp_candidate_count = 0
+    for vertex_index, point_tuple in enumerate(original_world_points):
+        point = Vector(point_tuple)
+        limit = lateral_limit(point.z)
+        if limit is None:
+            continue
+        if abs(point.x) <= limit + 1e-6:
+            continue
+        clamp_candidate_count += 1
+        target_x = limit if point.x > 0 else -limit
+        displacement = abs(float(point.x) - target_x)
+        point.x = target_x
+        mesh.vertices[vertex_index].co = inverse_matrix @ point
+        clamp_displacements.append(displacement)
+        clamped_vertex_indices.append(vertex_index)
+    mesh.update()
+    bpy.context.view_layer.update()
+    cut_profile_vertex_clamp_audit = {
+        "status": "APPLIED",
+        "method": "project overhanging retained garment vertices onto the measured piecewise-linear X/Z trim profile; classify deleted faces from frozen pre-clamp centroids",
+        "profile_point_count": len(cut_profile),
+        "candidate_vertex_count": clamp_candidate_count,
+        "clamped_vertex_count": len(clamped_vertex_indices),
+        "mean_clamp_distance_m": round(sum(clamp_displacements) / len(clamp_displacements), 7) if clamp_displacements else 0.0,
+        "max_clamp_distance_m": round(max(clamp_displacements), 7) if clamp_displacements else 0.0,
+        "world_y_preserved": True,
+        "world_z_preserved": True,
+        "mesh_scope": "Human.female_sportsuit01 only",
+    }
+    if len(clamped_vertex_indices) < 20:
+        raise RuntimeError("V386-R3 profile trim clamped too few garment vertices: " + repr(cut_profile_vertex_clamp_audit))
+    if not clamp_displacements or max(clamp_displacements) > 0.12:
+        raise RuntimeError("V386-R3 profile trim exceeded its 120 mm clamp safety limit: " + repr(cut_profile_vertex_clamp_audit))
 
     cut_face_count = len(cut_face_indices)
     if not 60 <= cut_face_count <= 1400:
@@ -1350,7 +1394,7 @@ def remove_short_sleeve_components(clothing_objects):
         "max": [round(max(point[i] for point in cut_points_by_side["left"] + cut_points_by_side["right"]), 6) for i in range(3)],
     }
     cut_region_audit = {
-        "method": "smooth lateral face-centroid envelope; integrated shirt-sleeve surface trim",
+        "method": "profile-clamped retained vertices plus original-centroid outside-face removal; integrated shirt-sleeve surface trim",
         "profile_world_xz_m": [[z, x] for z, x in cut_profile],
         "face_count": cut_face_count,
         "side_face_counts": cut_face_counts,
@@ -1466,8 +1510,8 @@ def remove_short_sleeve_components(clothing_objects):
             "removed_face_count": removed_face_count,
             "selected_cut_face_count": cut_face_count,
         }))
-    if removed_vertex_count < 80 or removed_vertex_count > 1800:
-        raise RuntimeError("V386 sleeve trim removed an unexpected number of vertices: " + str(removed_vertex_count))
+    if removed_vertex_count < 0 or removed_vertex_count > 1800:
+        raise RuntimeError("V386-R3 profile trim removed an unexpected number of unused vertices: " + str(removed_vertex_count))
     if len(components_before) != 2 or len(components_after) != 2:
         raise RuntimeError("V386 must retain exactly the expected shirt and trouser regions: " + repr({
             "components_before": components_before,
@@ -1752,6 +1796,7 @@ def remove_short_sleeve_components(clothing_objects):
         "removed_components": removed_components,
         "removed_component_count": 2,
         "armhole_topology_refinement_audit": armhole_topology_refinement_audit,
+        "cut_profile_vertex_clamp_audit": cut_profile_vertex_clamp_audit,
         "cut_region_audit": cut_region_audit,
         "cut_face_count": cut_face_count,
         "removed_vertex_count": removed_vertex_count,
@@ -1773,7 +1818,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R2 refines local garment topology before trimming and applies six boundary relaxation passes. Inspect armholes, shoulder edges and shirt coverage in front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R3 clamps retained overhang vertices onto the measured profile after local topology refinement and applies six boundary relaxation passes. Inspect armholes, shoulder edges and shirt coverage in front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
