@@ -1903,9 +1903,19 @@ def remove_short_sleeve_components(clothing_objects):
             # the measured profile at that Z; full XYZ relaxation can slide a
             # vertex along steep profile segments and distort the intended cut.
             next_point = current.copy()
-            next_point.y = current.y + (
+            target_y = current.y + (
                 float(neighbor_mean.y) - float(current.y)
             ) * boundary_smoothing_factor
+            # Laplacian relaxation can shrink the entire cut loop in depth.
+            # Bound each R7 vertex to +/-8 mm from its original Y coordinate.
+            if profile_bisect_smoothing:
+                original_y = float(boundary_original_positions[index].y)
+                max_depth_offset = 0.008
+                target_y = max(
+                    original_y - max_depth_offset,
+                    min(original_y + max_depth_offset, float(target_y)),
+                )
+            next_point.y = target_y
             limit = lateral_limit(float(current.z))
             if limit is not None and 0.10 < abs(float(current.x)) < 0.35:
                 next_point.x = math.copysign(limit, float(current.x))
@@ -1950,7 +1960,7 @@ def remove_short_sleeve_components(clothing_objects):
     profile_bisect_active = "cut_profile_bisect_audit" in locals()
     boundary_smoothing_audit = {
         "status": "APPLIED",
-        "method": "eight-pass depth-only Laplacian relaxation (world Y, factor 0.40) of the exact bisect boundary; measured profile X/Z remain fixed while only front/back depth is smoothed",
+        "method": "eight-pass depth-only Laplacian relaxation (world Y, factor 0.40) of the exact bisect boundary, with each vertex limited to +/-8 mm from original depth; measured profile X/Z remain fixed",
         "vertex_count": len(boundary_vertex_indices),
         "iterations": boundary_smoothing_iterations,
         "relaxation_factor": boundary_smoothing_factor,
@@ -1965,6 +1975,7 @@ def remove_short_sleeve_components(clothing_objects):
         "max_profile_deviation_after_smoothing_m": round(max_profile_deviation_after_smoothing_m, 8) if max_profile_deviation_after_smoothing_m != float("inf") else None,
         "mean_displacement_m": round(sum(smoothing_displacements) / len(smoothing_displacements), 6) if smoothing_displacements else 0.0,
         "max_displacement_m": round(max(smoothing_displacements), 6) if smoothing_displacements else 0.0,
+        "max_depth_smoothing_offset_m": 0.008 if profile_bisect_smoothing else None,
         "preserved": "only exposed armhole boundary depth Y is smoothed; X/Z profile, shirt interior, torso and trousers remain untouched",
     }
     if len(boundary_vertex_indices) < 40:
