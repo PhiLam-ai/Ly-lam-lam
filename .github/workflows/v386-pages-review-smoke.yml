@@ -1,0 +1,56 @@
+name: V386 HTTPS Review Route Smoke Test
+
+on:
+  workflow_run:
+    workflows:
+      - Deploy Lam Avatar to GitHub Pages
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    # 01:00 Vietnam time (UTC+7)
+    - cron: "0 18 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v386-https-review-smoke
+  cancel-in-progress: false
+
+jobs:
+  mobile-chromium-smoke:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    name: Test published V386 review route on mobile-sized Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout test script
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Test the deployed HTTPS review route
+        env:
+          LLL_REVIEW_URL: https://philam-ai.github.io/Ly-lam-lam/review-v386/
+          LLL_ARTIFACT_DIR: artifacts
+        run: node tools/v386-pages-review-smoke.cjs
+
+      - name: Upload V386 HTTPS smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lll-v386-https-review-smoke-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/v386-https-review-smoke.json
+            artifacts/v386-https-review-smoke.png
+          if-no-files-found: warn
+          retention-days: 14
