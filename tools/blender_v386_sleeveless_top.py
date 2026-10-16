@@ -1605,7 +1605,7 @@ def remove_short_sleeve_components(clothing_objects):
     ]
     armhole_boundary_topology_refinement_audit = {
         "status": "APPLIED",
-        "method": "subdivide only exposed trim-boundary edges within the measured armhole profile after sleeve removal; preserve original UV layers and material slots",
+        "method": "split exposed trim-boundary perimeter edges within the measured armhole profile after sleeve removal; Blender may retain polygon count while inserting boundary-loop vertices; preserve UV layers and material slots",
         "selected_boundary_edge_count": len(selected_boundary_refine_edges),
         "cuts_per_edge": 2,
         "vertices_before": boundary_refine_vertices_before,
@@ -1631,8 +1631,8 @@ def remove_short_sleeve_components(clothing_objects):
             "V386-R4 boundary refinement added too few vertices for a meaningful density increase: "
             + repr(armhole_boundary_topology_refinement_audit)
         )
-    if armhole_boundary_topology_refinement_audit["faces_added"] <= 0:
-        raise RuntimeError("V386-R4 armhole boundary refinement added no faces")
+    if armhole_boundary_topology_refinement_audit["faces_after"] < armhole_boundary_topology_refinement_audit["faces_before"]:
+        raise RuntimeError("V386-R4 armhole boundary refinement unexpectedly removed faces")
     if len(mesh.vertices) > 200_000:
         raise RuntimeError("V386-R4 armhole boundary refinement exceeded the 200k vertex safety limit")
 
