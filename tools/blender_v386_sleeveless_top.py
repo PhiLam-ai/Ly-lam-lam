@@ -1281,9 +1281,11 @@ def remove_short_sleeve_components(clothing_objects):
         return result
 
     components_before = connected_components(mesh)
-    cut_profile = [
-        # Carry the fabric farther over the upper arm near the underarm opening,
-        # then taper the shoulder tip instead of leaving an outward-pointing flap.
+    cut_profile_control = [
+        # Preserve the measured underarm and shoulder envelope, then use a
+        # shape-preserving cubic interpolation to remove hard direction changes
+        # between control points. Eight slices per control segment keep the
+        # polygonal clipping approximation within roughly 0.1 mm of the curve.
         (1.095, 0.210),
         (1.115, 0.210),
         (1.135, 0.215),
@@ -1299,14 +1301,108 @@ def remove_short_sleeve_components(clothing_objects):
         (1.370, 0.165),
         (1.380, 0.145),
     ]
+    profile_subdivisions_per_segment = 8
+
+    def pchip_profile_slopes(control_points):
+        z_values = [float(point[0]) for point in control_points]
+        x_values = [float(point[1]) for point in control_points]
+        intervals = [
+            z_values[index + 1] - z_values[index]
+            for index in range(len(control_points) - 1)
+        ]
+        if any(interval <= 0.0 for interval in intervals):
+            raise RuntimeError("V386-R8 profile control Z coordinates must be strictly increasing")
+        secants = [
+            (x_values[index + 1] - x_values[index]) / intervals[index]
+            for index in range(len(intervals))
+        ]
+        if len(control_points) == 2:
+            return [secants[0], secants[0]]
+
+        def endpoint_slope(h0, h1, d0, d1):
+            slope = ((2.0 * h0 + h1) * d0 - h0 * d1) / (h0 + h1)
+            if slope * d0 <= 0.0:
+                return 0.0
+            if d0 * d1 < 0.0 and abs(slope) > abs(3.0 * d0):
+                return 3.0 * d0
+            return slope
+
+        slopes = [0.0] * len(control_points)
+        slopes[0] = endpoint_slope(intervals[0], intervals[1], secants[0], secants[1])
+        for index in range(1, len(control_points) - 1):
+            left_secant = secants[index - 1]
+            right_secant = secants[index]
+            if left_secant == 0.0 or right_secant == 0.0 or left_secant * right_secant < 0.0:
+                slopes[index] = 0.0
+            else:
+                weight_left = 2.0 * intervals[index] + intervals[index - 1]
+                weight_right = intervals[index] + 2.0 * intervals[index - 1]
+                slopes[index] = (
+                    weight_left + weight_right
+                ) / (
+                    weight_left / left_secant + weight_right / right_secant
+                )
+        slopes[-1] = endpoint_slope(intervals[-1], intervals[-2], secants[-1], secants[-2])
+        return slopes
+
+    profile_control_slopes = pchip_profile_slopes(cut_profile_control)
+
+    def evaluate_smooth_profile_segment(segment_index, t_value):
+        z0, x0 = cut_profile_control[segment_index]
+        z1, x1 = cut_profile_control[segment_index + 1]
+        interval = z1 - z0
+        t = max(0.0, min(1.0, float(t_value)))
+        t2 = t * t
+        t3 = t2 * t
+        h00 = 2.0 * t3 - 3.0 * t2 + 1.0
+        h10 = t3 - 2.0 * t2 + t
+        h01 = -2.0 * t3 + 3.0 * t2
+        h11 = t3 - t2
+        x_value = (
+            h00 * x0
+            + h10 * interval * profile_control_slopes[segment_index]
+            + h01 * x1
+            + h11 * interval * profile_control_slopes[segment_index + 1]
+        )
+        x_value = max(min(x0, x1), min(max(x0, x1), x_value))
+        return (z0 + interval * t, x_value)
+
+    cut_profile = [cut_profile_control[0]]
+    for segment_index in range(len(cut_profile_control) - 1):
+        for subdivision_index in range(1, profile_subdivisions_per_segment + 1):
+            cut_profile.append(
+                evaluate_smooth_profile_segment(
+                    segment_index,
+                    subdivision_index / float(profile_subdivisions_per_segment),
+                )
+            )
 
     def lateral_limit(z_value):
-        if z_value < cut_profile[0][0] or z_value > cut_profile[-1][0]:
+        if z_value < cut_profile[0][0] - 1e-9 or z_value > cut_profile[-1][0] + 1e-9:
             return None
+        if z_value <= cut_profile[0][0]:
+            return cut_profile[0][1]
+        if z_value >= cut_profile[-1][0]:
+            return cut_profile[-1][1]
         for (z0, x0), (z1, x1) in zip(cut_profile, cut_profile[1:]):
             if z0 <= z_value <= z1:
                 fraction = (z_value - z0) / (z1 - z0)
                 return x0 + (x1 - x0) * fraction
+        return None
+
+    def smooth_profile_limit(z_value):
+        if z_value < cut_profile_control[0][0] - 1e-9 or z_value > cut_profile_control[-1][0] + 1e-9:
+            return None
+        if z_value <= cut_profile_control[0][0]:
+            return cut_profile_control[0][1]
+        if z_value >= cut_profile_control[-1][0]:
+            return cut_profile_control[-1][1]
+        for segment_index, ((z0, _x0), (z1, _x1)) in enumerate(
+            zip(cut_profile_control, cut_profile_control[1:])
+        ):
+            if z0 <= z_value <= z1:
+                fraction = (z_value - z0) / (z1 - z0)
+                return evaluate_smooth_profile_segment(segment_index, fraction)[1]
         return None
 
     # R7: cut the garment on the actual piecewise-linear profile planes.
@@ -1531,13 +1627,23 @@ def remove_short_sleeve_components(clothing_objects):
         )
 
     profile_deviations = []
+    smooth_profile_deviations = []
     for point in profile_boundary_samples:
         limit = lateral_limit(point[2])
+        smooth_limit = smooth_profile_limit(point[2])
         if limit is not None:
             profile_deviations.append(abs(abs(point[0]) - limit))
+        if smooth_limit is not None:
+            smooth_profile_deviations.append(abs(abs(point[0]) - smooth_limit))
     max_profile_deviation_m = max(profile_deviations) if profile_deviations else float("inf")
     mean_profile_deviation_m = (
         sum(profile_deviations) / len(profile_deviations) if profile_deviations else float("inf")
+    )
+    max_smooth_profile_deviation_m = (
+        max(smooth_profile_deviations) if smooth_profile_deviations else float("inf")
+    )
+    mean_smooth_profile_deviation_m = (
+        sum(smooth_profile_deviations) / len(smooth_profile_deviations) if smooth_profile_deviations else float("inf")
     )
     uv_names_after_profile_clip = [layer.name for layer in mesh.uv_layers]
     material_names_after_profile_clip = [
@@ -1545,9 +1651,13 @@ def remove_short_sleeve_components(clothing_objects):
     ]
     cut_profile_bisect_audit = {
         "status": "APPLIED",
-        "method": "horizontal Z-knot slicing followed by piecewise-linear profile-plane bisect and outside-face deletion; intersection vertices are created on the designed armhole envelope",
-        "profile_point_count": len(cut_profile),
-        "profile_segment_count": profile_segments_processed,
+        "method": "shape-preserving PCHIP interpolation of 14 measured armhole control points, sampled at eight subdivisions per control segment, then horizontal slicing and profile-plane bisect clipping",
+        "profile_point_count": len(cut_profile_control),
+        "profile_control_point_count": len(cut_profile_control),
+        "profile_segment_count": len(cut_profile_control) - 1,
+        "sampled_profile_point_count": len(cut_profile),
+        "sampled_profile_segment_count": profile_segments_processed,
+        "subdivisions_per_control_segment": profile_subdivisions_per_segment,
         "horizontal_slice_plane_count": profile_horizontal_slice_plane_count,
         "profile_segment_plane_count": profile_segment_plane_count,
         "clipped_face_count": cut_face_count,
@@ -1555,6 +1665,9 @@ def remove_short_sleeve_components(clothing_objects):
         "profile_boundary_vertex_count": len(profile_boundary_samples),
         "max_profile_deviation_m": round(max_profile_deviation_m, 8),
         "mean_profile_deviation_m": round(mean_profile_deviation_m, 8),
+        "max_smooth_profile_deviation_m": round(max_smooth_profile_deviation_m, 8),
+        "mean_smooth_profile_deviation_m": round(mean_smooth_profile_deviation_m, 8),
+        "smooth_profile_control_points_world_xz_m": [[z, x] for z, x in cut_profile_control],
         "world_y_interpolated": True,
         "uv_layer_names_before": uv_names_before_profile_clip,
         "uv_layer_names_after": uv_names_after_profile_clip,
@@ -1584,8 +1697,9 @@ def remove_short_sleeve_components(clothing_objects):
         ],
     }
     cut_region_audit = {
-        "method": "profile-segment plane bisect clipping with Z-knot slicing; retain measured armhole outline and central shirt/trouser regions",
+        "method": "smooth-profile-segment plane bisect clipping with dense Z-knot slicing; retain measured armhole envelope and central shirt/trouser regions",
         "profile_world_xz_m": [[z, x] for z, x in cut_profile],
+        "profile_control_world_xz_m": [[z, x] for z, x in cut_profile_control],
         "face_count": cut_face_count,
         "side_face_counts": cut_face_counts,
         "side_touched_vertex_counts": {side: len(indices) for side, indices in cut_vertex_indices.items()},
