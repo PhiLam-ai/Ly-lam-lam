@@ -1,9 +1,10 @@
-name: V386 Sleeveless Top Geometry Candidate
+name: V386-R2 Armhole Topology Refinement Candidate
 
 on:
   push:
     branches:
       - avatar/v386-sleeveless-top-candidate
+      - avatar/v386-r2-armhole-refinement
     paths:
       - "tools/blender_v386_sleeveless_top.py"
       - "tools/v386_apply_viewer_camera_fit.cjs"
@@ -14,12 +15,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: v386-gltf-face-accessory
+  group: v386-r2-armhole-refinement
   cancel-in-progress: true
 
 jobs:
   build-and-test:
-    name: Build V386 sleeveless-top geometry candidate and test GLB
+    name: Build V386-R2 refined armhole candidate and test GLB
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     steps:
@@ -176,6 +177,12 @@ jobs:
           }
           assert report["status"] == "EXPERIMENTAL_V386_GLTFSKIN_FACE_ACCESSORY_CANDIDATE_NOT_APPROVED", report
           assert report["version"] == "V386", report
+          refinement = report["sleeve_removal_audit"].get("armhole_topology_refinement_audit")
+          assert refinement and refinement["status"] == "APPLIED", refinement
+          assert refinement["cuts_per_edge"] == 2 and refinement["selected_edge_count"] >= 40, refinement
+          assert refinement["uv_layer_names_before"] == refinement["uv_layer_names_after"], refinement
+          assert refinement["material_names_before"] == refinement["material_names_after"], refinement
+          assert report["sleeve_removal_audit"]["armhole_boundary_smoothing_audit"]["iterations"] == 6, report["sleeve_removal_audit"]["armhole_boundary_smoothing_audit"]
           assert report["skin_count_gltf"] == 0 and report["texture_count_gltf"] >= 1, report
           assert report["excluded_face_accessories"] == [], report
           expected_face_meshes = {"eyebrow001", "eyelashes01", "high-poly", "teeth_base", "tongue01"}
@@ -823,7 +830,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ly-lam-lam-v386-gltf-face-accessory-${{ github.run_id }}
+          name: ly-lam-lam-v386-r2-armhole-refinement-${{ github.run_id }}
           path: |
             artifacts/v386-gltf-face-accessories/
             artifacts/v386-browser-test/
