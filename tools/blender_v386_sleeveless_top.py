@@ -1954,7 +1954,7 @@ def remove_short_sleeve_components(clothing_objects):
             # Bound each R7 vertex to +/-8 mm from its original Y coordinate.
             if profile_bisect_smoothing:
                 original_y = float(boundary_original_positions[index].y)
-                max_depth_offset = 0.008
+                max_depth_offset = 0.005
                 target_y = max(
                     original_y - max_depth_offset,
                     min(original_y + max_depth_offset, float(target_y)),
@@ -2023,7 +2023,7 @@ def remove_short_sleeve_components(clothing_objects):
         "max_profile_deviation_after_smoothing_m": round(max_profile_deviation_after_smoothing_m, 8) if max_profile_deviation_after_smoothing_m != float("inf") else None,
         "mean_displacement_m": round(sum(smoothing_displacements) / len(smoothing_displacements), 6) if smoothing_displacements else 0.0,
         "max_displacement_m": round(max(smoothing_displacements), 6) if smoothing_displacements else 0.0,
-        "max_depth_smoothing_offset_m": 0.008 if profile_bisect_smoothing else None,
+        "max_depth_smoothing_offset_m": 0.005 if profile_bisect_smoothing else None,
         "preserved": "only exposed armhole boundary depth Y is smoothed; X/Z profile, shirt interior, torso and trousers remain untouched",
     }
     if len(boundary_vertex_indices) < 40:
