@@ -1929,7 +1929,15 @@ def remove_short_sleeve_components(clothing_objects):
             neighbors = sorted(boundary_graph[index])
             current = boundary_smoothed_positions[index]
             if len(neighbors) < 2:
-                next_positions[index] = current.copy()
+                # Even open-chain endpoints must remain on the measured X/Z
+                # profile; skipping relaxation must not skip profile projection.
+                endpoint_point = current.copy()
+                if profile_bisect_smoothing:
+                    endpoint_limit = lateral_limit(float(current.z))
+                    if endpoint_limit is not None and 0.10 < abs(float(current.x)) < 0.35:
+                        endpoint_point.x = math.copysign(endpoint_limit, float(current.x))
+                        endpoint_point.z = current.z
+                next_positions[index] = endpoint_point
                 continue
             neighbor_mean = sum(
                 (boundary_smoothed_positions[neighbor] for neighbor in neighbors),
@@ -2006,6 +2014,8 @@ def remove_short_sleeve_components(clothing_objects):
         "depth_roughness_before_m": round(depth_roughness_before_m, 7),
         "depth_roughness_after_m": round(depth_roughness_after_m, 7),
         "depth_roughness_reduction_fraction": round(depth_roughness_reduction_fraction, 6),
+        "depth_roughness_gate_scope": "depth Y component only for exact-profile R7; if baseline is at or below 5 micrometres, enforce an absolute floor instead of requiring a meaningless percentage reduction",
+        "depth_roughness_baseline_floor_m": 0.000005 if profile_bisect_smoothing else None,
         "roughness_gate_scope": "depth Y component only for exact-profile R7; full XYZ roughness remains diagnostic because X/Z follow intentional profile curvature",
         "profile_projection_vertex_count": profile_projection_count,
         "boundary_edge_profile_tolerance_m": boundary_edge_profile_tolerance_m,
@@ -2042,12 +2052,24 @@ def remove_short_sleeve_components(clothing_objects):
     profile_bisect_active = "cut_profile_bisect_audit" in locals()
     if profile_bisect_active:
         minimum_depth_roughness_reduction = 0.10
+        depth_roughness_baseline_floor_m = 0.000005
         boundary_smoothing_audit["minimum_depth_roughness_reduction_fraction"] = minimum_depth_roughness_reduction
-        if depth_roughness_before_m <= 1e-12 or depth_roughness_reduction_fraction < minimum_depth_roughness_reduction:
-            raise RuntimeError(
-                "V386-R7 depth roughness did not improve by the 10% minimum: "
-                + repr(boundary_smoothing_audit)
-            )
+        if depth_roughness_before_m <= depth_roughness_baseline_floor_m:
+            # A virtually flat depth profile does not need an arbitrary relative
+            # reduction. Verify it remains below the absolute 5 micrometre floor.
+            boundary_smoothing_audit["depth_roughness_gate_mode"] = "ALREADY_FLAT_ABSOLUTE_FLOOR"
+            if depth_roughness_after_m > depth_roughness_baseline_floor_m:
+                raise RuntimeError(
+                    "V386-R7 depth roughness grew beyond the 5-micrometre flat-baseline floor: "
+                    + repr(boundary_smoothing_audit)
+                )
+        else:
+            boundary_smoothing_audit["depth_roughness_gate_mode"] = "RELATIVE_REDUCTION"
+            if depth_roughness_reduction_fraction < minimum_depth_roughness_reduction:
+                raise RuntimeError(
+                    "V386-R7 depth roughness did not improve by the 10% minimum: "
+                    + repr(boundary_smoothing_audit)
+                )
         if max(smoothing_displacements) > 0.010:
             raise RuntimeError(
                 "V386-R7 depth-only smoothing exceeded its 10 mm displacement limit: "
