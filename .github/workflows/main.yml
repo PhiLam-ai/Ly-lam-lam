@@ -144,7 +144,7 @@ jobs:
           if [[ -z "$r3_candidate_zip" ]]; then
             echo "::warning::V386-R3 candidate artifact is unavailable; continuing without the R3 review route."
           else
-            r3_sidecar="\${r3_candidate_zip}.sha256"
+            r3_sidecar="${r3_candidate_zip}.sha256"
             if [[ ! -f "$r3_sidecar" ]]; then
               echo "::warning::V386-R3 checksum sidecar is missing; skipping its review route."
             else
