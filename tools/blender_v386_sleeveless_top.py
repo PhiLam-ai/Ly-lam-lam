@@ -4302,7 +4302,7 @@ def setup_studio(scene, bounds, eye_geometry=None, necklace_audit=None):
     return cameras, floor
 
 
-def render_evidence(scene, cameras, output_dir, character_bounds):
+def render_evidence(scene, cameras, output_dir, character_bounds, armhole_binding_obj=None):
     images = []
     for label, camera in cameras.items():
         scene.camera = camera
@@ -4324,6 +4324,35 @@ def render_evidence(scene, cameras, output_dir, character_bounds):
         if not os.path.isfile(path) or os.path.getsize(path) < 10000:
             raise RuntimeError("Expected render was not written: " + path)
         images.append({"file": os.path.basename(path), "bytes": os.path.getsize(path)})
+
+    # R10 diagnostic only: render the identical front camera without the separate
+    # bevelled armhole binding. The GLB object and its export visibility are restored
+    # immediately afterward. This isolates whether the remaining dark underarm teeth
+    # come from the binding mesh or from the shirt/skin intersection itself.
+    if armhole_binding_obj is not None:
+        original_hide_render = bool(armhole_binding_obj.hide_render)
+        original_camera = scene.camera
+        original_resolution = (scene.render.resolution_x, scene.render.resolution_y)
+        original_filepath = scene.render.filepath
+        try:
+            armhole_binding_obj.hide_render = True
+            scene.camera = cameras["front"]
+            scene.render.resolution_x = 1000
+            scene.render.resolution_y = 1300
+            path = os.path.join(output_dir, "v386-front-no-armhole-binding.png")
+            scene.render.filepath = path
+            bpy.ops.render.render(write_still=True)
+            if not os.path.isfile(path) or os.path.getsize(path) < 10000:
+                raise RuntimeError("R10 no-binding diagnostic render was not written: " + path)
+        finally:
+            armhole_binding_obj.hide_render = original_hide_render
+            scene.camera = original_camera
+            scene.render.resolution_x, scene.render.resolution_y = original_resolution
+            scene.render.filepath = original_filepath
+        images.append({
+            "file": "v386-front-no-armhole-binding.png",
+            "bytes": os.path.getsize(path),
+        })
     return images
 
 
@@ -5492,7 +5521,7 @@ def main():
     # a ground-plane line that masks the lower body in an orthographic camera.
     if floor is not None and floor.name in bpy.data.objects:
         bpy.data.objects.remove(floor, do_unlink=True)
-    renders = render_evidence(bpy.context.scene, cameras, output, character_bounds)
+    renders = render_evidence(bpy.context.scene, cameras, output, character_bounds, armhole_binding_obj=binding_obj)
     bpy.context.scene.frame_set(1)
 
     # Keep the rigged source for audit, but export evaluated rest-pose meshes so that
