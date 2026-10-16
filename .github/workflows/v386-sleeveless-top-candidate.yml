@@ -501,8 +501,8 @@ jobs:
           smoothing = sleeves["armhole_boundary_smoothing_audit"]
           assert smoothing["status"] == "APPLIED", smoothing
           assert smoothing["vertex_count"] >= 40, smoothing
-          assert smoothing["iterations"] == 4, smoothing
-          assert smoothing["relaxation_factor"] == 0.40, smoothing
+          assert smoothing["iterations"] == 6, smoothing
+          assert smoothing["relaxation_factor"] == 0.42, smoothing
           assert smoothing["mean_roughness_before_m"] > 0, smoothing
           assert smoothing["mean_roughness_after_m"] < smoothing["mean_roughness_before_m"], smoothing
           assert smoothing["roughness_reduction_fraction"] >= 0.15, smoothing
