@@ -1670,8 +1670,8 @@ def remove_short_sleeve_components(clothing_objects):
     # vertices along the exposed armhole boundary chain, not the shirt body,
     # so the silhouette loses the small triangular teeth introduced by face
     # trimming. Curve binding is generated afterward from this same smoothed edge.
-    boundary_smoothing_iterations = 6
-    boundary_smoothing_factor = 0.42
+    boundary_smoothing_iterations = 12
+    boundary_smoothing_factor = 0.60
     boundary_vertex_indices = sorted(boundary_graph)
     boundary_original_positions = {
         index: Vector(world_point(index)) for index in boundary_vertex_indices
@@ -1726,7 +1726,7 @@ def remove_short_sleeve_components(clothing_objects):
     )
     boundary_smoothing_audit = {
         "status": "APPLIED",
-        "method": "six-pass boundary-chain Laplacian relaxation after local topology refinement; interior shirt vertices remain unchanged",
+        "method": "twelve-pass boundary-chain Laplacian relaxation after measured-edge subdivision; interior shirt vertices remain unchanged",
         "vertex_count": len(boundary_vertex_indices),
         "iterations": boundary_smoothing_iterations,
         "relaxation_factor": boundary_smoothing_factor,
@@ -1910,7 +1910,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R4 additionally subdivides the exposed armhole trim boundary and verifies UV/material invariants before six boundary relaxation passes. Inspect underarm silhouette and cloth coverage from front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R5 additionally subdivides the exposed armhole trim boundary and applies twelve bounded boundary relaxation passes, with UV/material invariants verified. Inspect underarm silhouette and cloth coverage from front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
