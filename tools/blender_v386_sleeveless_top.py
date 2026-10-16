@@ -5521,7 +5521,18 @@ def main():
     # a ground-plane line that masks the lower body in an orthographic camera.
     if floor is not None and floor.name in bpy.data.objects:
         bpy.data.objects.remove(floor, do_unlink=True)
-    renders = render_evidence(bpy.context.scene, cameras, output, character_bounds, armhole_binding_obj=binding_obj)
+    # The armhole builder returns an audit, not its local Python variable.
+    # Resolve the exported object from Blender's scene datablocks in main scope.
+    armhole_binding_for_render = bpy.data.objects.get("V386_ArmholeBinding")
+    if armhole_binding_for_render is None:
+        raise RuntimeError("V386-R10 diagnostic render could not find V386_ArmholeBinding in the scene")
+    renders = render_evidence(
+        bpy.context.scene,
+        cameras,
+        output,
+        character_bounds,
+        armhole_binding_obj=armhole_binding_for_render,
+    )
     bpy.context.scene.frame_set(1)
 
     # Keep the rigged source for audit, but export evaluated rest-pose meshes so that
