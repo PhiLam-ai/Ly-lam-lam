@@ -1475,15 +1475,34 @@ def remove_short_sleeve_components(clothing_objects):
                 clear_outer=False,
             )
 
-        # Add horizontal cuts only to lateral upper-garment patches, avoiding
-        # unnecessary cuts through the central torso and all lower-body regions.
-        for z_level, _x_level in cut_profile:
+        # R9: split only faces close to the measured armhole corridor.
+        # The previous 105-height slicing loop cut broad parts of the shirt and
+        # left visible shading bands. Keep the dense PCHIP edge samples, but
+        # localize each horizontal split to faces whose lateral bounds overlap
+        # the nearby profile envelope rather than the central torso.
+        profile_slice_corridor_half_width_m = 0.060
+        profile_horizontal_slice_candidate_face_count = 0
+        profile_horizontal_slice_max_faces_per_plane = 0
+        profile_horizontal_slice_face_count_by_z = []
+        for z_level, x_level in cut_profile:
             crossing_faces = []
+            lower_abs_x = max(0.085, x_level - profile_slice_corridor_half_width_m)
+            upper_abs_x = min(0.45, x_level + profile_slice_corridor_half_width_m)
             for face in list(profile_bm.faces):
                 points = profile_face_points(face)
                 min_z, max_z = profile_face_z_bounds(points)
-                max_abs_x = max(abs(point[0]) for point in points)
-                if min_z + 1e-6 < z_level < max_z - 1e-6 and 0.08 < max_abs_x < 0.45:
+                abs_x_values = [abs(point[0]) for point in points]
+                min_abs_x = min(abs_x_values)
+                max_abs_x = max(abs_x_values)
+                face_overlaps_profile_corridor = (
+                    min_abs_x >= lower_abs_x - 1e-6
+                    and max_abs_x <= upper_abs_x + 1e-6
+                    and max_abs_x > lower_abs_x
+                )
+                if (
+                    min_z + 1e-6 < z_level < max_z - 1e-6
+                    and face_overlaps_profile_corridor
+                ):
                     crossing_faces.append(face)
             if crossing_faces:
                 bisect_profile_faces(
@@ -1492,6 +1511,16 @@ def remove_short_sleeve_components(clothing_objects):
                     (0.0, 0.0, 1.0),
                 )
                 profile_horizontal_slice_plane_count += 1
+                profile_horizontal_slice_candidate_face_count += len(crossing_faces)
+                profile_horizontal_slice_max_faces_per_plane = max(
+                    profile_horizontal_slice_max_faces_per_plane,
+                    len(crossing_faces),
+                )
+                profile_horizontal_slice_face_count_by_z.append({
+                    "z_m": round(z_level, 6),
+                    "x_profile_m": round(x_level, 6),
+                    "face_count": len(crossing_faces),
+                })
 
         # Clip each lateral side independently in each height strip. The plane
         # normal encodes sign*x - lateral_limit(z); its Y component is zero, so
@@ -1651,7 +1680,7 @@ def remove_short_sleeve_components(clothing_objects):
     ]
     cut_profile_bisect_audit = {
         "status": "APPLIED",
-        "method": "shape-preserving PCHIP interpolation of 14 measured armhole control points, sampled at eight subdivisions per control segment, then horizontal slicing and profile-plane bisect clipping",
+        "method": "shape-preserving PCHIP interpolation of 14 measured armhole control points, sampled at eight subdivisions per control segment, then horizontal slicing localized to a 60 mm lateral profile corridor and profile-plane bisect clipping",
         "profile_point_count": len(cut_profile_control),
         "profile_control_point_count": len(cut_profile_control),
         "profile_segment_count": len(cut_profile_control) - 1,
@@ -1659,6 +1688,10 @@ def remove_short_sleeve_components(clothing_objects):
         "sampled_profile_segment_count": profile_segments_processed,
         "subdivisions_per_control_segment": profile_subdivisions_per_segment,
         "horizontal_slice_plane_count": profile_horizontal_slice_plane_count,
+        "horizontal_slice_corridor_half_width_m": profile_slice_corridor_half_width_m,
+        "horizontal_slice_candidate_face_count": profile_horizontal_slice_candidate_face_count,
+        "horizontal_slice_max_faces_per_plane": profile_horizontal_slice_max_faces_per_plane,
+        "horizontal_slice_faces_per_z": profile_horizontal_slice_face_count_by_z,
         "profile_segment_plane_count": profile_segment_plane_count,
         "clipped_face_count": cut_face_count,
         "side_face_counts": cut_face_counts,
@@ -2379,7 +2412,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R8 clips the lateral shirt surface against an eight-subdivision PCHIP armhole profile, then smooths only boundary depth while keeping X/Z constrained. Inspect front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R9 uses the same eight-subdivision PCHIP profile but localizes horizontal mesh slices to a 60 mm corridor around the measured armhole edge to avoid shading bands across the shirt. Inspect front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
