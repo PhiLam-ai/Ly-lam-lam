@@ -1405,7 +1405,7 @@ def remove_short_sleeve_components(clothing_objects):
                 return evaluate_smooth_profile_segment(segment_index, fraction)[1]
         return None
 
-    # R7: cut the garment on the actual piecewise-linear profile planes.
+    # R8: cut the garment against a densely sampled, shape-preserving smooth profile.
     # First split lateral garment patches at profile Z knots, then bisect each
     # Z strip against the corresponding X/Z line and delete only its outside side.
     # Unlike face-centroid deletion this creates real intersection vertices on
@@ -1463,7 +1463,7 @@ def remove_short_sleeve_components(clothing_objects):
             local_plane_co = inverse_matrix @ Vector(world_plane_co)
             local_plane_no = matrix.to_3x3().transposed() @ Vector(world_plane_no)
             if local_plane_no.length <= 1e-12:
-                raise RuntimeError("V386-R7 profile clipping generated a zero plane normal")
+                raise RuntimeError("V386-R8 profile clipping generated a zero plane normal")
             local_plane_no.normalize()
             return bmesh.ops.bisect_plane(
                 profile_bm,
@@ -1600,20 +1600,20 @@ def remove_short_sleeve_components(clothing_objects):
     bpy.context.view_layer.update()
     if not 60 <= cut_face_count <= 1400:
         raise RuntimeError(
-            "V386-R7 profile-plane trim rejected: clipped face count outside conservative safety bounds: "
+            "V386-R8 smooth-profile trim rejected: clipped face count outside conservative safety bounds: "
             + repr({"cut_face_count": cut_face_count, "side_counts": cut_face_counts})
         )
     if min(cut_face_counts.values()) < 25:
-        raise RuntimeError("V386-R7 profile-plane trim did not clip both lateral sides: " + repr(cut_face_counts))
+        raise RuntimeError("V386-R8 smooth-profile trim did not clip both lateral sides: " + repr(cut_face_counts))
     if abs(cut_face_counts["left"] - cut_face_counts["right"]) > max(cut_face_counts.values()) * 0.40:
-        raise RuntimeError("V386-R7 profile-plane trim is too asymmetric to trust: " + repr(cut_face_counts))
+        raise RuntimeError("V386-R8 smooth-profile trim is too asymmetric to trust: " + repr(cut_face_counts))
     if profile_segments_processed != len(cut_profile) - 1:
-        raise RuntimeError("V386-R7 profile clipping did not process every measured profile segment")
+        raise RuntimeError("V386-R8 profile clipping did not process every sampled profile segment")
     if profile_segment_plane_count < 20:
-        raise RuntimeError("V386-R7 profile clipping had too few side/segment plane intersections: " + str(profile_segment_plane_count))
+        raise RuntimeError("V386-R8 profile clipping had too few side/segment plane intersections: " + str(profile_segment_plane_count))
     if len(profile_boundary_samples) < 40:
         raise RuntimeError(
-            "V386-R7 profile clipping generated too few boundary vertices: "
+            "V386-R8 smooth-profile clipping generated too few boundary vertices: "
             + repr({
                 "profile_boundary_vertex_count": len(profile_boundary_samples),
         "profile_vertices_within_1mm": profile_vertices_within_1mm,
@@ -1678,14 +1678,14 @@ def remove_short_sleeve_components(clothing_objects):
         "scope": "Human.female_sportsuit01 lateral armhole profile only",
     }
     if uv_names_before_profile_clip != uv_names_after_profile_clip:
-        raise RuntimeError("V386-R7 profile bisect changed garment UV-layer names")
+        raise RuntimeError("V386-R8 profile bisect changed garment UV-layer names")
     if material_names_before_profile_clip != material_names_after_profile_clip:
-        raise RuntimeError("V386-R7 profile bisect changed garment material slots")
+        raise RuntimeError("V386-R8 profile bisect changed garment material slots")
     if max_profile_deviation_m > 0.0001:
-        raise RuntimeError("V386-R7 generated armhole boundary drifted more than 0.1 mm from the profile: " + repr(cut_profile_bisect_audit))
+        raise RuntimeError("V386-R8 generated armhole boundary drifted more than 0.1 mm from the smooth profile: " + repr(cut_profile_bisect_audit))
 
     if not cut_points_by_side["left"] or not cut_points_by_side["right"]:
-        raise RuntimeError("V386-R7 profile bisect did not capture removed patches on both sides")
+        raise RuntimeError("V386-R8 profile bisect did not capture removed patches on both sides")
     cut_bounds = {
         "min": [
             round(min(point[i] for point in cut_points_by_side["left"] + cut_points_by_side["right"]), 6)
@@ -1707,7 +1707,7 @@ def remove_short_sleeve_components(clothing_objects):
         "bounds_world_m": cut_bounds,
     }
     if removed_vertex_count < 0 or removed_vertex_count > 1800:
-        raise RuntimeError("V386-R7 profile bisect removed an unexpected number of original vertices: " + str(removed_vertex_count))
+        raise RuntimeError("V386-R8 profile bisect removed an unexpected number of original vertices: " + str(removed_vertex_count))
 
     trim_vertex_count_after = len(mesh.vertices)
     trim_face_count_after = len(mesh.polygons)
@@ -1799,7 +1799,7 @@ def remove_short_sleeve_components(clothing_objects):
     # final-minus-initial arithmetic no longer represents removed geometry.
     components_after = connected_components(mesh)
     if removed_face_count != cut_face_count:
-        raise RuntimeError("V386-R7 profile bisect face-count accounting failed: " + repr({
+        raise RuntimeError("V386-R8 profile bisect face-count accounting failed: " + repr({
             "removed_face_count": removed_face_count,
             "selected_cut_face_count": cut_face_count,
         }))
@@ -2065,7 +2065,7 @@ def remove_short_sleeve_components(clothing_objects):
                 float(neighbor_mean.y) - float(current.y)
             ) * boundary_smoothing_factor
             # Laplacian relaxation can shrink the entire cut loop in depth.
-            # Bound each R7 vertex to +/-8 mm from its original Y coordinate.
+            # Bound each R8 boundary vertex to +/-5 mm from its original Y coordinate.
             if profile_bisect_smoothing:
                 original_y = float(boundary_original_positions[index].y)
                 max_depth_offset = 0.005
@@ -2118,7 +2118,7 @@ def remove_short_sleeve_components(clothing_objects):
     profile_bisect_active = "cut_profile_bisect_audit" in locals()
     boundary_smoothing_audit = {
         "status": "APPLIED",
-        "method": "eight-pass depth-only Laplacian relaxation (world Y, factor 0.40) of the exact bisect boundary, with each vertex limited to +/-8 mm from original depth; measured profile X/Z remain fixed",
+        "method": "eight-pass depth-only Laplacian relaxation (world Y, factor 0.40) of the smooth-profile boundary, with each vertex limited to +/-5 mm from original depth; measured profile X/Z remain fixed",
         "vertex_count": len(boundary_vertex_indices),
         "iterations": boundary_smoothing_iterations,
         "relaxation_factor": boundary_smoothing_factor,
@@ -2128,9 +2128,9 @@ def remove_short_sleeve_components(clothing_objects):
         "depth_roughness_before_m": round(depth_roughness_before_m, 7),
         "depth_roughness_after_m": round(depth_roughness_after_m, 7),
         "depth_roughness_reduction_fraction": round(depth_roughness_reduction_fraction, 6),
-        "depth_roughness_gate_scope": "depth Y component only for exact-profile R7; if baseline is at or below 5 micrometres, enforce an absolute floor instead of requiring a meaningless percentage reduction",
+        "depth_roughness_gate_scope": "depth Y component only for exact-profile R8; if baseline is at or below 5 micrometres, enforce an absolute floor instead of requiring a meaningless percentage reduction",
         "depth_roughness_baseline_floor_m": 0.000005 if profile_bisect_smoothing else None,
-        "roughness_gate_scope": "depth Y component only for exact-profile R7; full XYZ roughness remains diagnostic because X/Z follow intentional profile curvature",
+        "roughness_gate_scope": "depth Y component only for exact-profile R8; full XYZ roughness remains diagnostic because X/Z follow intentional profile curvature",
         "profile_projection_vertex_count": profile_projection_count,
         "boundary_edge_profile_tolerance_m": boundary_edge_profile_tolerance_m,
         "boundary_edge_profile_audit": boundary_edge_profile_audit,
@@ -2160,8 +2160,8 @@ def remove_short_sleeve_components(clothing_objects):
         )
     if not smoothing_displacements or max(smoothing_displacements) > 0.035:
         raise RuntimeError("V386 armhole boundary smoothing exceeded its 35 mm safety limit: " + repr(boundary_smoothing_audit))
-    # The exact R7 profile has intentional X/Z curvature at each design knot.
-    # Gate R7 on depth-only roughness so that curvature is not misreported as noise.
+    # The exact R8 profile has intentional X/Z curvature along the smoothed design curve.
+    # Gate R8 on depth-only roughness so that profile curvature is not misreported as noise.
     pretrim_cuts = armhole_topology_refinement_audit["cuts_per_edge"]
     profile_bisect_active = "cut_profile_bisect_audit" in locals()
     if profile_bisect_active:
@@ -2174,19 +2174,19 @@ def remove_short_sleeve_components(clothing_objects):
             boundary_smoothing_audit["depth_roughness_gate_mode"] = "ALREADY_FLAT_ABSOLUTE_FLOOR"
             if depth_roughness_after_m > depth_roughness_baseline_floor_m:
                 raise RuntimeError(
-                    "V386-R7 depth roughness grew beyond the 5-micrometre flat-baseline floor: "
+                    "V386-R8 depth roughness grew beyond the 5-micrometre flat-baseline floor: "
                     + repr(boundary_smoothing_audit)
                 )
         else:
             boundary_smoothing_audit["depth_roughness_gate_mode"] = "RELATIVE_REDUCTION"
             if depth_roughness_reduction_fraction < minimum_depth_roughness_reduction:
                 raise RuntimeError(
-                    "V386-R7 depth roughness did not improve by the 10% minimum: "
+                    "V386-R8 depth roughness did not improve by the 10% minimum: "
                     + repr(boundary_smoothing_audit)
                 )
         if max(smoothing_displacements) > 0.010:
             raise RuntimeError(
-                "V386-R7 depth-only smoothing exceeded its 10 mm displacement limit: "
+                "V386-R8 depth-only smoothing exceeded its 10 mm displacement limit: "
                 + repr(boundary_smoothing_audit)
             )
     else:
@@ -2207,11 +2207,11 @@ def remove_short_sleeve_components(clothing_objects):
             )
     if profile_bisect_active and max_profile_deviation_after_smoothing_m > 0.0001:
         raise RuntimeError(
-            "V386-R7 smoothed boundary drifted more than 0.1 mm from its measured profile: "
+            "V386-R8 smoothed boundary drifted more than 0.1 mm from its smooth profile: "
             + repr(boundary_smoothing_audit)
         )
     if profile_bisect_active and profile_projection_count < 40:
-        raise RuntimeError("V386-R7 profile-constrained smoothing projected too few boundary vertices: " + repr(boundary_smoothing_audit))
+        raise RuntimeError("V386-R8 profile-constrained smoothing projected too few boundary vertices: " + repr(boundary_smoothing_audit))
 
     remaining_vertices = set(boundary_graph)
     binding_chains = []
@@ -2346,7 +2346,7 @@ def remove_short_sleeve_components(clothing_objects):
     return {
         "status": "APPLIED",
         "object": obj.name,
-        "method": "piecewise-linear armhole profile-plane bisect trim; retain validated shirt torso and trouser regions",
+        "method": "smooth-profile-segment plane bisect trim; retain measured armhole envelope and validated shirt torso/trouser regions",
         "component_count_before": len(components_before),
         "component_count_after_cut": len(components_after),
         "component_count_after_expected": len(components_after),
@@ -2379,7 +2379,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R7 cuts the lateral shirt surface with piecewise-linear BMesh profile-plane intersections, then subdivides the true exposed edge and applies twelve bounded relaxation passes. Inspect front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R8 clips the lateral shirt surface against an eight-subdivision PCHIP armhole profile, then smooths only boundary depth while keeping X/Z constrained. Inspect front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
