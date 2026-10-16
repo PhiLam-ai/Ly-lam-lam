@@ -1475,11 +1475,27 @@ def remove_short_sleeve_components(clothing_objects):
             bmesh.ops.delete(profile_bm, geom=loose_vertices, context="VERTS")
         removed_vertex_count = sum(1 for vertex in original_profile_vertices if not vertex.is_valid)
         removed_face_count = cut_face_count
+        # Derive the profile-vertex audit from final world coordinates, not
+        # BMElement.tag: BMesh operators may reuse/reset that temporary flag.
+        profile_boundary_candidates = []
+        for vertex in profile_bm.verts:
+            point = profile_world_point(vertex)
+            limit = lateral_limit(point[2])
+            if limit is None or not (0.10 < abs(point[0]) < 0.35):
+                continue
+            deviation = abs(abs(point[0]) - limit)
+            profile_boundary_candidates.append((point, deviation))
         profile_boundary_samples = [
-            profile_world_point(vertex)
-            for vertex in profile_bm.verts
-            if vertex.is_valid and vertex.tag
+            point for point, deviation in profile_boundary_candidates
+            if deviation <= 0.0001
         ]
+        profile_vertices_within_1mm = sum(
+            1 for _point, deviation in profile_boundary_candidates
+            if deviation <= 0.001
+        )
+        min_profile_candidate_deviation_m = (
+            min((deviation for _point, deviation in profile_boundary_candidates), default=float("inf"))
+        )
         profile_bm.to_mesh(mesh)
     finally:
         profile_bm.free()
@@ -1500,7 +1516,19 @@ def remove_short_sleeve_components(clothing_objects):
     if profile_segment_plane_count < 20:
         raise RuntimeError("V386-R7 profile clipping had too few side/segment plane intersections: " + str(profile_segment_plane_count))
     if len(profile_boundary_samples) < 40:
-        raise RuntimeError("V386-R7 profile clipping generated too few boundary vertices: " + str(len(profile_boundary_samples)))
+        raise RuntimeError(
+            "V386-R7 profile clipping generated too few boundary vertices: "
+            + repr({
+                "profile_boundary_vertex_count": len(profile_boundary_samples),
+        "profile_vertices_within_1mm": profile_vertices_within_1mm,
+        "minimum_profile_candidate_deviation_m": round(min_profile_candidate_deviation_m, 8) if min_profile_candidate_deviation_m != float("inf") else None,
+                "vertices_within_1mm": profile_vertices_within_1mm,
+                "min_candidate_deviation_m": min_profile_candidate_deviation_m,
+                "candidate_count": len(profile_boundary_candidates),
+                "profile_segment_plane_count": profile_segment_plane_count,
+                "cut_face_counts": cut_face_counts,
+            })
+        )
 
     profile_deviations = []
     for point in profile_boundary_samples:
