@@ -1910,7 +1910,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R5 additionally subdivides the exposed armhole trim boundary and applies twelve bounded boundary relaxation passes, with UV/material invariants verified. Inspect underarm silhouette and cloth coverage from front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R6 increases pre-trim topology density to five local edge cuts, then subdivides the exposed armhole boundary and applies twelve bounded relaxation passes, with UV/material invariants verified. Inspect underarm silhouette and cloth coverage from front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
