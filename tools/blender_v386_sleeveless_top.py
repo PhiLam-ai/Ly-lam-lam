@@ -1152,6 +1152,78 @@ def remove_short_sleeve_components(clothing_objects):
 
     mesh = obj.data
     matrix = obj.matrix_world.copy()
+
+    # R2: increase topology density only near the sleeve-cut/armhole band before
+    # trimming. V386's original whole-face removal is intentionally conservative,
+    # but the coarse sportsuit triangles leave a few visible angular teeth at the
+    # armhole. Two local edge cuts make the retained border and its later smoothing
+    # finer without changing the torso, trousers, body skin, or production GLB.
+    import bmesh
+    vertex_count_before_refinement = len(mesh.vertices)
+    face_count_before_refinement = len(mesh.polygons)
+    uv_names_before_refinement = [layer.name for layer in mesh.uv_layers]
+    material_names_before_refinement = [
+        slot.material.name if slot.material else None for slot in obj.material_slots
+    ]
+    refinement_bm = bmesh.new()
+    try:
+        refinement_bm.from_mesh(mesh)
+        selected_refinement_edges = []
+        for edge in refinement_bm.edges:
+            point_a = matrix @ edge.verts[0].co
+            point_b = matrix @ edge.verts[1].co
+            midpoint_x = (float(point_a.x) + float(point_b.x)) / 2.0
+            midpoint_z = (float(point_a.z) + float(point_b.z)) / 2.0
+            if 1.07 <= midpoint_z <= 1.40 and 0.13 <= abs(midpoint_x) <= 0.29:
+                selected_refinement_edges.append(edge)
+        if len(selected_refinement_edges) < 40:
+            raise RuntimeError(
+                "V386-R2 local armhole topology refinement found too few candidate edges: "
+                + str(len(selected_refinement_edges))
+            )
+        if len(selected_refinement_edges) > 1800:
+            raise RuntimeError(
+                "V386-R2 local armhole topology refinement selected an unexpectedly large region: "
+                + str(len(selected_refinement_edges))
+            )
+        bmesh.ops.subdivide_edges(
+            refinement_bm,
+            edges=selected_refinement_edges,
+            cuts=2,
+            smooth=0.0,
+        )
+        refinement_bm.to_mesh(mesh)
+    finally:
+        refinement_bm.free()
+    mesh.update()
+    bpy.context.view_layer.update()
+    armhole_topology_refinement_audit = {
+        "status": "APPLIED",
+        "method": "two local edge cuts before armhole trim; edge midpoints limited to the lateral upper-garment armhole band",
+        "region_world_z_m": [1.07, 1.40],
+        "region_world_abs_x_m": [0.13, 0.29],
+        "cuts_per_edge": 2,
+        "selected_edge_count": len(selected_refinement_edges),
+        "vertices_before": vertex_count_before_refinement,
+        "vertices_after": len(mesh.vertices),
+        "vertices_added": len(mesh.vertices) - vertex_count_before_refinement,
+        "faces_before": face_count_before_refinement,
+        "faces_after": len(mesh.polygons),
+        "faces_added": len(mesh.polygons) - face_count_before_refinement,
+        "uv_layer_names_before": uv_names_before_refinement,
+        "uv_layer_names_after": [layer.name for layer in mesh.uv_layers],
+        "material_names_before": material_names_before_refinement,
+        "material_names_after": [
+            slot.material.name if slot.material else None for slot in obj.material_slots
+        ],
+        "model_scope": "Human.female_sportsuit01 mesh only; no skin/face/hair/trouser or GLB production asset edits",
+    }
+    if uv_names_before_refinement != [layer.name for layer in mesh.uv_layers]:
+        raise RuntimeError("V386-R2 local refinement changed the garment UV-layer names")
+    if material_names_before_refinement != [
+        slot.material.name if slot.material else None for slot in obj.material_slots
+    ]:
+        raise RuntimeError("V386-R2 local refinement changed garment material assignments")
     vertex_count_before = len(mesh.vertices)
     face_count_before = len(mesh.polygons)
 
@@ -1263,7 +1335,7 @@ def remove_short_sleeve_components(clothing_objects):
             cut_points_by_side[side].extend(points)
 
     cut_face_count = len(cut_face_indices)
-    if not 60 <= cut_face_count <= 450:
+    if not 60 <= cut_face_count <= 1400:
         raise RuntimeError(
             "V386 sleeve trim rejected: face count outside conservative safety bounds: "
             + repr({"cut_face_count": cut_face_count, "side_counts": cut_face_counts})
@@ -1394,7 +1466,7 @@ def remove_short_sleeve_components(clothing_objects):
             "removed_face_count": removed_face_count,
             "selected_cut_face_count": cut_face_count,
         }))
-    if removed_vertex_count < 80 or removed_vertex_count > 500:
+    if removed_vertex_count < 80 or removed_vertex_count > 1800:
         raise RuntimeError("V386 sleeve trim removed an unexpected number of vertices: " + str(removed_vertex_count))
     if len(components_before) != 2 or len(components_after) != 2:
         raise RuntimeError("V386 must retain exactly the expected shirt and trouser regions: " + repr({
@@ -1463,8 +1535,8 @@ def remove_short_sleeve_components(clothing_objects):
     # vertices along the exposed armhole boundary chain, not the shirt body,
     # so the silhouette loses the small triangular teeth introduced by face
     # trimming. Curve binding is generated afterward from this same smoothed edge.
-    boundary_smoothing_iterations = 4
-    boundary_smoothing_factor = 0.40
+    boundary_smoothing_iterations = 6
+    boundary_smoothing_factor = 0.42
     boundary_vertex_indices = sorted(boundary_graph)
     boundary_original_positions = {
         index: Vector(world_point(index)) for index in boundary_vertex_indices
@@ -1519,7 +1591,7 @@ def remove_short_sleeve_components(clothing_objects):
     )
     boundary_smoothing_audit = {
         "status": "APPLIED",
-        "method": "two-pass boundary-chain Laplacian relaxation; interior shirt vertices remain unchanged",
+        "method": "six-pass boundary-chain Laplacian relaxation after local topology refinement; interior shirt vertices remain unchanged",
         "vertex_count": len(boundary_vertex_indices),
         "iterations": boundary_smoothing_iterations,
         "relaxation_factor": boundary_smoothing_factor,
@@ -1679,6 +1751,7 @@ def remove_short_sleeve_components(clothing_objects):
         "components_after_cut": components_after,
         "removed_components": removed_components,
         "removed_component_count": 2,
+        "armhole_topology_refinement_audit": armhole_topology_refinement_audit,
         "cut_region_audit": cut_region_audit,
         "cut_face_count": cut_face_count,
         "removed_vertex_count": removed_vertex_count,
@@ -1700,7 +1773,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "Inspect armholes, shoulder edges and shirt coverage in front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R2 refines local garment topology before trimming and applies six boundary relaxation passes. Inspect armholes, shoulder edges and shirt coverage in front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
