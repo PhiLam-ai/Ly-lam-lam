@@ -4309,7 +4309,7 @@ def setup_studio(scene, bounds, eye_geometry=None, necklace_audit=None):
     return cameras, floor
 
 
-def render_evidence(scene, cameras, output_dir, character_bounds):
+def render_evidence(scene, cameras, output_dir, character_bounds, armhole_binding_obj=None, shirt_obj=None, skin_obj=None):
     images = []
     for label, camera in cameras.items():
         scene.camera = camera
@@ -4331,6 +4331,58 @@ def render_evidence(scene, cameras, output_dir, character_bounds):
         if not os.path.isfile(path) or os.path.getsize(path) < 10000:
             raise RuntimeError("Expected render was not written: " + path)
         images.append({"file": os.path.basename(path), "bytes": os.path.getsize(path)})
+
+    # R12 diagnostics: keep the exact R10 continuous PCHIP shoulder offset,
+    # but capture matched views that isolate the trim binding, cloth and skin.
+    # No visibility or render state is retained when GLB export begins.
+    if armhole_binding_obj is not None or (shirt_obj is not None and skin_obj is not None):
+        diagnostic_objects = {
+            obj.name: obj
+            for obj in (armhole_binding_obj, shirt_obj, skin_obj)
+            if obj is not None
+        }
+        original_hide_render_by_name = {
+            name: bool(obj.hide_render)
+            for name, obj in diagnostic_objects.items()
+        }
+        original_camera = scene.camera
+        original_resolution = (scene.render.resolution_x, scene.render.resolution_y)
+        original_filepath = scene.render.filepath
+
+        def render_armhole_diagnostic(filename):
+            scene.camera = cameras["front"]
+            scene.render.resolution_x = 1000
+            scene.render.resolution_y = 1300
+            path = os.path.join(output_dir, filename)
+            scene.render.filepath = path
+            bpy.ops.render.render(write_still=True)
+            if not os.path.isfile(path) or os.path.getsize(path) < 10000:
+                raise RuntimeError("V386-R12 armhole diagnostic render was not written: " + path)
+            images.append({"file": filename, "bytes": os.path.getsize(path)})
+
+        try:
+            if armhole_binding_obj is not None:
+                armhole_binding_obj.hide_render = True
+                render_armhole_diagnostic("v386-front-no-armhole-binding.png")
+
+            if shirt_obj is not None and skin_obj is not None:
+                if armhole_binding_obj is not None:
+                    armhole_binding_obj.hide_render = True
+                shirt_obj.hide_render = original_hide_render_by_name.get(shirt_obj.name, False)
+                skin_obj.hide_render = True
+                render_armhole_diagnostic("v386-front-shirt-only-no-skin.png")
+
+                if armhole_binding_obj is not None:
+                    armhole_binding_obj.hide_render = True
+                shirt_obj.hide_render = True
+                skin_obj.hide_render = original_hide_render_by_name.get(skin_obj.name, False)
+                render_armhole_diagnostic("v386-front-skin-only-no-shirt.png")
+        finally:
+            for name, obj in diagnostic_objects.items():
+                obj.hide_render = original_hide_render_by_name[name]
+            scene.camera = original_camera
+            scene.render.resolution_x, scene.render.resolution_y = original_resolution
+            scene.render.filepath = original_filepath
     return images
 
 
@@ -5499,7 +5551,25 @@ def main():
     # a ground-plane line that masks the lower body in an orthographic camera.
     if floor is not None and floor.name in bpy.data.objects:
         bpy.data.objects.remove(floor, do_unlink=True)
-    renders = render_evidence(bpy.context.scene, cameras, output, character_bounds)
+    # Resolve diagnostic objects by their generated scene names. The integrated
+    # 6 mm PCHIP shoulder offset is part of the actual shirt cut; no separate
+    # post-cut vertex move is needed for the diagnostic renders.
+    armhole_binding_for_render = bpy.data.objects.get("V386_ArmholeBinding")
+    shirt_for_render_diagnostics = bpy.data.objects.get("Human.female_sportsuit01")
+    skin_for_render_diagnostics = bpy.data.objects.get("Human")
+    if armhole_binding_for_render is None:
+        raise RuntimeError("V386-R12 diagnostic render could not find V386_ArmholeBinding")
+    if shirt_for_render_diagnostics is None or skin_for_render_diagnostics is None:
+        raise RuntimeError("V386-R12 shirt/skin isolation render could not find the source garment or body")
+    renders = render_evidence(
+        bpy.context.scene,
+        cameras,
+        output,
+        character_bounds,
+        armhole_binding_obj=armhole_binding_for_render,
+        shirt_obj=shirt_for_render_diagnostics,
+        skin_obj=skin_for_render_diagnostics,
+    )
     bpy.context.scene.frame_set(1)
 
     # Keep the rigged source for audit, but export evaluated rest-pose meshes so that
