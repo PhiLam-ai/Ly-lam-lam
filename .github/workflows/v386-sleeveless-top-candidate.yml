@@ -207,7 +207,7 @@ jobs:
           assert profile["profile_edge_overlap_max_offset_m"] == 0.006, profile
           control = profile["measured_profile_control_points_world_xz_m"]
           assert abs(control[4][1] - 0.202) < 1e-9 and abs(control[5][1] - 0.202) < 1e-9, control
-          assert abs(control[7][1] - 0.220) < 1e-9, control
+          assert abs(control[7][1] - 0.225) < 1e-9, control
           assert profile["max_smooth_profile_deviation_m"] < 0.00011, profile
           assert profile["world_y_interpolated"] is True, profile
           report_sleeves = report["sleeve_removal_audit"]
