@@ -1281,11 +1281,7 @@ def remove_short_sleeve_components(clothing_objects):
         return result
 
     components_before = connected_components(mesh)
-    cut_profile_control = [
-        # Preserve the measured underarm and shoulder envelope, then use a
-        # shape-preserving cubic interpolation to remove hard direction changes
-        # between control points. Eight slices per control segment keep the
-        # polygonal clipping approximation within roughly 0.1 mm of the curve.
+    r8_profile_control_reference = [
         (1.095, 0.210),
         (1.115, 0.210),
         (1.135, 0.215),
@@ -1301,6 +1297,43 @@ def remove_short_sleeve_components(clothing_objects):
         (1.370, 0.165),
         (1.380, 0.145),
     ]
+    # R9: deepen the underarm scoop without changing the upper shoulder/neck
+    # control points. The maximum inward shift is 23 mm and is measured against
+    # R8 so the experiment can be compared and rejected without ambiguity.
+    cut_profile_control = [
+        (1.095, 0.205),
+        (1.115, 0.200),
+        (1.135, 0.195),
+        (1.165, 0.192),
+        (1.200, 0.198),
+        (1.235, 0.210),
+        (1.265, 0.225),
+        (1.290, 0.235),
+        (1.310, 0.240),
+        (1.325, 0.240),
+        (1.340, 0.225),
+        (1.355, 0.195),
+        (1.370, 0.165),
+        (1.380, 0.145),
+    ]
+    profile_control_offsets = [
+        {
+            "z_m": round(float(r8[0]), 6),
+            "r8_lateral_x_m": round(float(r8[1]), 6),
+            "r9_lateral_x_m": round(float(r9[1]), 6),
+            "inward_change_m": round(float(r8[1] - r9[1]), 6),
+        }
+        for r8, r9 in zip(r8_profile_control_reference, cut_profile_control)
+    ]
+    max_profile_inward_change_m = max(
+        (item["inward_change_m"] for item in profile_control_offsets), default=0.0
+    )
+    if len(r8_profile_control_reference) != len(cut_profile_control):
+        raise RuntimeError("V386-R9 must retain all 14 R8 profile control heights")
+    if max_profile_inward_change_m > 0.023001:
+        raise RuntimeError("V386-R9 underarm scoop exceeded its 23 mm design limit")
+    if any(item["inward_change_m"] < -1e-9 for item in profile_control_offsets):
+        raise RuntimeError("V386-R9 unexpectedly moved the profile outward relative to R8")
     profile_subdivisions_per_segment = 8
 
     def pchip_profile_slopes(control_points):
@@ -1668,6 +1701,10 @@ def remove_short_sleeve_components(clothing_objects):
         "max_smooth_profile_deviation_m": round(max_smooth_profile_deviation_m, 8),
         "mean_smooth_profile_deviation_m": round(mean_smooth_profile_deviation_m, 8),
         "smooth_profile_control_points_world_xz_m": [[z, x] for z, x in cut_profile_control],
+        "profile_variant": "R9_DEEPER_UNDERARM_SCOOP",
+        "reference_variant": "R8_SMOOTH_PROFILE",
+        "control_point_lateral_offsets_m": profile_control_offsets,
+        "maximum_profile_inward_change_m": round(max_profile_inward_change_m, 6),
         "world_y_interpolated": True,
         "uv_layer_names_before": uv_names_before_profile_clip,
         "uv_layer_names_after": uv_names_after_profile_clip,
@@ -2379,7 +2416,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R8 clips the lateral shirt surface against an eight-subdivision PCHIP armhole profile, then smooths only boundary depth while keeping X/Z constrained. Inspect front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R9 uses a bounded 23 mm deeper underarm scoop against the R8 profile baseline, with shape-preserving PCHIP sampling and exact profile-plane clipping. Inspect armhole exposure, skin coverage and front/side/three-quarter silhouettes before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
