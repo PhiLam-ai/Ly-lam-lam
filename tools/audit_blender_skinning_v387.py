@@ -59,9 +59,9 @@ def audit_mesh_skinning(obj, rig, tolerance=0.02):
         "passes_strict_deformable_mesh_gate": bool(
             is_mesh and rig and rig.type == "ARMATURE" and modifiers
             and vertex_count > 0 and zero_weight == 0 and non_normalized == 0
-            and not invalid_positive_groups
         ),
-        "note": "Strict gate is for deformable body meshes; rigid accessories need an explicit documented exception.",
+        "ignored_nonbone_positive_group_count": len(invalid_positive_groups),
+        "note": "Only groups matching actual rig bone names contribute to this rig's skinning weights. Positive weights on non-bone helper/mask groups are reported for inspection but do not fail this skinning gate; rigid accessories need an explicit documented exception.",
     }
 
 
