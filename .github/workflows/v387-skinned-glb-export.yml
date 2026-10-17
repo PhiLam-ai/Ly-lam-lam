@@ -1,0 +1,94 @@
+name: V387 Skinned GLB Experimental Export
+
+on:
+  push:
+    branches:
+      - avatar/v387-rig-preserving-export-prototype
+    paths:
+      - "tools/export_skinned_glb_v387.py"
+      - "tools/audit_blender_skinning_v387.py"
+      - "tools/validate_gltf_skinning_v387.py"
+      - ".github/workflows/v387-skinned-glb-export.yml"
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Successful V386 build run ID containing the .blend and source .glb"
+        required: true
+        type: string
+        default: "38997553610"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  export-skinned-candidate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out V387 prototype
+        uses: actions/checkout@v4
+        with:
+          ref: avatar/v387-rig-preserving-export-prototype
+
+      - name: Download V386 candidate artifact
+        uses: actions/download-artifact@v4
+        with:
+          repository: ${{ github.repository }}
+          run-id: ${{ inputs.source_run_id || '38997553610' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pattern: ly-lam-lam-v386-r9-profile-integrated-overlap-*
+          path: source-artifact
+          merge-multiple: true
+
+      - name: Locate source scene and texture GLB
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          scene="$(find source-artifact -type f -name 'lam-v386-gltf-materials-full-face-candidate.blend' -print -quit)"
+          glb="$(find source-artifact -type f -name 'lam-v386-gltf-materials-full-face-candidate.glb' -print -quit)"
+          test -n "$scene"
+          test -n "$glb"
+          echo "scene=$scene" >> "$GITHUB_OUTPUT"
+          echo "glb=$glb" >> "$GITHUB_OUTPUT"
+          echo "Using source scene: $scene"
+          echo "Using texture source GLB: $glb"
+
+      - name: Install Blender 4.5.3 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y curl xz-utils libxrender1 libxi6 libxkbcommon0 libsm6 libgl1 libegl1
+          curl --fail --location --retry 3 \
+            https://download.blender.org/release/Blender4.5/blender-4.5.3-linux-x64.tar.xz \
+            --output /tmp/blender.tar.xz
+          tar -xJf /tmp/blender.tar.xz -C /tmp
+          echo "/tmp/blender-4.5.3-linux-x64" >> "$GITHUB_PATH"
+          /tmp/blender-4.5.3-linux-x64/blender --version | head -n 3
+
+      - name: Export skinned V387 candidate and run Blender pose checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender --background "${{ steps.source.outputs.scene }}" \
+            --python tools/export_skinned_glb_v387.py -- \
+            --output "$RUNNER_TEMP/lam-v387-skinned.glb" \
+            --visual-source baked-v386 \
+            --texture-source-glb "${{ steps.source.outputs.glb }}"
+          python3 tools/validate_gltf_skinning_v387.py \
+            "$RUNNER_TEMP/lam-v387-skinned.glb" \
+            --report "$RUNNER_TEMP/lam-v387-skinned-validation.json"
+
+      - name: Upload experimental skinned candidate and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v387-skinned-candidate-${{ inputs.source_run_id || '38997553610' }}
+          path: |
+            ${{ runner.temp }}/lam-v387-skinned.glb
+            ${{ runner.temp }}/lam-v387-skinned.skinning-report.json
+            ${{ runner.temp }}/lam-v387-skinned-validation.json
+          if-no-files-found: warn
+          retention-days: 14
