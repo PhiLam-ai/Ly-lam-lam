@@ -46,6 +46,16 @@ jobs:
           run-id: 38890795401
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Download V386-R9 integrated-overlap review candidate artifact (optional)
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: ly-lam-lam-v386-r9-integrated-armhole-overlap-39032613674
+          path: ${{ runner.temp }}/v386-r9-artifact
+          repository: ${{ github.repository }}
+          run-id: 39032613674
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
@@ -205,6 +215,78 @@ jobs:
           HTML
                     echo "V386_R3_REVIEW_ROUTE_STAGED=https://philam-ai.github.io/Ly-lam-lam/review-v386-r3/"
                     echo "V386_R3_REVIEW_MODEL_SHA256=$r3_model_hash"
+                  fi
+                fi
+              fi
+            fi
+          fi
+
+          # Optional R9 candidate uses its own route; production and earlier reviews remain unchanged.
+          r9_artifact_root="$RUNNER_TEMP/v386-r9-artifact"
+          r9_candidate_zip="$(find "$r9_artifact_root" -type f -name 'ly-lam-lam-v386-experimental-windows.zip' -print -quit 2>/dev/null || true)"
+          if [[ -z "$r9_candidate_zip" ]]; then
+            echo "::warning::V386-R9 candidate artifact is unavailable; continuing without the R9 review route."
+          else
+            r9_sidecar="${r9_candidate_zip}.sha256"
+            if [[ ! -f "$r9_sidecar" ]]; then
+              echo "::warning::V386-R9 checksum sidecar is missing; skipping its review route."
+            else
+              r9_expected="$(awk 'NR==1 {print $1}' "$r9_sidecar")"
+              r9_actual="$(sha256sum "$r9_candidate_zip" | awk '{print $1}')"
+              if [[ -z "$r9_expected" || "$r9_actual" != "$r9_expected" ]]; then
+                echo "::warning::V386-R9 archive checksum mismatch; skipping its review route."
+              elif ! unzip -tq "$r9_candidate_zip" >/dev/null; then
+                echo "::warning::V386-R9 archive integrity check failed; skipping its review route."
+              else
+                r9_review_root="$site/review-v386-r9"
+                mkdir -p "$r9_review_root"
+                unzip -q "$r9_candidate_zip" -d "$r9_review_root"
+                r9_model="$r9_review_root/v312-work/lam-default.glb"
+                r9_page="$r9_review_root/v312-work/index.html"
+                r9_three="$r9_review_root/v312-work/vendor/three/build/three.module.js"
+                if [[ ! -s "$r9_model" || ! -s "$r9_page" || ! -s "$r9_three" ]]; then
+                  echo "::warning::V386-R9 archive is missing a required file; skipping its review route."
+                  rm -rf "$r9_review_root"
+                else
+                  r9_model_hash="$(sha256sum "$r9_model" | awk '{print $1}')"
+                  if [[ "$r9_model_hash" != "7bb824c40dea3083e264cc731e1cbd952801c1b020c4606d2a9be8db85cd3789" ]]; then
+                    echo "::warning::V386-R9 GLB checksum differs from the tested candidate; skipping its review route."
+                    rm -rf "$r9_review_root"
+                  else
+                    cat > "$r9_review_root/index.html" <<'HTML'
+          <!doctype html>
+          <html lang="vi">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+            <meta name="robots" content="noindex,nofollow">
+            <meta name="theme-color" content="#101827">
+            <title>Lý Lâm Lam — V386-R9 xem thử</title>
+            <style>
+              *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#101827;color:#edf2f7;font:16px/1.55 system-ui,-apple-system,sans-serif;display:grid;place-items:center;padding:24px}
+              main{width:min(100%,620px);border:1px solid #39465a;border-radius:20px;padding:24px;background:#172235}
+              h1{font-size:1.6rem;line-height:1.2;margin:0 0 12px}p{color:#cbd5e1}
+              .warning{border-left:4px solid #eab308;padding:10px 12px;background:#202c3d;border-radius:8px}
+              a{display:block;text-align:center;margin:22px 0 12px;padding:14px 18px;border-radius:12px;background:#dbeafe;color:#102033;text-decoration:none;font-weight:700;min-height:48px}
+              small{color:#9fb0c5}ul{padding-left:22px}li{margin:6px 0}
+            </style>
+          </head>
+          <body><main>
+            <h1>Lý Lâm Lam · V386-R9</h1>
+            <p>Ứng viên profile nách mượt hơn: phần overlap vai được tích hợp vào đường cắt thay vì kéo đỉnh sau khi cắt.</p>
+            <p class="warning"><strong>Bản review thử nghiệm — chưa phê duyệt.</strong> Trang này chỉ dùng đánh giá mép áo trong góc chính diện, nghiêng và ba phần tư. Avatar sản xuất, đường dẫn gốc và các review cũ không bị thay thế.</p>
+            <a href="./v312-work/index.html?three=local">Mở avatar 3D V386-R9</a>
+            <ul>
+              <li>Vuốt để xoay; dùng hai ngón tay để phóng to/thu nhỏ.</li>
+              <li>Kiểm tra nách áo, phần viền và vùng tiếp giáp da/vải.</li>
+              <li>Hội thoại AI và giọng nói chưa được tích hợp trong gói này.</li>
+            </ul>
+            <small>GLB SHA-256: 7bb824c40dea3083e264cc731e1cbd952801c1b020c4606d2a9be8db85cd3789</small>
+          </main></body>
+          </html>
+          HTML
+                    echo "V386_R9_REVIEW_ROUTE_STAGED=https://philam-ai.github.io/Ly-lam-lam/review-v386-r9/"
+                    echo "V386_R9_REVIEW_MODEL_SHA256=$r9_model_hash"
                   fi
                 fi
               fi
