@@ -2018,7 +2018,7 @@ def remove_short_sleeve_components(clothing_objects):
             edge_face_counts[key] = edge_face_counts.get(key, 0) + 1
 
     profile_bisect_smoothing = "cut_profile_bisect_audit" in locals()
-    boundary_edge_profile_tolerance_m = 0.0005 if profile_bisect_smoothing else 0.07
+    boundary_edge_profile_tolerance_m = 0.025 if profile_bisect_smoothing else 0.07
     boundary_graph = {}
     selected_boundary_edges = []
     boundary_edge_profile_audit = {
@@ -2028,10 +2028,9 @@ def remove_short_sleeve_components(clothing_objects):
         "endpoint_match_count_8mm": 0,
         "endpoint_match_count_15mm": 0,
         "selected_edge_count": 0,
-        "selected_by_projected_profile_indices": 0,
+        "selected_in_overlap_envelope_count": 0,
         "selection_method": (
-            "actual exposed edges whose endpoints were projected to the smooth profile; "
-            "preserve the audited shoulder-overlap offset"
+            "exposed profile boundary within the measured PCHIP curve plus the audited shoulder-overlap envelope (maximum 22 mm)"
             if profile_bisect_smoothing else "measured midpoint/endpoint profile tolerance"
         ),
     }
@@ -2049,13 +2048,33 @@ def remove_short_sleeve_components(clothing_objects):
             continue
 
         if profile_bisect_smoothing:
-            # Shoulder overlap intentionally shifts the surface vertices outward
-            # after projection. Using distance to the un-offset curve here used
-            # to select only fragments and create a mixed, jagged boundary.
-            if a not in projected_mesh_vertex_indices or b not in projected_mesh_vertex_indices:
+            # Re-evaluate the current mesh after subdivision and shoulder offset.
+            # Indices captured before BMesh subdivision are not stable. The edge
+            # must remain close to the exact PCHIP envelope plus the audited
+            # <=22 mm overlap; this gathers the entire chain without including
+            # unrelated shirt interior vertices.
+            curve_mid = smooth_profile_limit(mid_z)
+            curve_a = smooth_profile_limit(point_a[2])
+            curve_b = smooth_profile_limit(point_b[2])
+            if curve_mid is None or curve_a is None or curve_b is None:
                 continue
+            midpoint_deviation = abs(abs(mid_x) - curve_mid)
+            endpoint_deviation = max(
+                abs(abs(point_a[0]) - curve_a),
+                abs(abs(point_b[0]) - curve_b),
+            )
+            if midpoint_deviation > boundary_edge_profile_tolerance_m or endpoint_deviation > boundary_edge_profile_tolerance_m:
+                continue
+            if midpoint_deviation <= 0.003:
+                boundary_edge_profile_audit["midpoint_match_count_3mm"] += 1
+            if endpoint_deviation <= 0.003:
+                boundary_edge_profile_audit["endpoint_match_count_3mm"] += 1
+            if endpoint_deviation <= 0.008:
+                boundary_edge_profile_audit["endpoint_match_count_8mm"] += 1
+            if endpoint_deviation <= 0.015:
+                boundary_edge_profile_audit["endpoint_match_count_15mm"] += 1
             boundary_edge_profile_audit["selected_edge_count"] += 1
-            boundary_edge_profile_audit["selected_by_projected_profile_indices"] += 1
+            boundary_edge_profile_audit["selected_in_overlap_envelope_count"] += 1
             selected_boundary_edges.append((a, b))
             boundary_graph.setdefault(a, set()).add(b)
             boundary_graph.setdefault(b, set()).add(a)
