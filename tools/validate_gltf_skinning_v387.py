@@ -60,7 +60,9 @@ def validate(gltf: dict) -> list[str]:
                 errors.append(f"Skin {si} inverseBindMatrices accessor must have type MAT4")
             if accessor.get("componentType") != 5126:
                 errors.append(f"Skin {si} inverseBindMatrices accessor must use FLOAT components")
-            if accessor.get("count") is not None and accessor["count"] != len(joints):
+            if accessor.get("count") is None:
+                errors.append(f"Skin {si} inverseBindMatrices accessor is missing count")
+            elif accessor["count"] != len(joints):
                 errors.append(f"Skin {si} inverse bind matrix count {accessor['count']} != joint count {len(joints)}")
     all_joints = {j for skin in skins for j in skin.get("joints", []) if isinstance(j, int) and not isinstance(j, bool)}
     for ni, node in enumerate(nodes):
@@ -88,6 +90,8 @@ def validate(gltf: dict) -> list[str]:
                     errors.append(f"Skinned node {ni} primitive {pi} JOINTS_0 must not be normalized")
                 if wa.get("componentType") == 5126 and wa.get("normalized", False):
                     errors.append(f"Skinned node {ni} primitive {pi} float WEIGHTS_0 must not be normalized")
+                if wa.get("componentType") in (5121, 5123) and not wa.get("normalized", False):
+                    errors.append(f"Skinned node {ni} primitive {pi} integer WEIGHTS_0 must be normalized")
     joint_targets, channel_count = set(), 0
     for animation in animations:
         for channel in animation.get("channels", []):
