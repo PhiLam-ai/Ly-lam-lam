@@ -1329,7 +1329,7 @@ def remove_short_sleeve_components(clothing_objects):
             "inward_shift_m": round(r8_profile_by_z[z] - x, 6),
         }
         for z, x in cut_profile_control
-        if 1.135 <= z <= 1.290
+        if 1.135 <= z <= 1.265
     ]
     preserved_hem_points = [
         (z, x) for z, x in cut_profile_control if z <= 1.115
@@ -1348,7 +1348,7 @@ def remove_short_sleeve_components(clothing_objects):
         "baseline": "V386-R8",
         "method": "deepen the mid-armhole contour while preserving lower hem and upper shoulder control points",
         "control_point_count": len(cut_profile_control),
-        "deepening_zone_z_m": [1.135, 1.290],
+        "deepening_zone_z_m": [1.135, 1.265],
         "control_point_insets": profile_insets,
         "max_inward_shift_m": max(item["inward_shift_m"] for item in profile_insets),
         "mean_inward_shift_m": round(
