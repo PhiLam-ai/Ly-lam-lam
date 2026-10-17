@@ -18,6 +18,9 @@ import traceback
 import zipfile
 from pathlib import Path
 
+# Blender's --python runner does not reliably prepend this script's folder to sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 import bpy
 from mathutils import Vector
 from audit_blender_skinning_v387 import audit_character_skinning
