@@ -2237,9 +2237,9 @@ def remove_short_sleeve_components(clothing_objects):
                     "V386-R8 depth roughness did not improve by the 10% minimum: "
                     + repr(boundary_smoothing_audit)
                 )
-        if max(smoothing_displacements) > 0.010:
+        if max(smoothing_displacements) > maximum_total_boundary_displacement_m:
             raise RuntimeError(
-                "V386-R8 depth-only smoothing exceeded its 10 mm displacement limit: "
+                "V386 armhole smoothing exceeded its strategy-specific total displacement limit: "
                 + repr(boundary_smoothing_audit)
             )
     else:
