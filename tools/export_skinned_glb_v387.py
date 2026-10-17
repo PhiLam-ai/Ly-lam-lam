@@ -103,6 +103,9 @@ def create_temporary_export_copies(scene, rig, linked_meshes, normalize_weights)
         duplicate.name = f"{source.name}.V387_EXPORT_TEMP"
         scene.collection.objects.link(duplicate)
         temp_objects.append(duplicate)
+        if source.parent == rig:
+            duplicate.parent = export_rig
+            duplicate.matrix_parent_inverse = source.matrix_parent_inverse.copy()
         for modifier in duplicate.modifiers:
             if modifier.type == "ARMATURE" and modifier.object == rig:
                 modifier.object = export_rig
