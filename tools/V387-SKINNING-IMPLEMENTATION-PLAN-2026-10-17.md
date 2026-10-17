@@ -2,7 +2,7 @@
 
 ## Goal
 
-Replace V386's deliberately baked, unskinned GLB export with a true glTF skeletal skin while preserving the successful V386 geometry, materials, UVs, face morphs, accessories, and armhole contour. This is an engineering plan, not a claim that skinning is implemented.
+Replace V386's deliberately baked, unskinned GLB export with a true glTF skeletal skin while preserving the successful V386 geometry, materials, UVs, face morphs, accessories, and armhole contour. The first end-to-end experimental candidate now exists, but it is not production-approved. Structural, Blender pose, and browser smoke checks passed on one exploratory run; the latest exporter changes are being re-run before treating that result as reproducible.
 
 ## Verified baseline
 
@@ -11,7 +11,7 @@ Replace V386's deliberately baked, unskinned GLB export with a true glTF skeleta
 - Successful run #80: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/38997553610
 - Candidate report explicitly states `body_skinning = Baked neutral evaluated mesh; exported skin_count must be zero`.
 - Current export calls `bake_character_to_morph_meshes(...)` and `bpy.ops.export_scene.gltf(... export_skins=False ...)`. The idle clip is added to the armature before the geometry is baked, so the exported animation does not prove body deformation.
-- Production `lam-default.glb` must remain untouched.
+- Production `lam-default.glb` must remain untouched.\n\n## Current evidence — 2026-10-17\n\n- Read-only source-scene probe passed on Blender 4.5.3: one rig `Human.rig`, 53 bones, 62 scene meshes, and 9 meshes directly linked to the rig.\n- First end-to-end exploratory export run #39005284539 passed: https://github.com/PhiLam-ai/Ly-lam-lam/actions/runs/39005284539\n- Its report recorded 1 glTF skin, 9 skinned nodes, 31 exported meshes, 22 rigidly attached accessories, both `Lam_Idle_GentleSway` and a source-rig diagnostic clip, and all 12 expected facial morph names.\n- Blender evaluated-geometry probes passed for `upperarm_l`, `thigh_l`, and `head` rotations. In browser, the preview loaded the GLB with HTTP 200, one canvas, no page errors, active idle animation, 10 Three.js skinned meshes, all 12 morphs, and measured max sampled vertex displacement of about 0.00476 m during the smoke interval. This is a smoke test, not a complete visual deformation review.\n- A later isolated workflow failed because it did not pass the explicit weight-normalization flag; the workflow was corrected to normalize only temporary export copies. The baked-mesh path was also adjusted to prefer the vertex groups already preserved by Blender evaluated meshes and only use nearest-vertex transfer as a fallback. Re-run these latest changes before claiming the candidate is reproducible.
 
 ## Implementation design
 
@@ -76,4 +76,4 @@ Photorealism gate remains separate: human review of actual candidate renders aga
 
 ## Immediate next implementation step
 
-Create a separate experimental branch from the successful V386-R9 branch, implement and test the rig-preserving export there, and keep all changes isolated from `main`. Do not loosen acceptance checks to make a failing build green; update tolerances only when supported by measured geometry and a documented reason.
+Re-run the latest V387 exporter after the temporary-copy weight-normalization and group-selection fixes. Confirm the structural report and browser smoke report are still green, then inspect neutral/rest, arm raise, elbow bend, knee bend, and face close-up renders for mesh intersections, shoulder collapse, hair/wardrobe artifacts, and silhouette changes. Keep all changes isolated from `main`; do not promote the experimental GLB to production yet.
