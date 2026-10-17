@@ -1,4 +1,4 @@
-name: V386-R9 Local Smooth-Profile Projection Candidate
+name: V386-R10 Full Boundary-Chain Smoothing Candidate
 
 on:
   push:
@@ -12,6 +12,7 @@ on:
       - avatar/v386-r7-profile-bisect-trim
       - avatar/v386-r8-smooth-profile
       - avatar/v386-r9-local-profile-projection
+      - avatar/v386-r10-boundary-chain
     paths:
       - "tools/blender_v386_sleeveless_top.py"
       - "tools/v386_apply_viewer_camera_fit.cjs"
@@ -22,12 +23,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: v386-r9-local-profile-projection
+  group: v386-r10-boundary-chain
   cancel-in-progress: true
 
 jobs:
   build-and-test:
-    name: Build V386-R9 local-projection armhole candidate and test GLB
+    name: Build V386-R10 full-boundary-chain armhole candidate and test GLB
     runs-on: ubuntu-22.04
     timeout-minutes: 90
     steps:
@@ -507,7 +508,7 @@ jobs:
           assert profile_clip["world_y_interpolated"] is True, profile_clip
           assert "lateral armhole profile only" in profile_clip["scope"], profile_clip
           assert sleeves["cut_region_audit"]["method"].startswith("smooth-profile-segment plane bisect clipping"), sleeves["cut_region_audit"]
-          print("V386_R9_LOCAL_PROFILE_PROJECTION_GATE=PASS_EXPERIMENTAL_ONLY")
+          print("V386_R10_FULL_BOUNDARY_CHAIN_GATE=PASS_EXPERIMENTAL_ONLY")
           assert sleeves["object"] == "Human.female_sportsuit01", sleeves
           assert sleeves["component_count_before"] == 2, sleeves
           assert sleeves["component_count_after_cut"] == 2, sleeves
@@ -541,7 +542,7 @@ jobs:
           assert boundary_refinement["uv_layer_names_preserved"] is True, boundary_refinement
           assert boundary_refinement["material_slots_preserved"] is True, boundary_refinement
           assert "exposed armhole boundary only" in boundary_refinement["scope"], boundary_refinement
-          print("V386_R9_ARMHOLE_PROFILE_GATE=PASS_EXPERIMENTAL_ONLY")
+          print("V386_R10_ARMHOLE_PROFILE_GATE=PASS_EXPERIMENTAL_ONLY")
           binding = sleeves["armhole_binding_audit"]
           assert binding["status"] == "APPLIED", binding
           assert binding["object"] == "V386_ArmholeBinding", binding
@@ -560,7 +561,11 @@ jobs:
           assert smoothing["max_depth_smoothing_offset_m"] == 0.005 if "cut_profile_bisect_audit" in sleeves else smoothing["max_depth_smoothing_offset_m"] is None, smoothing
           assert "shirt interior" in smoothing["preserved"], smoothing
           assert smoothing["profile_projection_vertex_count"] >= 40, smoothing
-          assert smoothing["boundary_edge_profile_tolerance_m"] == 0.003, smoothing
+          assert smoothing["boundary_edge_profile_tolerance_m"] == 0.0005, smoothing
+          edge_audit = smoothing["boundary_edge_profile_audit"]
+          assert edge_audit["selection_method"].startswith("actual exposed edges whose endpoints were projected"), edge_audit
+          assert edge_audit["selected_by_projected_profile_indices"] >= 40, edge_audit
+          assert edge_audit["selected_by_projected_profile_indices"] == edge_audit["selected_edge_count"], edge_audit
           if "cut_profile_bisect_audit" in sleeves and smoothing.get("depth_roughness_gate_mode") == "ALREADY_FLAT_ABSOLUTE_FLOOR":
               assert smoothing["depth_roughness_before_m"] <= smoothing["depth_roughness_baseline_floor_m"], smoothing
               assert smoothing["depth_roughness_after_m"] <= smoothing["depth_roughness_baseline_floor_m"] == 0.000005, smoothing
@@ -568,7 +573,8 @@ jobs:
               assert smoothing["depth_roughness_before_m"] > 0, smoothing
               assert smoothing["depth_roughness_after_m"] < smoothing["depth_roughness_before_m"], smoothing
               assert smoothing["depth_roughness_reduction_fraction"] >= 0.10, smoothing
-          assert smoothing["max_profile_deviation_after_smoothing_m"] <= 0.0001, smoothing
+          assert smoothing["max_profile_xz_displacement_after_smoothing_m"] <= 1e-7, smoothing
+          assert "intentional shoulder-overlap offset" in smoothing["post_overlap_profile_deviation_note"], smoothing
           overlap = sleeves["shoulder_edge_overlap_audit"]
           assert overlap["status"] == "APPLIED", overlap
           assert overlap["candidate_boundary_vertex_count"] >= 20, overlap
@@ -839,11 +845,11 @@ jobs:
           cp -a "$RUNNER_TEMP/v386-viewer/." "$stage/v312-work/"
           cp artifacts/v386-gltf-face-accessories/lam-v386-gltf-materials-full-face-candidate.glb "$stage/v312-work/lam-default.glb"
           cat > "$stage/v312-work/V386-EXPERIMENTAL-AVATAR.md" <<'MD'
-          # V386-R9 Experimental Real Human-Topology Avatar — Not Yet Approved
+          # V386-R10 Experimental Real Human-Topology Avatar — Not Yet Approved
 
-          This V386-R9 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body). Before sleeve trimming, it uses five local edge cuts only within the measured shoulder/armhole band and verifies UV/material preservation. R9 applies shape-preserving monotone PCHIP interpolation to the 14 measured armhole control points but uses four subdivisions per control segment (53 samples total), reducing horizontal slice bands versus R8. It then projects only actual exposed boundary vertices to the smooth curve, leaving nearby interior cloth vertices untouched. The audit measures maximum projection and chord error (both must stay within 0.5 mm) while projected boundary vertices must remain within 0.1 mm of the true PCHIP curve. Eight bounded depth-only relaxation passes (world Y, factor 0.40) keep X/Z fixed and each vertex within +/-5 mm of its original depth; UV/material names, left/right balance, shoulder overlap and mesh accounting are rechecked. The intent is a cleaner sleeveless cropped top closer to Phi's saved reference. The candidate remains experimental and must be compared from front, side and three-quarter images. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder validates the two expected connected shells (shirt and trousers), trims only measured lateral shirt faces, and checks the retained shoulder edge and armhole binding instead of assuming the sleeve surfaces are detached islands. The preview-only camera distance is increased by 12.5% for portrait framing; the browser bounds gate itself is not relaxed. The arm pose rotates about a higher shoulder pivot (z=1.23 m) with a nearer lateral fade (0.18–0.34 m); a separately audited 12 mm maximum skin-cap tuck narrows only the exposed upper-arm/armhole transition and protects the central torso and lower body. The armhole profile adds coverage near the lower upper-arm transition and tapers the outer shoulder tip; the dense smooth-profile boundary uses eight depth-only passes at factor 0.40 with X/Z constrained to the sampled envelope; each vertex remains within +/-5 mm of its original depth and the edge must stay within 0.1 mm of the PCHIP curve before the localized 22 mm shoulder-edge offset and matching binding. A dedicated audit measures the shoulder-cap deformation and boundary smoothing. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
+          This V386-R10 candidate continues the technically tested V385 arm-pose baseline (22-degree arm rotation, full hand/finger continuity and protected torso/lower body). Before sleeve trimming, it uses five local edge cuts only within the measured shoulder/armhole band and verifies UV/material preservation. R10 continues the four-subdivision PCHIP cut from R9, then selects the complete exposed boundary chain by the exact indices of vertices projected onto the smooth profile. This avoids selecting only the un-offset fragments: it keeps the audited shoulder-overlap offset consistent, relaxes depth Y only for eight passes at factor 0.40, and asserts that the smoothing stage does not alter X/Z. The profile fit and projection/chord errors remain measured separately; UV/material names, left/right balance, shoulder overlap and mesh accounting are rechecked. The intent is a cleaner sleeveless cropped top closer to Phi's saved reference. The candidate remains experimental and must be compared from front, side and three-quarter images. The body skin, arm geometry, pants/trouser components, shoes, face, eyes/iris, hair, necklace, belt/pockets, morphs and idle animation are preserved. The builder validates the two expected connected shells (shirt and trousers), trims only measured lateral shirt faces, and checks the retained shoulder edge and armhole binding instead of assuming the sleeve surfaces are detached islands. The preview-only camera distance is increased by 12.5% for portrait framing; the browser bounds gate itself is not relaxed. The arm pose rotates about a higher shoulder pivot (z=1.23 m) with a nearer lateral fade (0.18–0.34 m); a separately audited 12 mm maximum skin-cap tuck narrows only the exposed upper-arm/armhole transition and protects the central torso and lower body. The armhole profile adds coverage near the lower upper-arm transition and tapers the outer shoulder tip; the dense smooth-profile boundary uses eight depth-only passes at factor 0.40 with X/Z constrained to the sampled envelope; each vertex remains within +/-5 mm of its original depth and the edge must stay within 0.1 mm of the PCHIP curve before the localized 22 mm shoulder-edge offset and matching binding. A dedicated audit measures the shoulder-cap deformation and boundary smoothing. This is a diagnostic candidate, not the final avatar; inspect armhole/shoulder seams from front, side and three-quarter renders before approval.
 
-          - This is an experimental human-mesh candidate, not a claim of final photorealism. R9 uses shape-preserving PCHIP interpolation of the 14 measured profile control points with four subdivisions per control segment, then projects only exposed edge vertices to the true curve. It checks profile displacement and chord deviation against a 0.5 mm cap and audits UV/material preservation. Compare front, side and three-quarter renders to R8 before approval.
+          - This is an experimental human-mesh candidate, not a claim of final photorealism. R10 builds the armhole smoothing and binding chain from the complete set of exposed projected-profile edges, preserves the intended shoulder-overlap offset, and changes only boundary depth. Its CI gate requires zero X/Z drift during smoothing and preserved UV/material slots. Compare front, side and three-quarter renders to R9 before approval.
           - It includes a subtle Lam_Idle_GentleSway common-root animation and 12 base-mesh facial morph names. The five separate face accessory meshes are restored with export-safe materials so the browser image can be compared against the V335 texture-only diagnostic.
           - Voice/chat integration is not included in this avatar-only package.
           - The production lam-default.glb in the main branch is unchanged.
@@ -891,7 +897,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ly-lam-lam-v386-r9-local-profile-projection-${{ github.run_id }}
+          name: ly-lam-lam-v386-r10-boundary-chain-${{ github.run_id }}
           path: |
             artifacts/v386-gltf-face-accessories/
             artifacts/v386-browser-test/
