@@ -3,12 +3,14 @@
 
 Run inside Blender after a scene builder has created the source character:
   blender --background scene.blend --python tools/export_skinned_glb_v387.py -- \
-    --rig-name "Armature" --output "/tmp/lam-v387-skinned.glb"
+    --output "/tmp/lam-v387-skinned.glb"
+If the scene has multiple eligible armatures, pass --rig-name with the exact object name.
 
-This deliberately exports only meshes linked to the requested armature through an
+This deliberately exports only meshes linked to the selected armature through an
 Armature modifier. It does not bake evaluated geometry, change the production GLB,
-or silently fall back to unskinned export. Rigid accessories need a separately
-documented inclusion policy.
+or silently fall back to unskinned export. Existing output files are protected unless
+--overwrite is explicitly supplied. Rigid accessories need a separately documented
+inclusion policy.
 """
 from __future__ import annotations
 
@@ -27,11 +29,50 @@ from audit_blender_skinning_v387 import audit_character_skinning
 from validate_gltf_skinning_v387 import read_glb, validate
 
 
+def linked_meshes_for_rig(scene, rig):
+    return [
+        obj for obj in scene.objects
+        if obj.type == "MESH" and any(
+            modifier.type == "ARMATURE" and modifier.object == rig
+            for modifier in obj.modifiers
+        )
+    ]
+
+
+def choose_rig(scene, requested_name=None):
+    """Choose an explicitly named rig or the sole eligible rig; never guess on ties."""
+    if requested_name:
+        rig = bpy.data.objects.get(requested_name)
+        if rig is None or rig.type != "ARMATURE":
+            raise RuntimeError(f"Requested rig {requested_name!r} is missing or is not an ARMATURE")
+        linked = linked_meshes_for_rig(scene, rig)
+        if not linked:
+            raise RuntimeError(f"No scene meshes have an Armature modifier targeting {rig.name!r}")
+        return rig, linked
+
+    candidates = [
+        (rig, linked_meshes_for_rig(scene, rig))
+        for rig in scene.objects if rig.type == "ARMATURE"
+    ]
+    candidates = [(rig, linked) for rig, linked in candidates if linked]
+    if not candidates:
+        raise RuntimeError("No armature in the active scene has linked deformable mesh objects")
+    if len(candidates) != 1:
+        summary = [{"rig": rig.name, "linked_meshes": [obj.name for obj in linked]}
+                   for rig, linked in candidates]
+        raise RuntimeError(
+            "Multiple eligible armatures found; pass --rig-name explicitly: "
+            + json.dumps(summary, ensure_ascii=False)
+        )
+    return candidates[0]
+
+
 def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
-    parser.add_argument("--rig-name", required=True, help="Exact Blender armature object name")
+    parser.add_argument("--rig-name", help="Exact Blender armature object name; required only when scene has multiple eligible rigs")
     parser.add_argument("--output", required=True, help="Destination GLB path")
+    parser.add_argument("--overwrite", action="store_true", help="Allow replacing an existing file at the exact output path")
     parser.add_argument("--allow-incomplete-morphs", action="store_true",
                         help="Do not require all 12 Lam facial morph names in the exported GLB")
     return parser.parse_args(argv)
@@ -39,19 +80,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    rig = bpy.data.objects.get(args.rig_name)
-    if rig is None or rig.type != "ARMATURE":
-        raise RuntimeError(f"Requested rig {args.rig_name!r} is missing or is not an ARMATURE")
-
-    linked_meshes = [
-        obj for obj in bpy.context.scene.objects
-        if obj.type == "MESH" and any(
-            modifier.type == "ARMATURE" and modifier.object == rig
-            for modifier in obj.modifiers
-        )
-    ]
-    if not linked_meshes:
-        raise RuntimeError(f"No scene meshes have an Armature modifier targeting {rig.name!r}")
+    rig, linked_meshes = choose_rig(bpy.context.scene, args.rig_name)
 
     audit = audit_character_skinning(linked_meshes, rig)
     failing = [
@@ -69,6 +98,8 @@ def main():
         }, ensure_ascii=False))
 
     output = Path(args.output).expanduser().resolve()
+    if output.exists() and not args.overwrite:
+        raise RuntimeError(f"Output already exists; choose a new path or pass --overwrite: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
 
     bpy.ops.object.select_all(action="DESELECT")
