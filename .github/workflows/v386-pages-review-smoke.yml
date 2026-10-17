@@ -5,6 +5,12 @@ on:
     workflows:
       - Deploy Lam Avatar to GitHub Pages
     types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/v386-pages-review-smoke.yml"
+      - "tools/v386-pages-review-smoke.cjs"
+  workflow_dispatch:
     branches: [main]
   workflow_dispatch:
   schedule:
