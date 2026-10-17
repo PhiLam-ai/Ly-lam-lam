@@ -103,9 +103,13 @@ def create_temporary_export_copies(scene, rig, linked_meshes, normalize_weights)
         duplicate.name = f"{source.name}.V387_EXPORT_TEMP"
         scene.collection.objects.link(duplicate)
         temp_objects.append(duplicate)
-        if source.parent == rig:
-            duplicate.parent = export_rig
-            duplicate.matrix_parent_inverse = source.matrix_parent_inverse.copy()
+        # The glTF exporter reliably binds a skin when each deforming mesh is
+        # parented to the same exported armature. Preserve world transform while
+        # establishing that relationship on temporary copies only.
+        source_world = source.matrix_world.copy()
+        duplicate.parent = export_rig
+        duplicate.matrix_parent_inverse = export_rig.matrix_world.inverted()
+        duplicate.matrix_world = source_world
         for modifier in duplicate.modifiers:
             if modifier.type == "ARMATURE" and modifier.object == rig:
                 modifier.object = export_rig
