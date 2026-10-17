@@ -69,6 +69,12 @@ class SkinningValidatorTests(unittest.TestCase):
         errors = validate(gltf)
         self.assertTrue(any("inverseBindMatrices accessor must use FLOAT components" in error for error in errors))
 
+    def test_rejects_inverse_bind_matrices_without_count(self):
+        gltf = valid_gltf()
+        gltf["accessors"][3].pop("count")
+        errors = validate(gltf)
+        self.assertTrue(any("inverseBindMatrices accessor is missing count" in error for error in errors))
+
     def test_rejects_invalid_skeleton_node(self):
         gltf = valid_gltf()
         gltf["skins"][0]["skeleton"] = 99
@@ -80,6 +86,19 @@ class SkinningValidatorTests(unittest.TestCase):
         gltf["skins"][0]["joints"] = [99]
         errors = validate(gltf)
         self.assertTrue(any("invalid joint node indices" in error for error in errors))
+
+    def test_rejects_integer_weights_without_normalization(self):
+        gltf = valid_gltf()
+        gltf["accessors"][2]["componentType"] = 5123
+        gltf["accessors"][2]["normalized"] = False
+        errors = validate(gltf)
+        self.assertTrue(any("integer WEIGHTS_0 must be normalized" in error for error in errors))
+
+    def test_rejects_float_weights_marked_normalized(self):
+        gltf = valid_gltf()
+        gltf["accessors"][2]["normalized"] = True
+        errors = validate(gltf)
+        self.assertTrue(any("float WEIGHTS_0 must not be normalized" in error for error in errors))
 
     def test_requires_all_expected_facial_morph_names(self):
         gltf = valid_gltf()
