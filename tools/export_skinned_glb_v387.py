@@ -303,17 +303,31 @@ def create_temporary_export_copies(scene, rig, source_meshes, normalize_weights,
             original_name = source.name.removeprefix("V386_Baked_")
             original_source = bpy.data.objects.get(original_name)
             weight_transfer_report = None
-            if original_source is not None and original_source.type == "MESH":
+            # Evaluated Blender meshes may already retain correctly remapped vertex groups.
+            # Prefer those groups; only use spatial transfer when the baked mesh has no
+            # positive real-bone weights, avoiding duplicate .001 groups on export copies.
+            has_weights = has_positive_bone_weights(duplicate, export_rig)
+            if has_weights:
+                weight_transfer_report = {
+                    "source_object": original_source.name if original_source is not None else None,
+                    "target_object": duplicate.name,
+                    "method": "baked_evaluated_vertex_groups_retained",
+                    "target_vertex_count": len(duplicate.data.vertices),
+                    "source_scene_modified": False,
+                }
+            elif original_source is not None and original_source.type == "MESH":
                 weight_transfer_report = transfer_bone_weights_from_source(
                     duplicate, original_source, rig, export_rig
                 )
-            has_weights = has_positive_bone_weights(duplicate, export_rig)
+                has_weights = has_positive_bone_weights(duplicate, export_rig)
             # Baked V386 geometry is already in world-space at identity. Add a new
-            # armature modifier only to meshes carrying transferred real-bone weights.
+            # armature modifier only to meshes carrying real-bone weights.
             duplicate.parent = None
             duplicate.parent_type = "OBJECT"
             duplicate.matrix_world = source_world
             if has_weights:
+                if normalize_weights:
+                    normalize_bone_weights(duplicate, export_rig)
                 modifier = duplicate.modifiers.new(name="V387_Armature", type="ARMATURE")
                 modifier.object = export_rig
                 duplicate.parent = export_rig
