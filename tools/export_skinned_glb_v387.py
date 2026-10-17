@@ -254,8 +254,8 @@ def extract_embedded_image_from_glb(glb_path, preferred_name):
             raise RuntimeError("Texture source GLB contains a truncated chunk")
         offset += length
         if chunk_type == b"JSON":
-            gltf = json.loads(payload.decode("utf-8").rstrip(" \\t\\r\\n\\0"))
-        elif chunk_type == b"BIN\\0":
+            gltf = json.loads(payload.decode("utf-8").rstrip(" "))
+        elif chunk_type == b"BIN\0":
             binary = payload
     if gltf is None or binary is None:
         raise RuntimeError("Texture source GLB must contain JSON and BIN chunks")
