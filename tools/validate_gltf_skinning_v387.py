@@ -63,6 +63,21 @@ def validate(gltf: dict) -> list[str]:
                 attrs = primitive.get("attributes", {})
                 if "JOINTS_0" not in attrs or "WEIGHTS_0" not in attrs:
                     errors.append(f"Skinned node {ni} primitive {pi} lacks JOINTS_0/WEIGHTS_0")
+                pos_i, joints_i, weights_i = attrs.get("POSITION"), attrs.get("JOINTS_0"), attrs.get("WEIGHTS_0")
+                if not all(isinstance(i, int) and 0 <= i < len(accessors) for i in (pos_i, joints_i, weights_i)):
+                    errors.append(f"Skinned node {ni} primitive {pi} has an invalid POSITION/JOINTS_0/WEIGHTS_0 accessor")
+                    continue
+                pa, ja, wa = accessors[pos_i], accessors[joints_i], accessors[weights_i]
+                if ja.get("type") != "VEC4" or ja.get("componentType") not in (5121, 5123):
+                    errors.append(f"Skinned node {ni} primitive {pi} JOINTS_0 must be VEC4 unsigned byte/short")
+                if wa.get("type") != "VEC4" or wa.get("componentType") not in (5121, 5123, 5126):
+                    errors.append(f"Skinned node {ni} primitive {pi} WEIGHTS_0 must be VEC4 unsigned byte/short/float")
+                if ja.get("count") != pa.get("count") or wa.get("count") != pa.get("count"):
+                    errors.append(f"Skinned node {ni} primitive {pi} skin attribute counts must match POSITION")
+                if ja.get("normalized", False):
+                    errors.append(f"Skinned node {ni} primitive {pi} JOINTS_0 must not be normalized")
+                if wa.get("componentType") == 5126 and wa.get("normalized", False):
+                    errors.append(f"Skinned node {ni} primitive {pi} float WEIGHTS_0 must not be normalized")
     joint_targets, channel_count = set(), 0
     for animation in animations:
         for channel in animation.get("channels", []):
