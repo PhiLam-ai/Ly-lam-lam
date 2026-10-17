@@ -1891,20 +1891,26 @@ def remove_short_sleeve_components(clothing_objects):
             elif abs(abs(mid_x) - limit) > 0.09:
                 continue
             selected_boundary_refine_edges.append(edge)
-        if len(selected_boundary_refine_edges) < 40:
+        minimum_profile_edges = 15 if profile_boundary_refinement_mode else 40
+        if len(selected_boundary_refine_edges) < minimum_profile_edges:
             raise RuntimeError(
-                "V386-R4 found too few exposed armhole boundary edges to refine: "
-                + str(len(selected_boundary_refine_edges))
+                "V386-R9 found too few exposed profile-matched armhole boundary edges to refine: "
+                + repr({
+                    "selected_edges": len(selected_boundary_refine_edges),
+                    "minimum_required": minimum_profile_edges,
+                    "profile_matched_boundary_mode": profile_boundary_refinement_mode,
+                })
             )
         if len(selected_boundary_refine_edges) > 1800:
             raise RuntimeError(
                 "V386-R4 armhole boundary refinement selected an unexpectedly large region: "
                 + str(len(selected_boundary_refine_edges))
             )
+        boundary_refine_cuts_per_edge = 5 if profile_boundary_refinement_mode else 2
         bmesh.ops.subdivide_edges(
             boundary_refine_bm,
             edges=selected_boundary_refine_edges,
-            cuts=2,
+            cuts=boundary_refine_cuts_per_edge,
             smooth=0.0,
         )
         boundary_refine_bm.to_mesh(mesh)
@@ -1918,12 +1924,12 @@ def remove_short_sleeve_components(clothing_objects):
     ]
     armhole_boundary_topology_refinement_audit = {
         "status": "APPLIED",
-        "method": "subdivide only actual exposed profile-matched armhole edges using endpoint deviation <= 8 mm and midpoint deviation <= 15 mm; split two cuts per selected edge before rebuilding the smoothing/binding chain; preserve UV layers and material slots",
+        "method": "subdivide only actual exposed profile-matched armhole edges using endpoint deviation <= 8 mm and midpoint deviation <= 15 mm; split five cuts per selected edge for dense R9 profile-matched chains before rebuilding the smoothing/binding graph; preserve UV layers and material slots",
         "selected_boundary_edge_count": len(selected_boundary_refine_edges),
         "profile_matched_boundary_mode": profile_boundary_refinement_mode,
         "endpoint_profile_tolerance_m": 0.008 if profile_boundary_refinement_mode else None,
         "midpoint_profile_tolerance_m": 0.015 if profile_boundary_refinement_mode else 0.09,
-        "cuts_per_edge": 2,
+        "cuts_per_edge": boundary_refine_cuts_per_edge,
         "vertices_before": boundary_refine_vertices_before,
         "vertices_after": len(mesh.vertices),
         "vertices_added": len(mesh.vertices) - boundary_refine_vertices_before,
