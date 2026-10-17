@@ -15,6 +15,8 @@ on:
       - avatar/v387-skinning-prototype
     paths:
       - "tools/blender_v386_sleeveless_top.py"
+      - "tools/validate_gltf_skinning_v387.py"
+      - "tools/test_validate_gltf_skinning_v387.py"
       - "tools/v386_apply_viewer_camera_fit.cjs"
       - ".github/workflows/v386-sleeveless-top-candidate.yml"
   workflow_dispatch:
@@ -34,6 +36,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         name: Check out Lam repository
+
+      - name: Test V387 glTF skinning validator
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tools -p 'test_validate_gltf_skinning_v387.py' -v
 
       - name: Install Blender runtime libraries
         run: |
