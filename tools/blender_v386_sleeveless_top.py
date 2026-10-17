@@ -1829,16 +1829,17 @@ def remove_short_sleeve_components(clothing_objects):
             if not (1.095 <= point_z <= 1.265):
                 continue
             target_x = smooth_profile_limit(point_z)
-            if target_x is None or not (0.10 < abs(float(point.x)) < 0.30):
+            point_x = float(point[0])
+            if target_x is None or not (0.10 < abs(point_x) < 0.30):
                 continue
-            lateral_correction = abs(abs(float(point.x)) - float(target_x))
+            lateral_correction = abs(abs(point_x) - float(target_x))
             if lateral_correction > 0.025:
                 continue
-            corrected = point.copy()
-            corrected.x = math.copysign(float(target_x), float(point.x))
+            corrected = Vector(point)
+            corrected.x = math.copysign(float(target_x), point_x)
             mesh.vertices[vertex_index].co = projection_inverse_matrix @ corrected
             projection_offsets.append(lateral_correction)
-            projected_side_counts["left" if point.x < 0 else "right"] += 1
+            projected_side_counts["left" if point_x < 0 else "right"] += 1
         if len(projection_offsets) < 40 or min(projected_side_counts.values()) < 15:
             raise RuntimeError(
                 "V386-R9 could not project enough exposed boundary vertices onto the deeper underarm profile: "
