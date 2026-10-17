@@ -207,6 +207,7 @@ window.__lyLamRendererReady=true;
 let bindings=new Map(), targets={}, last=performance.now(), targetUrl='./lam-default.glb';
 const morphTransition=globalThis.AvatarMorphTransition.createMorphTransition({timeConstantSeconds:.12});
 const API_POLL_INTERVAL_MS=250;
+const API_REQUEST_TIMEOUT_MS=8000;
 let pollTimer=null, pollInFlight=false, viewerReady=false, disposed=false, debugWeights=null;
 const retryPolicy=globalThis.AvatarApiRecovery.createRetryPolicy({baseDelayMs:1200,maxDelayMs:12000,factor:2});
 const blinkController=globalThis.AvatarExpressionMotion.createBlinkController();
@@ -237,8 +238,11 @@ async function getState(){
   if(pollTimer){clearTimeout(pollTimer);pollTimer=null;}
   pollInFlight=true;
   let nextDelayMs=API_POLL_INTERVAL_MS;
+  let requestTimeoutId=null;
   try{
-    const response=await fetch(apiEndpoint.url,{method:'GET',headers:{Accept:'application/json'},cache:'no-store',credentials:'omit'});
+    const controller=new AbortController();
+    requestTimeoutId=window.setTimeout(()=>controller.abort(),API_REQUEST_TIMEOUT_MS);
+    const response=await fetch(apiEndpoint.url,{method:'GET',headers:{Accept:'application/json'},cache:'no-store',credentials:'omit',signal:controller.signal});
     if(!response.ok)throw new Error(`HTTP ${response.status}`);
     const payload=await response.json();
     const parsed=globalThis.AvatarApiClient.parseStatePayload(payload,expectedMorphs);
@@ -253,6 +257,7 @@ async function getState(){
     const reason=String(error&&error.message||'lỗi mạng').slice(0,100);
     statusMessage.textContent=`Mô hình đã tải · API chưa kết nối (${reason}) · thử lại sau ${(nextDelayMs/1000).toFixed(1)} giây`;
   }finally{
+    if(requestTimeoutId!==null)clearTimeout(requestTimeoutId);
     pollInFlight=false;
     // Schedule after every request, whether it succeeded or failed. This also
     // closes the visibility-change race where a foreground refresh occurs
