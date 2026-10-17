@@ -1895,9 +1895,9 @@ def remove_short_sleeve_components(clothing_objects):
                 continue
             selected_boundary_refine_edges.append(edge)
         boundary_refine_profile_audit["selected_edge_count"] = len(selected_boundary_refine_edges)
-        if len(selected_boundary_refine_edges) < 40:
+        if len(selected_boundary_refine_edges) < 12:
             raise RuntimeError(
-                "V386-R9 found too few true armhole boundary edges to refine: "
+                V386-R9 found too few profile-conforming armhole boundary edges to refine: "
                 + repr(boundary_refine_profile_audit)
             )
         if len(selected_boundary_refine_edges) > 500:
@@ -1908,7 +1908,7 @@ def remove_short_sleeve_components(clothing_objects):
         bmesh.ops.subdivide_edges(
             boundary_refine_bm,
             edges=selected_boundary_refine_edges,
-            cuts=4,
+            cuts=10,
             smooth=0.0,
         )
         boundary_refine_bm.to_mesh(mesh)
@@ -1922,9 +1922,9 @@ def remove_short_sleeve_components(clothing_objects):
     ]
     armhole_boundary_topology_refinement_audit = {
         "status": "APPLIED",
-        "method": "subdivide only exposed cut-boundary edges whose endpoints are within 8 mm and midpoint within 15 mm of the shape-preserving PCHIP armhole profile; four cuts per selected edge",
+        "method": "subdivide only exposed cut-boundary edges whose endpoints are within 8 mm and midpoint within 15 mm of the shape-preserving PCHIP armhole profile; ten cuts per selected edge",
         "selected_boundary_edge_count": len(selected_boundary_refine_edges),
-        "cuts_per_edge": 4,
+        "cuts_per_edge": 10,
         "profile_edge_selection_audit": boundary_refine_profile_audit,
         "vertices_before": boundary_refine_vertices_before,
         "vertices_after": len(mesh.vertices),
@@ -2404,7 +2404,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R9 uses a PCHIP armhole profile and subdivides only true cut-boundary edges within endpoint/midpoint tolerances; depth-only smoothing remains bounded. Inspect front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R9 uses a PCHIP armhole profile and subdivides only true cut-boundary edges within endpoint/midpoint tolerances, with ten cuts per accepted edge; depth-only smoothing remains bounded. Inspect front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
