@@ -73,6 +73,7 @@ jobs:
           blender --background "${{ steps.scene.outputs.path }}" \
             --python tools/export_skinned_glb_v387.py -- \
             --rig-name "Human.rig" \
+            --visual-source baked-v386 \
             --output "$GITHUB_WORKSPACE/artifacts/lam-v387-skinned-exploratory.glb" \
             --normalize-bone-weights-on-export-copy \
             2>&1 | tee artifacts/blender-export.log
