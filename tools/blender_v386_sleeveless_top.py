@@ -1603,6 +1603,7 @@ def remove_short_sleeve_components(clothing_objects):
         if loose_vertices:
             bmesh.ops.delete(profile_bm, geom=loose_vertices, context="VERTS")
         removed_vertex_count = sum(1 for vertex in original_profile_vertices if not vertex.is_valid)
+        removed_vertex_fraction = removed_vertex_count / float(max(1, vertex_count_before))
         removed_face_count = cut_face_count
         # Derive the profile-vertex audit from final world coordinates, not
         # BMElement.tag: BMesh operators may reuse/reset that temporary flag.
