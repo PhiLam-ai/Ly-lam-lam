@@ -1589,7 +1589,9 @@ def remove_short_sleeve_components(clothing_objects):
                 if not (0.10 < abs(point[0]) < 0.35):
                     continue
                 sampled_deviation = abs(abs(point[0]) - sampled_limit)
-                if sampled_deviation > 0.001:
+                # Exclude nearby boundary vertices that are not truly on the
+                # cut envelope; projection must never move a vertex by >0.5 mm.
+                if sampled_deviation > 0.0005:
                     continue
                 target_x = math.copysign(smooth_limit, point[0])
                 profile_projection_displacements_m.append(abs(target_x - point[0]))
@@ -1715,7 +1717,7 @@ def remove_short_sleeve_components(clothing_objects):
     ]
     cut_profile_bisect_audit = {
         "status": "APPLIED",
-        "method": "shape-preserving PCHIP interpolation of 14 measured armhole control points, sampled at four subdivisions per control segment, then local boundary-vertex projection to the smooth curve",
+        "method": "shape-preserving PCHIP interpolation of 14 measured armhole control points, sampled at four subdivisions per control segment, then projection of exposed boundary vertices whose sampled-envelope residual is <=0.5 mm",
         "profile_point_count": len(cut_profile_control),
         "profile_control_point_count": len(cut_profile_control),
         "profile_segment_count": len(cut_profile_control) - 1,
@@ -1723,6 +1725,7 @@ def remove_short_sleeve_components(clothing_objects):
         "sampled_profile_segment_count": profile_segments_processed,
         "subdivisions_per_control_segment": profile_subdivisions_per_segment,
         "profile_boundary_projection_vertex_count": len(profile_boundary_samples),
+        "profile_projection_candidate_tolerance_m": 0.0005,
         "max_profile_projection_displacement_m": round(max_profile_projection_displacement_m, 8),
         "horizontal_slice_plane_count": profile_horizontal_slice_plane_count,
         "profile_segment_plane_count": profile_segment_plane_count,
