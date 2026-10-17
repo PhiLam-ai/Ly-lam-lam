@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -131,6 +132,76 @@ def cleanup_temporary_copies(objects):
                 bpy.data.armatures.remove(data)
 
 
+def probe_pose_deformation(mesh_obj, rig, bone_names=("upperarm_l", "thigh_l", "head"), angle_degrees=30.0):
+    """Measure evaluated mesh movement under deterministic single-bone rotations."""
+    missing = [name for name in bone_names if rig.pose.bones.get(name) is None]
+    if missing:
+        raise RuntimeError(f"Pose deformation probe cannot find expected bones: {missing}")
+
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    bpy.context.view_layer.update()
+    evaluated = mesh_obj.evaluated_get(depsgraph)
+    base_mesh = evaluated.to_mesh()
+    try:
+        baseline = [vertex.co.copy() for vertex in base_mesh.vertices]
+    finally:
+        evaluated.to_mesh_clear()
+
+    results = []
+    angle = math.radians(angle_degrees)
+    for bone_name in bone_names:
+        pose_bone = rig.pose.bones[bone_name]
+        original_mode = pose_bone.rotation_mode
+        original_euler = pose_bone.rotation_euler.copy()
+        best = {"bone": bone_name, "axis": None, "max_displacement": 0.0, "moved_vertex_count": 0}
+        try:
+            pose_bone.rotation_mode = "XYZ"
+            neutral_euler = pose_bone.rotation_euler.copy()
+            for axis in range(3):
+                pose_bone.rotation_euler = neutral_euler
+                pose_bone.rotation_euler[axis] = neutral_euler[axis] + angle
+                bpy.context.view_layer.update()
+                depsgraph = bpy.context.evaluated_depsgraph_get()
+                evaluated = mesh_obj.evaluated_get(depsgraph)
+                posed_mesh = evaluated.to_mesh()
+                try:
+                    if len(posed_mesh.vertices) != len(baseline):
+                        raise RuntimeError(f"{mesh_obj.name}: evaluated vertex count changed during pose probe")
+                    displacements = [
+                        (vertex.co - baseline[index]).length
+                        for index, vertex in enumerate(posed_mesh.vertices)
+                    ]
+                finally:
+                    evaluated.to_mesh_clear()
+                moved = sum(distance > 1e-5 for distance in displacements)
+                maximum = max(displacements, default=0.0)
+                if maximum > best["max_displacement"]:
+                    best = {
+                        "bone": bone_name,
+                        "axis": "XYZ"[axis],
+                        "max_displacement": maximum,
+                        "moved_vertex_count": moved,
+                    }
+        finally:
+            pose_bone.rotation_euler = original_euler
+            pose_bone.rotation_mode = original_mode
+            bpy.context.view_layer.update()
+        results.append(best)
+
+    failures = [item for item in results if item["max_displacement"] <= 1e-5 or item["moved_vertex_count"] == 0]
+    if failures:
+        raise RuntimeError("Source pose deformation probe failed: " + json.dumps({
+            "mesh": mesh_obj.name, "results": results, "failures": failures,
+        }, ensure_ascii=False))
+    return {
+        "status": "POSE_DEFORMATION_PROBE_PASSED",
+        "mesh": mesh_obj.name,
+        "angle_degrees": angle_degrees,
+        "tests": results,
+        "note": "Measured on Blender evaluated geometry before GLB export; browser playback and rendered pose review remain separate gates.",
+    }
+
+
 def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
@@ -187,6 +258,11 @@ def main():
                 "failed_meshes": failing, "audit": export_audit,
             }, ensure_ascii=False))
 
+        body_copy = next((obj for obj in export_meshes if obj.name == "Human.V387_EXPORT_TEMP"), None)
+        if body_copy is None:
+            raise RuntimeError("Cannot run pose deformation probe: expected Human body mesh copy is missing")
+        pose_deformation_report = probe_pose_deformation(body_copy, export_rig)
+
         bpy.ops.object.select_all(action="DESELECT")
         for obj in export_meshes:
             obj.select_set(True)
@@ -223,6 +299,7 @@ def main():
         "source_mesh_count": len(linked_meshes),
         "source_skinning_audit": source_audit,
         "export_copy_skinning_audit": export_audit,
+        "pose_deformation_probe": pose_deformation_report,
         "bone_weights_normalized_on_temporary_copies": args.normalize_bone_weights_on_export_copy,
         "gltf_skin_count": len(gltf.get("skins", [])),
         "gltf_skinned_node_count": sum(1 for node in gltf.get("nodes", []) if "skin" in node and "mesh" in node),
