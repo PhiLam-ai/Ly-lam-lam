@@ -6,11 +6,9 @@ Run inside Blender after a scene builder has created the source character:
     --output "/tmp/lam-v387-skinned.glb"
 If the scene has multiple eligible armatures, pass --rig-name with the exact object name.
 
-This deliberately exports only meshes linked to the selected armature through an
-Armature modifier. It does not bake evaluated geometry, change the production GLB,
-or silently fall back to unskinned export. Existing output files are protected unless
---overwrite is explicitly supplied. Rigid accessories need a separately documented
-inclusion policy.
+The exporter creates temporary copies of the rig and linked meshes, exports those copies,
+then removes them. Source scene objects, weights and data are never edited or saved.
+Existing output files are protected unless --overwrite is explicitly supplied.
 """
 from __future__ import annotations
 
@@ -67,12 +65,73 @@ def choose_rig(scene, requested_name=None):
     return candidates[0]
 
 
+def normalize_bone_weights(mesh_obj, rig):
+    """Normalize only weights whose vertex-group names match real bones on the rig."""
+    bone_names = set(rig.data.bones.keys())
+    bone_groups = [group for group in mesh_obj.vertex_groups if group.name in bone_names]
+    if not bone_groups:
+        raise RuntimeError(f"{mesh_obj.name}: no vertex groups match bones on {rig.name}")
+    group_by_index = {group.index: group for group in bone_groups}
+    for vertex in mesh_obj.data.vertices:
+        assignments = [
+            (group_by_index[assignment.group], assignment.weight)
+            for assignment in vertex.groups if assignment.group in group_by_index
+        ]
+        total = sum(weight for _, weight in assignments if weight > 0.0)
+        if total <= 1e-8:
+            raise RuntimeError(
+                f"{mesh_obj.name}: vertex {vertex.index} has no positive weight for a real rig bone"
+            )
+        for group, weight in assignments:
+            if weight > 0.0:
+                group.add([vertex.index], weight / total, "REPLACE")
+
+
+def create_temporary_export_copies(scene, rig, linked_meshes, normalize_weights):
+    """Duplicate rig and mesh datablocks for export-only edits; caller must clean up."""
+    temp_objects = []
+    export_rig = rig.copy()
+    export_rig.data = rig.data.copy()
+    export_rig.name = f"{rig.name}.V387_EXPORT_TEMP"
+    scene.collection.objects.link(export_rig)
+    temp_objects.append(export_rig)
+
+    export_meshes = []
+    for source in linked_meshes:
+        duplicate = source.copy()
+        duplicate.data = source.data.copy()
+        duplicate.name = f"{source.name}.V387_EXPORT_TEMP"
+        scene.collection.objects.link(duplicate)
+        temp_objects.append(duplicate)
+        for modifier in duplicate.modifiers:
+            if modifier.type == "ARMATURE" and modifier.object == rig:
+                modifier.object = export_rig
+        if normalize_weights:
+            normalize_bone_weights(duplicate, export_rig)
+        export_meshes.append(duplicate)
+    return export_rig, export_meshes, temp_objects
+
+
+def cleanup_temporary_copies(objects):
+    """Remove temporary objects and orphaned copied data without touching source data."""
+    for obj in reversed(objects):
+        data = obj.data if obj.type in {"MESH", "ARMATURE"} else None
+        bpy.data.objects.remove(obj, do_unlink=True)
+        if data is not None and data.users == 0:
+            if data.__class__.__name__ == "Mesh":
+                bpy.data.meshes.remove(data)
+            elif data.__class__.__name__ == "Armature":
+                bpy.data.armatures.remove(data)
+
+
 def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
     parser.add_argument("--rig-name", help="Exact Blender armature object name; required only when scene has multiple eligible rigs")
     parser.add_argument("--output", required=True, help="Destination GLB path")
     parser.add_argument("--overwrite", action="store_true", help="Allow replacing an existing file at the exact output path")
+    parser.add_argument("--normalize-bone-weights-on-export-copy", action="store_true",
+                        help="Normalize only real-bone weights on temporary copies; source scene is not modified")
     parser.add_argument("--allow-incomplete-morphs", action="store_true",
                         help="Do not require all 12 Lam facial morph names in the exported GLB")
     return parser.parse_args(argv)
@@ -80,21 +139,23 @@ def parse_args():
 
 def main():
     args = parse_args()
-    rig, linked_meshes = choose_rig(bpy.context.scene, args.rig_name)
+    scene = bpy.context.scene
+    rig, linked_meshes = choose_rig(scene, args.rig_name)
 
-    audit = audit_character_skinning(linked_meshes, rig)
-    failing = [
-        mesh["object"] for mesh in audit["meshes"]
+    source_audit = audit_character_skinning(linked_meshes, rig)
+    source_failures = [
+        mesh["object"] for mesh in source_audit["meshes"]
         if not mesh["has_intended_armature_modifier"]
         or mesh["vertex_count"] == 0
         or mesh["zero_weight_vertex_count"] > 0
-        or mesh["non_normalized_weighted_vertex_count"] > 0
-        or mesh["positive_weights_on_nonbone_groups"]
+        or (mesh["non_normalized_weighted_vertex_count"] > 0
+            and not args.normalize_bone_weights_on_export_copy)
     ]
-    if failing:
-        raise RuntimeError("Strict source skinning audit failed; refusing export: " + json.dumps({
-            "failed_meshes": failing,
-            "audit": audit,
+    if source_failures:
+        raise RuntimeError("Source skinning audit failed; refusing export: " + json.dumps({
+            "failed_meshes": source_failures,
+            "normalization_requested": args.normalize_bone_weights_on_export_copy,
+            "audit": source_audit,
         }, ensure_ascii=False))
 
     output = Path(args.output).expanduser().resolve()
@@ -102,24 +163,43 @@ def main():
         raise RuntimeError(f"Output already exists; choose a new path or pass --overwrite: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    bpy.ops.object.select_all(action="DESELECT")
-    for obj in linked_meshes:
-        obj.select_set(True)
-    rig.select_set(True)
-    bpy.context.view_layer.objects.active = rig
-
-    bpy.ops.export_scene.gltf(
-        filepath=str(output),
-        export_format="GLB",
-        use_selection=True,
-        export_animations=True,
-        export_skins=True,
-        export_morph=True,
-        export_morph_normal=False,
-        export_apply=False,
-        export_cameras=False,
-        export_lights=False,
+    export_rig, export_meshes, temp_objects = create_temporary_export_copies(
+        scene, rig, linked_meshes, args.normalize_bone_weights_on_export_copy
     )
+    try:
+        export_audit = audit_character_skinning(export_meshes, export_rig)
+        failing = [
+            mesh["object"] for mesh in export_audit["meshes"]
+            if not mesh["has_intended_armature_modifier"]
+            or mesh["vertex_count"] == 0
+            or mesh["zero_weight_vertex_count"] > 0
+            or mesh["non_normalized_weighted_vertex_count"] > 0
+        ]
+        if failing:
+            raise RuntimeError("Temporary export-copy audit failed: " + json.dumps({
+                "failed_meshes": failing, "audit": export_audit,
+            }, ensure_ascii=False))
+
+        bpy.ops.object.select_all(action="DESELECT")
+        for obj in export_meshes:
+            obj.select_set(True)
+        export_rig.select_set(True)
+        bpy.context.view_layer.objects.active = export_rig
+
+        bpy.ops.export_scene.gltf(
+            filepath=str(output),
+            export_format="GLB",
+            use_selection=True,
+            export_animations=True,
+            export_skins=True,
+            export_morph=True,
+            export_morph_normal=False,
+            export_apply=False,
+            export_cameras=False,
+            export_lights=False,
+        )
+    finally:
+        cleanup_temporary_copies(temp_objects)
 
     gltf = read_glb(output)
     errors = validate(gltf)
@@ -134,7 +214,9 @@ def main():
         "rig_name": rig.name,
         "rig_bone_count": len(rig.data.bones),
         "source_mesh_count": len(linked_meshes),
-        "source_skinning_audit": audit,
+        "source_skinning_audit": source_audit,
+        "export_copy_skinning_audit": export_audit,
+        "bone_weights_normalized_on_temporary_copies": args.normalize_bone_weights_on_export_copy,
         "gltf_skin_count": len(gltf.get("skins", [])),
         "gltf_skinned_node_count": sum(1 for node in gltf.get("nodes", []) if "skin" in node and "mesh" in node),
         "gltf_animation_count": len(gltf.get("animations", [])),
