@@ -1,4 +1,5 @@
 name: V386-R12 Deeper Armhole Candidate and Browser Validation
+# Re-trigger candidate build after R12 assertion correction.
 # R12 geometry assertion corrected in commit 59ce864a80275feabc816fea969d5a496c637f55.
 
 on:
