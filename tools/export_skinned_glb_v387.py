@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import struct
 import sys
 from pathlib import Path
 
@@ -214,6 +215,57 @@ def probe_pose_deformation(mesh_obj, rig, bone_names=("upperarm_l", "thigh_l", "
     }
 
 
+def rename_glb_animation(output_path, old_name, new_name):
+    """Rename one glTF animation in a GLB JSON chunk without changing source Blender data."""
+    if not old_name or old_name == new_name:
+        return {"renamed": False, "old_name": old_name, "new_name": new_name, "reason": "no temporary action rename needed"}
+    data = output_path.read_bytes()
+    if len(data) < 20:
+        raise RuntimeError("Cannot rename animation: exported GLB is too small")
+    magic, version, declared_length = struct.unpack_from("<4sII", data, 0)
+    if magic != b"glTF" or version != 2 or declared_length != len(data):
+        raise RuntimeError("Cannot rename animation: invalid GLB header")
+    chunks = []
+    offset = 12
+    json_index = None
+    while offset + 8 <= len(data):
+        length, chunk_type = struct.unpack_from("<I4s", data, offset)
+        offset += 8
+        chunk = data[offset:offset + length]
+        if len(chunk) != length:
+            raise RuntimeError("Cannot rename animation: truncated GLB chunk")
+        offset += length
+        if chunk_type == b"JSON":
+            gltf = json.loads(chunk.decode("utf-8").rstrip(" \\t\\r\\n\\0"))
+            json_index = len(chunks)
+            chunks.append([chunk_type, gltf])
+        else:
+            chunks.append([chunk_type, chunk])
+    if json_index is None:
+        raise RuntimeError("Cannot rename animation: GLB JSON chunk missing")
+    gltf = chunks[json_index][1]
+    matches = [animation for animation in gltf.get("animations", []) if animation.get("name") == old_name]
+    if not matches:
+        return {"renamed": False, "old_name": old_name, "new_name": new_name,
+                "reason": "matching animation name not found", "available_names": [a.get("name", "") for a in gltf.get("animations", [])]}
+    matches[0]["name"] = new_name
+    chunks[json_index][1] = gltf
+
+    encoded_chunks = []
+    for chunk_type, chunk in chunks:
+        if chunk_type == b"JSON":
+            payload = json.dumps(chunk, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+            payload += b" " * ((-len(payload)) % 4)
+        else:
+            payload = chunk
+        encoded_chunks.append(struct.pack("<I4s", len(payload), chunk_type) + payload)
+    body = b"".join(encoded_chunks)
+    output_path.write_bytes(struct.pack("<4sII", b"glTF", 2, 12 + len(body)) + body)
+    return {"renamed": True, "old_name": old_name, "new_name": new_name,
+            "animation_count": len(gltf.get("animations", [])),
+            "animation_names": [animation.get("name", "") for animation in gltf.get("animations", [])]}
+
+
 def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     parser = argparse.ArgumentParser()
@@ -299,6 +351,11 @@ def main():
     finally:
         cleanup_temporary_copies(temp_objects)
 
+    glb_animation_rename_report = rename_glb_animation(
+        output,
+        temporary_action_report.get("export_action"),
+        args.animation_name,
+    )
     gltf = read_glb(output)
     errors = validate(gltf)
     if args.allow_incomplete_morphs:
@@ -316,6 +373,8 @@ def main():
         "export_copy_skinning_audit": export_audit,
         "pose_deformation_probe": pose_deformation_report,
         "temporary_action_rename": temporary_action_report,
+        "glb_animation_rename": glb_animation_rename_report,
+        "gltf_animation_names": [animation.get("name", "") for animation in gltf.get("animations", [])],
         "bone_weights_normalized_on_temporary_copies": args.normalize_bone_weights_on_export_copy,
         "gltf_skin_count": len(gltf.get("skins", [])),
         "gltf_skinned_node_count": sum(1 for node in gltf.get("nodes", []) if "skin" in node and "mesh" in node),
