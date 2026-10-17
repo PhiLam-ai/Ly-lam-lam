@@ -1654,6 +1654,10 @@ def remove_short_sleeve_components(clothing_objects):
         "profile_point_count": len(cut_profile_control),
         "profile_control_point_count": len(cut_profile_control),
         "profile_segment_count": len(cut_profile_control) - 1,
+        "source_vertex_count_before_clip": vertex_count_before,
+        "source_vertices_removed_by_clip": removed_vertex_count,
+        "source_vertex_removal_fraction": round(removed_original_vertex_fraction, 6),
+        "maximum_allowed_source_vertex_removal_fraction": maximum_removed_original_vertex_fraction,
         "sampled_profile_point_count": len(cut_profile),
         "sampled_profile_segment_count": profile_segments_processed,
         "subdivisions_per_control_segment": profile_subdivisions_per_segment,
@@ -1677,9 +1681,9 @@ def remove_short_sleeve_components(clothing_objects):
         "scope": "Human.female_sportsuit01 lateral armhole profile only",
     }
     if uv_names_before_profile_clip != uv_names_after_profile_clip:
-        raise RuntimeError("V386-R8 profile bisect changed garment UV-layer names")
+        raise RuntimeError("V386-R9 profile bisect changed garment UV-layer names")
     if material_names_before_profile_clip != material_names_after_profile_clip:
-        raise RuntimeError("V386-R8 profile bisect changed garment material slots")
+        raise RuntimeError("V386-R9 profile bisect changed garment material slots")
     if max_profile_deviation_m > 0.0001:
         raise RuntimeError("V386-R8 generated armhole boundary drifted more than 0.1 mm from the smooth profile: " + repr(cut_profile_bisect_audit))
 
@@ -1705,8 +1709,20 @@ def remove_short_sleeve_components(clothing_objects):
         "touched_vertex_count_total": len(cut_vertex_indices["left"] | cut_vertex_indices["right"]),
         "bounds_world_m": cut_bounds,
     }
-    if removed_vertex_count < 0 or removed_vertex_count > 1800:
-        raise RuntimeError("V386-R8 profile bisect removed an unexpected number of original vertices: " + str(removed_vertex_count))
+    removed_original_vertex_fraction = removed_vertex_count / float(max(vertex_count_before, 1))
+    maximum_removed_original_vertex_fraction = 0.55
+    if removed_vertex_count < 0 or removed_original_vertex_fraction > maximum_removed_original_vertex_fraction:
+        raise RuntimeError(
+            "V386-R9 profile bisect removed an unexpectedly large fraction of source vertices: "
+            + repr({
+                "removed_vertex_count": removed_vertex_count,
+        "removed_original_vertex_fraction": round(removed_original_vertex_fraction, 6),
+                "vertex_count_before": vertex_count_before,
+                "removed_original_vertex_fraction": round(removed_original_vertex_fraction, 6),
+                "maximum_removed_original_vertex_fraction": maximum_removed_original_vertex_fraction,
+                "cut_face_count": cut_face_count,
+            })
+        )
 
     trim_vertex_count_after = len(mesh.vertices)
     trim_face_count_after = len(mesh.polygons)
@@ -1798,7 +1814,7 @@ def remove_short_sleeve_components(clothing_objects):
     # final-minus-initial arithmetic no longer represents removed geometry.
     components_after = connected_components(mesh)
     if removed_face_count != cut_face_count:
-        raise RuntimeError("V386-R8 profile bisect face-count accounting failed: " + repr({
+        raise RuntimeError("V386-R9 profile bisect face-count accounting failed: " + repr({
             "removed_face_count": removed_face_count,
             "selected_cut_face_count": cut_face_count,
         }))
