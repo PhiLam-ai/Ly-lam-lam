@@ -220,6 +220,8 @@ jobs:
           source_skinning = report.get("source_skinning_audit")
           assert source_skinning and source_skinning.get("bone_count", 0) > 0, source_skinning
           assert source_skinning.get("mesh_count", 0) > 0, source_skinning
+          assert source_skinning.get("body_candidates_with_armature_modifier", 0) > 0, source_skinning
+          assert source_skinning.get("body_candidates_with_weighted_vertices", 0) > 0, source_skinning
           print("V387_SOURCE_SKINNING_AUDIT=" + json.dumps({
             "rig_name": source_skinning.get("rig_name"),
             "bone_count": source_skinning.get("bone_count"),
