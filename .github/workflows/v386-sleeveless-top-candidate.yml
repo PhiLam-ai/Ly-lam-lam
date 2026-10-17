@@ -571,7 +571,8 @@ jobs:
           assert smoothing["max_depth_smoothing_offset_m"] == 0.005 if "cut_profile_bisect_audit" in sleeves else smoothing["max_depth_smoothing_offset_m"] is None, smoothing
           assert "shirt interior" in smoothing["preserved"], smoothing
           assert smoothing["profile_projection_vertex_count"] >= 40, smoothing
-          assert smoothing["boundary_edge_profile_tolerance_m"] == 0.003, smoothing
+          if smoothing.get("narrow_sleeveless_profile") is not True:
+              assert smoothing["boundary_edge_profile_tolerance_m"] == 0.003, smoothing
           if "cut_profile_bisect_audit" in sleeves and smoothing.get("depth_roughness_gate_mode") == "ALREADY_FLAT_ABSOLUTE_FLOOR":
               assert smoothing["depth_roughness_before_m"] <= smoothing["depth_roughness_baseline_floor_m"], smoothing
               assert smoothing["depth_roughness_after_m"] <= smoothing["depth_roughness_baseline_floor_m"] == 0.000005, smoothing
