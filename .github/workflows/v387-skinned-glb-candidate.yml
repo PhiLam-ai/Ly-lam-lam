@@ -76,6 +76,15 @@ jobs:
             --normalize-bone-weights-on-export-copy \
             2>&1 | tee artifacts/blender-export.log
 
+      - name: Independently validate exported GLB
+        if: always() && hashFiles('artifacts/lam-v387-skinned-exploratory.glb') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/validate_gltf_skinning_v387.py \
+            artifacts/lam-v387-skinned-exploratory.glb \
+            --report artifacts/standalone-gltf-skinning-validation.json
+
       - name: Upload exploratory candidate and reports
         if: always()
         uses: actions/upload-artifact@v4
