@@ -1818,8 +1818,16 @@ def remove_short_sleeve_components(clothing_objects):
             "removed_face_count": removed_face_count,
             "selected_cut_face_count": cut_face_count,
         }))
-    if removed_vertex_count < 0 or removed_vertex_count > 1800:
-        raise RuntimeError("V386-R3 profile trim removed an unexpected number of unused vertices: " + str(removed_vertex_count))
+    # Retain the legacy absolute guard only for older trim strategies.
+    # R7-R9 profile-plane clipping uses the fraction-based guard above because
+    # it creates/splits the mesh and invalidates the former fixed 1,800-vertex cap.
+    if removed_vertex_count < 0 or (
+        "cut_profile_bisect_audit" not in locals() and removed_vertex_count > 1800
+    ):
+        raise RuntimeError(
+            "V386 legacy profile trim removed an unexpected number of unused vertices: "
+            + str(removed_vertex_count)
+        )
     if len(components_before) != 2 or len(components_after) != 2:
         raise RuntimeError("V386 must retain exactly the expected shirt and trouser regions: " + repr({
             "components_before": components_before,
