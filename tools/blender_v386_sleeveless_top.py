@@ -1806,13 +1806,25 @@ def remove_short_sleeve_components(clothing_objects):
 
     inverse_matrix = matrix.inverted()
     shoulder_edge_offsets = []
+    r9_underarm_scoop_active = (
+        "cut_profile_bisect_audit" in locals()
+        and cut_profile_bisect_audit.get("profile_variant") == "R9_DEEPER_UNDERARM_SCOOP"
+    )
     max_abs_x_before_overlap = max(abs(world_point(index)[0]) for index in range(len(mesh.vertices)))
     for vertex_index in shoulder_boundary_vertex_indices:
         point = world_point(vertex_index)
         point_z = point[2]
         rise = smooth_unit((point_z - 1.12) / (1.18 - 1.12))
         fall = smooth_unit((1.34 - point_z) / (1.34 - 1.26))
-        weight = rise * fall
+        # R9 moves only the lower underarm controls inward. Do not immediately
+        # undo that scoop with the legacy shoulder-cap overlap; taper the 22 mm
+        # offset back in only above the last changed control height (1.235 m),
+        # with a short smooth ramp after the unchanged 1.265 m control.
+        scoop_protection = (
+            smooth_unit((point_z - 1.265) / (1.290 - 1.265))
+            if r9_underarm_scoop_active else 1.0
+        )
+        weight = rise * fall * scoop_protection
         # A22 visual candidate: modest local overlap; require front/side visual review before promotion.
         # Keep the taper localized; the former 30 mm trial made the shoulder cap look too broad.
         delta_x = 0.022 * weight
@@ -1833,7 +1845,9 @@ def remove_short_sleeve_components(clothing_objects):
     max_abs_x_after_overlap = max(abs(world_point(index)[0]) for index in range(len(mesh.vertices)))
     shoulder_edge_overlap_audit = {
         "status": "APPLIED",
-        "method": "smooth localized 22 mm maximum outward offset on the retained upper armhole boundary; tapered at underarm and shoulder-top ends",
+        "method": "smooth localized 22 mm maximum outward offset on the retained upper armhole boundary; for R9, offset is tapered out across the deeper underarm scoop and resumes above z=1.265 m",
+        "profile_variant": "R9_DEEPER_UNDERARM_SCOOP" if r9_underarm_scoop_active else "R8_SMOOTH_PROFILE",
+        "r9_scoop_protection_start_z_m": 1.265 if r9_underarm_scoop_active else None,
         "candidate_boundary_vertex_count": len(shoulder_boundary_vertex_indices),
         "moved_vertex_count": len(shoulder_edge_offsets),
         "max_offset_m": round(max(shoulder_edge_offsets), 6),
