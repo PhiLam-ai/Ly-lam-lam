@@ -1856,19 +1856,39 @@ def remove_short_sleeve_components(clothing_objects):
         boundary_refine_bm.from_mesh(mesh)
         boundary_refine_bm.verts.ensure_lookup_table()
         boundary_refine_bm.edges.ensure_lookup_table()
+        profile_boundary_refinement_mode = "cut_profile_bisect_audit" in locals()
         for edge in boundary_refine_bm.edges:
             if not edge.is_boundary:
                 continue
             pa = matrix @ edge.verts[0].co
             pb = matrix @ edge.verts[1].co
-            mid_x = (float(pa.x) + float(pb.x)) / 2.0
-            mid_z = (float(pa.z) + float(pb.z)) / 2.0
+            ax, ay, az = float(pa.x), float(pa.y), float(pa.z)
+            bx, by, bz = float(pb.x), float(pb.y), float(pb.z)
+            mid_x = (ax + bx) / 2.0
+            mid_y = (ay + by) / 2.0
+            mid_z = (az + bz) / 2.0
             limit = lateral_limit(mid_z)
             if limit is None or not (1.08 < mid_z < 1.39):
                 continue
             if not (0.10 < abs(mid_x) < 0.30):
                 continue
-            if abs(abs(mid_x) - limit) > 0.09:
+            if profile_boundary_refinement_mode:
+                limit_a = lateral_limit(az)
+                limit_b = lateral_limit(bz)
+                if limit_a is None or limit_b is None:
+                    continue
+                endpoint_deviation = max(
+                    abs(abs(ax) - limit_a),
+                    abs(abs(bx) - limit_b),
+                )
+                midpoint_deviation = abs(abs(mid_x) - limit)
+                # Refine the *actual open boundary chain* near the armhole,
+                # rather than every exposed edge within a broad 9 cm zone.
+                # Splitting each real boundary edge creates two more nodes per
+                # segment before smoothing/binding, without moving the profile.
+                if endpoint_deviation > 0.008 or midpoint_deviation > 0.015:
+                    continue
+            elif abs(abs(mid_x) - limit) > 0.09:
                 continue
             selected_boundary_refine_edges.append(edge)
         if len(selected_boundary_refine_edges) < 40:
@@ -1898,8 +1918,11 @@ def remove_short_sleeve_components(clothing_objects):
     ]
     armhole_boundary_topology_refinement_audit = {
         "status": "APPLIED",
-        "method": "split exposed trim-boundary perimeter edges within the measured armhole profile after sleeve removal; Blender may retain polygon count while inserting boundary-loop vertices; preserve UV layers and material slots",
+        "method": "subdivide only actual exposed profile-matched armhole edges using endpoint deviation <= 8 mm and midpoint deviation <= 15 mm; split two cuts per selected edge before rebuilding the smoothing/binding chain; preserve UV layers and material slots",
         "selected_boundary_edge_count": len(selected_boundary_refine_edges),
+        "profile_matched_boundary_mode": profile_boundary_refinement_mode,
+        "endpoint_profile_tolerance_m": 0.008 if profile_boundary_refinement_mode else None,
+        "midpoint_profile_tolerance_m": 0.015 if profile_boundary_refinement_mode else 0.09,
         "cuts_per_edge": 2,
         "vertices_before": boundary_refine_vertices_before,
         "vertices_after": len(mesh.vertices),
@@ -2379,7 +2402,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R8 clips the lateral shirt surface against an eight-subdivision PCHIP armhole profile, then smooths only boundary depth while keeping X/Z constrained. Inspect front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R9 clips the lateral shirt surface against an eight-subdivision PCHIP profile, subdivides the actual exposed profile-matched boundary chain before smoothing/binding, and preserves X/Z. Inspect front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
