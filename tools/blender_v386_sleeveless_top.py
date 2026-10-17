@@ -1778,7 +1778,12 @@ def remove_short_sleeve_components(clothing_objects):
             edge_key = (edge_a, edge_b) if edge_a < edge_b else (edge_b, edge_a)
             boundary_edge_counts[edge_key] = boundary_edge_counts.get(edge_key, 0) + 1
 
+    r9_underarm_scoop_active = (
+        "cut_profile_bisect_audit" in locals()
+        and cut_profile_bisect_audit.get("profile_variant") == "R9_DEEPER_UNDERARM_SCOOP"
+    )
     shoulder_boundary_vertex_indices = set()
+    max_candidate_z = 1.265 if r9_underarm_scoop_active else 1.34
     for (edge_a, edge_b), face_count in boundary_edge_counts.items():
         if face_count != 1:
             continue
@@ -1786,7 +1791,7 @@ def remove_short_sleeve_components(clothing_objects):
             point = world_point(vertex_index)
             point_z = point[2]
             limit = lateral_limit(point_z)
-            if limit is None or not (1.12 < point_z < 1.34):
+            if limit is None or not (1.12 < point_z < max_candidate_z):
                 continue
             absolute_x = abs(point[0])
             if not (0.10 < absolute_x < 0.255):
@@ -1798,7 +1803,70 @@ def remove_short_sleeve_components(clothing_objects):
     if len(shoulder_boundary_vertex_indices) < 20:
         raise RuntimeError("V386 could not find enough retained shoulder-edge vertices to overlap the arm cap: " + repr({
             "candidate_boundary_vertex_count": len(shoulder_boundary_vertex_indices),
+            "r9_underarm_scoop_active": r9_underarm_scoop_active,
         }))
+
+    r9_underarm_boundary_projection_audit = {
+        "status": "NOT_APPLICABLE_R8",
+        "candidate_vertex_count": len(shoulder_boundary_vertex_indices),
+        "projected_vertex_count": 0,
+        "left_projected_vertex_count": 0,
+        "right_projected_vertex_count": 0,
+        "max_lateral_correction_m": 0.0,
+        "mean_lateral_correction_m": 0.0,
+        "maximum_allowed_correction_m": 0.025,
+        "world_y_preserved": True,
+        "world_z_preserved": True,
+        "scope": "R8 uses the original armhole boundary; no extra scoop projection required",
+    }
+    if r9_underarm_scoop_active:
+        projection_inverse_matrix = matrix.inverted()
+        projection_offsets = []
+        projected_side_counts = {"left": 0, "right": 0}
+        for vertex_index in sorted(shoulder_boundary_vertex_indices):
+            point = world_point(vertex_index)
+            point_z = float(point[2])
+            if not (1.095 <= point_z <= 1.265):
+                continue
+            target_x = smooth_profile_limit(point_z)
+            if target_x is None or not (0.10 < abs(float(point.x)) < 0.30):
+                continue
+            lateral_correction = abs(abs(float(point.x)) - float(target_x))
+            if lateral_correction > 0.025:
+                continue
+            corrected = point.copy()
+            corrected.x = math.copysign(float(target_x), float(point.x))
+            mesh.vertices[vertex_index].co = projection_inverse_matrix @ corrected
+            projection_offsets.append(lateral_correction)
+            projected_side_counts["left" if point.x < 0 else "right"] += 1
+        if len(projection_offsets) < 40 or min(projected_side_counts.values()) < 15:
+            raise RuntimeError(
+                "V386-R9 could not project enough exposed boundary vertices onto the deeper underarm profile: "
+                + repr({
+                    "candidate_vertex_count": len(shoulder_boundary_vertex_indices),
+                    "projected_vertex_count": len(projection_offsets),
+                    "projected_side_counts": projected_side_counts,
+                    "max_allowed_correction_m": 0.025,
+                })
+            )
+        if max(projection_offsets) > 0.025:
+            raise RuntimeError("V386-R9 boundary projection exceeded its 25 mm correction limit")
+        r9_underarm_boundary_projection_audit = {
+            "status": "APPLIED",
+            "method": "project only exposed lower armhole boundary vertices to the R9 smooth profile; correct the actual open edge rather than merely measuring any nearby interior vertices",
+            "candidate_vertex_count": len(shoulder_boundary_vertex_indices),
+            "projected_vertex_count": len(projection_offsets),
+            "left_projected_vertex_count": projected_side_counts["left"],
+            "right_projected_vertex_count": projected_side_counts["right"],
+            "max_lateral_correction_m": round(max(projection_offsets), 6),
+            "mean_lateral_correction_m": round(sum(projection_offsets) / len(projection_offsets), 6),
+            "maximum_allowed_correction_m": 0.025,
+            "world_y_preserved": True,
+            "world_z_preserved": True,
+            "scope": "Human.female_sportsuit01 exposed boundary only, z=1.12–1.265 m; central torso and trouser region untouched",
+        }
+        mesh.update()
+        bpy.context.view_layer.update()
 
     def smooth_unit(value):
         value = min(1.0, max(0.0, float(value)))
@@ -1806,24 +1874,17 @@ def remove_short_sleeve_components(clothing_objects):
 
     inverse_matrix = matrix.inverted()
     shoulder_edge_offsets = []
-    r9_underarm_scoop_active = (
-        "cut_profile_bisect_audit" in locals()
-        and cut_profile_bisect_audit.get("profile_variant") == "R9_DEEPER_UNDERARM_SCOOP"
-    )
     max_abs_x_before_overlap = max(abs(world_point(index)[0]) for index in range(len(mesh.vertices)))
     for vertex_index in shoulder_boundary_vertex_indices:
         point = world_point(vertex_index)
         point_z = point[2]
         rise = smooth_unit((point_z - 1.12) / (1.18 - 1.12))
         fall = smooth_unit((1.34 - point_z) / (1.34 - 1.26))
-        # R9 moves only the lower underarm controls inward. Do not immediately
-        # undo that scoop with the legacy shoulder-cap overlap; taper the 22 mm
-        # offset back in only above the last changed control height (1.235 m),
-        # with a short smooth ramp after the unchanged 1.265 m control.
-        scoop_protection = (
-            smooth_unit((point_z - 1.265) / (1.290 - 1.265))
-            if r9_underarm_scoop_active else 1.0
-        )
+        # For R9 the selected exposed boundary lies in the modified scoop band:
+        # after projecting that true edge to the new profile, suppress outward
+        # overlap so it cannot reverse the 23 mm underarm cut. R8 retains its
+        # original shoulder-overlap treatment.
+        scoop_protection = 0.0 if r9_underarm_scoop_active else 1.0
         weight = rise * fall * scoop_protection
         # A22 visual candidate: modest local overlap; require front/side visual review before promotion.
         # Keep the taper localized; the former 30 mm trial made the shoulder cap look too broad.
@@ -1835,26 +1896,39 @@ def remove_short_sleeve_components(clothing_objects):
         mesh.vertices[vertex_index].co = inverse_matrix @ widened_point
         shoulder_edge_offsets.append(delta_x)
 
-    if len(shoulder_edge_offsets) < 12:
+    if len(shoulder_edge_offsets) < 12 and not r9_underarm_scoop_active:
         raise RuntimeError("V386 shoulder edge overlap moved too few vertices to be reliable: " + repr({
             "candidate_boundary_vertex_count": len(shoulder_boundary_vertex_indices),
             "moved_vertex_count": len(shoulder_edge_offsets),
         }))
+    if r9_underarm_scoop_active and shoulder_edge_offsets:
+        raise RuntimeError(
+            "V386-R9 unexpectedly applied outward overlap to the deeper underarm scoop: "
+            + repr({"offset_count": len(shoulder_edge_offsets), "max_offset_m": max(shoulder_edge_offsets)})
+        )
     mesh.update()
     bpy.context.view_layer.update()
     max_abs_x_after_overlap = max(abs(world_point(index)[0]) for index in range(len(mesh.vertices)))
     shoulder_edge_overlap_audit = {
-        "status": "APPLIED",
-        "method": "smooth localized 22 mm maximum outward offset on the retained upper armhole boundary; for R9, offset is tapered out across the deeper underarm scoop and resumes above z=1.265 m",
+        "status": "SUPPRESSED_R9_UNDERARM_SCOOP" if r9_underarm_scoop_active else "APPLIED",
+        "method": (
+            "R9 projects actual exposed lower armhole boundary vertices to the deeper profile and suppresses outward shoulder overlap so it cannot reverse the scoop"
+            if r9_underarm_scoop_active
+            else "smooth localized 22 mm maximum outward offset on the retained upper armhole boundary; tapered at underarm and shoulder-top ends"
+        ),
         "profile_variant": "R9_DEEPER_UNDERARM_SCOOP" if r9_underarm_scoop_active else "R8_SMOOTH_PROFILE",
-        "r9_scoop_protection_start_z_m": 1.265 if r9_underarm_scoop_active else None,
+        "r9_underarm_boundary_projection_audit": r9_underarm_boundary_projection_audit,
         "candidate_boundary_vertex_count": len(shoulder_boundary_vertex_indices),
         "moved_vertex_count": len(shoulder_edge_offsets),
-        "max_offset_m": round(max(shoulder_edge_offsets), 6),
-        "mean_offset_m": round(sum(shoulder_edge_offsets) / len(shoulder_edge_offsets), 6),
+        "max_offset_m": round(max(shoulder_edge_offsets), 6) if shoulder_edge_offsets else 0.0,
+        "mean_offset_m": round(sum(shoulder_edge_offsets) / len(shoulder_edge_offsets), 6) if shoulder_edge_offsets else 0.0,
         "max_abs_x_before_m": round(max_abs_x_before_overlap, 6),
         "max_abs_x_after_m": round(max_abs_x_after_overlap, 6),
-        "preserved": "underarm opening remains open; no detached sleeve or solid armhole cap added",
+        "preserved": (
+            "R9 deeper underarm scoop preserved; outward overlap suppressed after profile-boundary projection; no detached sleeve or solid armhole cap added"
+            if r9_underarm_scoop_active
+            else "underarm opening remains open; no detached sleeve or solid armhole cap added"
+        ),
         "visual_warning": "Inspect the widened upper edge from front/side/three-quarter views for cloth stretching before approval.",
     }
 
