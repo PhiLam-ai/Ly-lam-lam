@@ -8,6 +8,7 @@ on:
       - "tools/export_skinned_glb_v387.py"
       - "tools/audit_blender_skinning_v387.py"
       - "tools/validate_gltf_skinning_v387.py"
+      - "v312-work/index.html"
       - ".github/workflows/v387-skinned-glb-candidate.yml"
   workflow_dispatch:
     inputs:
