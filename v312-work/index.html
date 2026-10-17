@@ -181,6 +181,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import './avatar_expression_motion.js';
 import './avatar_api_recovery.js';
+import './avatar_api_client.js';
 import './avatar_expression_composer.js';
 import './avatar_morph_transition.js';
 const diagnosticsRequested=new URLSearchParams(location.search).get('diagnostics')==='1';
@@ -214,13 +215,47 @@ const diagnostics=document.querySelector('#diagnostics'), morphButtons=document.
 let avatarScene=null, meshEntries=[], cameraDistance=3, vertexHighlightRecords=[], loadedVertexManifest=null, animationMixer=null, loadedAnimations=[];
 if(diagnosticsEnabled){diagnostics.style.display='block';quickControls.style.top='calc(max(10px, env(safe-area-inset-top)) + 6px)';}
 const expectedMorphs=['smile','blink_left','blink_right','mouth_open','jaw_open','jaw_hinge','brow_raise','cheek_raise','lip_press','lip_fv','lip_round','tongue_tip'];
+const apiEndpoint=globalThis.AvatarApiClient.resolveEndpoint(new URLSearchParams(location.search).get('avatarApi'),location.href);
+const apiModeButton=document.querySelector('#api-mode');
+if(apiModeButton){apiModeButton.disabled=!apiEndpoint.ok;apiModeButton.textContent=apiEndpoint.ok?'Trở lại điều khiển API':'API chưa cấu hình';apiModeButton.title=apiEndpoint.ok?'Dùng trọng số do endpoint API cung cấp':'Cần thêm tham số avatarApi với URL API trạng thái hợp lệ';}
 function clamp(v){v=Number(v);return Number.isFinite(v)?Math.max(0,Math.min(1,v)):0}
 function collect(root){const m=new Map();root.traverse(n=>{if(!n.morphTargetDictionary||!n.morphTargetInfluences)return;for(const [name,raw] of Object.entries(n.morphTargetDictionary)){const i=Number(raw);if(Number.isInteger(i)&&i>=0&&i<n.morphTargetInfluences.length){if(!m.has(name))m.set(name,[]);m.get(name).push({node:n,index:i})}}});return m}
 function apply(weights){for(const [name,list] of bindings){const goal=clamp(weights?.[name]);for(const {node,index} of list)node.morphTargetInfluences[index]=goal;}}
+function scheduleApiPoll(delayMs){
+  if(disposed||document.hidden||!apiEndpoint.ok)return;
+  if(pollTimer)clearTimeout(pollTimer);
+  pollTimer=setTimeout(()=>{pollTimer=null;void getState();},delayMs);
+}
 async function getState(){
-  // Standalone preview: no backend/API dependency. Use the local diagnostic controls.
-  targets={};
-  statusMessage.textContent=viewerReady?`Mô hình đã tải · ${bindings.size} morph · API hội thoại chưa tích hợp`:`Bản xem thử cục bộ · ${bindings.size} morph · API hội thoại chưa tích hợp`;
+  if(!apiEndpoint.ok){
+    const apiState=apiEndpoint.reason==='not-configured'?'API trạng thái biểu cảm chưa cấu hình':`Cấu hình API không hợp lệ (${apiEndpoint.reason})`;
+    statusMessage.textContent=viewerReady?`Mô hình đã tải · ${bindings.size} morph · ${apiState}`:`Bản xem thử cục bộ · ${bindings.size} morph · ${apiState}`;
+    return;
+  }
+  if(!viewerReady||disposed||document.hidden||pollInFlight)return;
+  pollInFlight=true;
+  try{
+    const response=await fetch(apiEndpoint.url,{method:'GET',headers:{Accept:'application/json'},cache:'no-store',credentials:'omit'});
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+    const payload=await response.json();
+    const parsed=globalThis.AvatarApiClient.parseStatePayload(payload,expectedMorphs);
+    if(!parsed.ok)throw new Error(`Phản hồi không hợp lệ: ${parsed.reason}`);
+    targets=parsed.weights;
+    retryPolicy.success();
+    apiFailureCount=0;
+    statusMessage.textContent=`Mô hình đã tải · ${bindings.size} morph · API đã kết nối`;
+    scheduleApiPoll(180);
+  }catch(error){
+    if(disposed)return;
+    apiFailureCount+=1;
+    retryPolicy.failure();
+    const delay=retryPolicy.delay();
+    const reason=String(error&&error.message||'lỗi mạng').slice(0,100);
+    statusMessage.textContent=`Mô hình đã tải · API chưa kết nối (${reason}) · thử lại sau ${(delay/1000).toFixed(1)} giây`;
+    scheduleApiPoll(delay);
+  }finally{
+    pollInFlight=false;
+  }
 }
 
 if(diagnosticsEnabled){
@@ -268,7 +303,7 @@ if(diagnosticsEnabled){
   const evidenceAuditApi=globalThis.AvatarExpressionEvidenceAudit;
   document.querySelector('#evaluation-evidence-audit-run').addEventListener('click',async()=>{const files=Array.from(document.querySelector('#evaluation-evidence-files').files||[]);const button=document.querySelector('#evaluation-evidence-audit-run'),output=document.querySelector('#evaluation-evidence-audit-result'),jsonOutput=document.querySelector('#evaluation-evidence-audit-output');button.disabled=true;output.textContent='Đang đọc tệp cục bộ và tính SHA-256…';try{const result=await evidenceAuditApi.auditReportsWithManifest(document.querySelector('#evaluation-evidence-audit-input').value,files);if(!result.ok){output.textContent=`Không thể kiểm tra: ${result.reason}${Number.isInteger(result.index)?` (báo cáo ${result.index+1})`:''}.`;jsonOutput.value='';return;}jsonOutput.value=JSON.stringify(result.audit,null,2);const t=result.audit.evidence_reference_totals;output.textContent=`Đã đối chiếu ${result.audit.report_count} báo cáo và tạo SHA-256 cho ${result.audit.file_manifest.file_count} tệp (${result.audit.file_manifest.unique_content_count} nội dung byte khác nhau): ${t.matched} tên tệp khớp duy nhất, ${t.missing} thiếu, ${t.not_recorded} chưa ghi tên, ${t.ambiguous} trùng tên. Hash không xác minh nội dung hình ảnh.`;}catch(_){output.textContent='Không thể hoàn tất kiểm tra tệp.';jsonOutput.value='';}finally{button.disabled=false;}});
   document.querySelector('#compare-run').addEventListener('click',()=>{const result=globalThis.AvatarExpressionCompare.compareSnapshots(document.querySelector('#compare-json-a').value,document.querySelector('#compare-json-b').value,expectedMorphs,targetUrl);const output=document.querySelector('#compare-result');if(!result.ok){output.textContent=`Không thể so sánh bản ghi ${result.side||''}: ${result.reason}.`;return;}const lines=[`Tài sản: ${result.asset}`,`Số morph: ${result.morphCount}`,`Morph thay đổi: ${result.changedCount}`,`Độ lệch tuyệt đối lớn nhất: ${result.maxAbsDelta.toFixed(4)}`,`Độ lệch tuyệt đối trung bình: ${result.meanAbsDelta.toFixed(4)}`,'','Chênh lệch (B − A), sắp theo độ lớn:',...result.differences.filter(item=>item.delta!==0).map(item=>`${item.name}: ${item.a.toFixed(3)} → ${item.b.toFixed(3)} (${item.delta>0?'+':''}${item.delta.toFixed(3)})`)];output.textContent=lines.join('\n');});
-  document.querySelector('#api-mode').addEventListener('click',()=>{lastAppliedBaselineCaseId='';baselineSelect.value='';clearActivePreset();debugWeights=null;syncMorphControls({});diagResult.textContent='Đã trở về trọng số do API cung cấp.';});
+  document.querySelector('#api-mode').addEventListener('click',()=>{lastAppliedBaselineCaseId='';baselineSelect.value='';clearActivePreset();debugWeights=null;syncMorphControls({});if(!apiEndpoint.ok){diagResult.textContent='API chưa được cấu hình; avatar vẫn ở chế độ thử cục bộ.';return;}diagResult.textContent='Đã trở về điều khiển API; đang đồng bộ trọng số…';retryPolicy.reset();void getState();});
   document.querySelector('#neutral-mode').addEventListener('click',()=>{lastAppliedBaselineCaseId='';baselineSelect.value='';clearActivePreset();setDebugWeights({});diagResult.textContent='Đang đưa tất cả morph về trung tính.';});
   const traceAnimation=document.querySelector('#trace-animation'), traceTime=document.querySelector('#trace-time'), traceTimeLabel=document.querySelector('#trace-time-label'), applyTimeTrace=document.querySelector('#apply-time-trace');
   function refreshTimeTrace(){if(!loadedVertexManifest||!loadedGltf)return;const selected=traceAnimation.value;const time=Number(traceTime.value);let playbackMessage='';if(selected){const seek=globalThis.AvatarMeshInspector.resolveAnimationSeek(loadedAnimations,selected,time);if(!seek.ok){diagResult.textContent=`Không thể phát animation: ${seek.reason}`;return;}if(animationMixer){animationMixer.stopAllAction();animationMixer.setTime(0);const action=animationMixer.clipAction(seek.clip);action.reset();action.play();animationMixer.setTime(seek.time);playbackMessage=` · GLTF ${seek.clip.name} @ ${seek.time.toFixed(2)}/${seek.duration.toFixed(2)} giây`;}}else if(animationMixer){animationMixer.stopAllAction();animationMixer.setTime(0);}const filtered=globalThis.AvatarMeshInspector.filterManifestAtTime(loadedVertexManifest,selected,time);globalThis.AvatarMeshInspector.clearVertexHighlights(vertexHighlightRecords);const result=globalThis.AvatarMeshInspector.applyVertexHighlights(THREE,loadedGltf,filtered.manifest);vertexHighlightRecords=result.records;diagResult.textContent=result.error?`Lỗi tô sáng: ${result.error}`:`Tại ${time.toFixed(2)} giây · ${selected||'mọi animation (chỉ lọc dấu vết)'}: ${result.matchedVertices} vertex tô sáng, ${result.unmatchedGroups} nhóm không khớp, ${filtered.matchedIntervals} khoảng thời gian phù hợp${playbackMessage}.`;}
