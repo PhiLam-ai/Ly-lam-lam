@@ -216,6 +216,18 @@ jobs:
           assert skin_uv["export_material"]["name"] == "V386_GltfCompatibleSkin", skin_uv
           assert all(item["alpha_enabled"] in (True, False) for item in report["face_accessory_material_audits"]), report
           assert "baked" in report["body_skinning"].lower(), report
+          # V387 diagnostic: report source rig/weights before the legacy baked export.
+          source_skinning = report.get("source_skinning_audit")
+          assert source_skinning and source_skinning.get("bone_count", 0) > 0, source_skinning
+          assert source_skinning.get("mesh_count", 0) > 0, source_skinning
+          print("V387_SOURCE_SKINNING_AUDIT=" + json.dumps({
+            "rig_name": source_skinning.get("rig_name"),
+            "bone_count": source_skinning.get("bone_count"),
+            "mesh_count": source_skinning.get("mesh_count"),
+            "body_candidates": source_skinning.get("body_candidates"),
+            "body_candidates_with_armature_modifier": source_skinning.get("body_candidates_with_armature_modifier"),
+            "body_candidates_with_weighted_vertices": source_skinning.get("body_candidates_with_weighted_vertices"),
+          }, ensure_ascii=False))
           assert report["material_count_gltf"] >= 1, report
           assert set(report["morph_names_gltf"]).issuperset(expected), report
           assert "Lam_Idle_GentleSway" in report["animation_names_gltf"], report
