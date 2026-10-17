@@ -1306,7 +1306,7 @@ def remove_short_sleeve_components(clothing_objects):
         (1.380, 0.145),
     ]
     profile_subdivisions_per_segment = 8
-    profile_overlap_max_offset_m = 0.015
+    profile_overlap_max_offset_m = 0.006
 
     def profile_smooth_unit(value):
         value = min(1.0, max(0.0, float(value)))
@@ -1673,7 +1673,7 @@ def remove_short_sleeve_components(clothing_objects):
     ]
     cut_profile_bisect_audit = {
         "status": "APPLIED",
-        "method": "shape-preserving PCHIP interpolation of 14 measured armhole control points with a smoothly tapered 15 mm shoulder-overlap profile integrated before clipping; eight subdivisions per control segment, horizontal slicing and profile-plane bisect clipping",
+        "method": "shape-preserving PCHIP interpolation of 14 measured armhole control points with a smoothly tapered 6 mm shoulder-overlap profile integrated before clipping; eight subdivisions per control segment, horizontal slicing and profile-plane bisect clipping",
         "profile_point_count": len(cut_profile_control),
         "profile_control_point_count": len(cut_profile_control),
         "profile_segment_count": len(cut_profile_control) - 1,
@@ -1783,7 +1783,7 @@ def remove_short_sleeve_components(clothing_objects):
     max_abs_x_after_integrated_overlap = max(abs(world_point(index)[0]) for index in range(len(mesh.vertices)))
     shoulder_edge_overlap_audit = {
         "status": "APPLIED",
-        "method": "smoothly tapered 15 mm maximum shoulder overlap integrated into the PCHIP armhole profile before clipping; no post-cut boundary vertex relocation",
+        "method": "smoothly tapered 6 mm maximum shoulder overlap integrated into the PCHIP armhole profile before clipping; no post-cut boundary vertex relocation",
         "candidate_boundary_vertex_count": len(shoulder_boundary_vertex_indices),
         "moved_vertex_count": 0,
         "profile_offset_sample_count": len(active_profile_offsets),
