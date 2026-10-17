@@ -1293,13 +1293,13 @@ def remove_short_sleeve_components(clothing_objects):
         (1.095, 0.210),
         (1.115, 0.210),
         (1.135, 0.215),
-        (1.165, 0.215),
-        (1.200, 0.220),
-        (1.235, 0.220),
-        (1.265, 0.225),
-        (1.290, 0.235),
-        (1.310, 0.240),
-        (1.325, 0.240),
+        (1.165, 0.208),
+        (1.200, 0.202),
+        (1.235, 0.202),
+        (1.265, 0.210),
+        (1.290, 0.225),
+        (1.310, 0.235),
+        (1.325, 0.238),
         (1.340, 0.225),
         (1.355, 0.195),
         (1.370, 0.165),
@@ -1317,7 +1317,8 @@ def remove_short_sleeve_components(clothing_objects):
         fall = profile_smooth_unit((1.34 - z_value) / (1.34 - 1.26))
         return profile_overlap_max_offset_m * rise * fall
 
-    # R9 bakes the tapered shoulder overlap into the smooth profile before
+    # R12 combines the 6 mm tapered shoulder overlap with a deeper, smoothly
+    # graded armhole cut to expose more of the upper arm without reshaping the torso.
     # bisecting the garment. This avoids moving sparse boundary vertices after
     # the cut, which can create gaps in the edge chain and break binding continuity.
     cut_profile_offset_control = [
@@ -1673,7 +1674,7 @@ def remove_short_sleeve_components(clothing_objects):
     ]
     cut_profile_bisect_audit = {
         "status": "APPLIED",
-        "method": "shape-preserving PCHIP interpolation of 14 measured armhole control points with a smoothly tapered 6 mm shoulder-overlap profile integrated before clipping; eight subdivisions per control segment, horizontal slicing and profile-plane bisect clipping",
+        "method": "shape-preserving PCHIP interpolation of 14 armhole control points with a deeper upper-arm opening and smoothly tapered 6 mm shoulder-overlap profile integrated before clipping; eight subdivisions per control segment, horizontal slicing and profile-plane bisect clipping",
         "profile_point_count": len(cut_profile_control),
         "profile_control_point_count": len(cut_profile_control),
         "profile_segment_count": len(cut_profile_control) - 1,
