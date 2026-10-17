@@ -6,6 +6,7 @@ on:
       - avatar/v387-rig-preserving-export-prototype
     paths:
       - "tools/export_skinned_glb_v387.py"
+      - "tools/probe_blend_skinning_v387.py"
       - "tools/audit_blender_skinning_v387.py"
       - "tools/validate_gltf_skinning_v387.py"
       - "tools/test_validate_gltf_skinning_v387.py"
@@ -26,6 +27,7 @@ jobs:
           set -euo pipefail
           python3 -m py_compile \
             tools/export_skinned_glb_v387.py \
+            tools/probe_blend_skinning_v387.py \
             tools/audit_blender_skinning_v387.py \
             tools/validate_gltf_skinning_v387.py
       - name: Run glTF skinning validator unit tests
