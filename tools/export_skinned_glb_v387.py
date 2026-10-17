@@ -66,6 +66,18 @@ def choose_rig(scene, requested_name=None):
     return candidates[0]
 
 
+def rename_temporary_rig_action(rig, requested_name="Lam_Idle_GentleSway"):
+    """Rename a copied action for the preview runtime without touching the source action."""
+    animation_data = rig.animation_data
+    if not animation_data or not animation_data.action:
+        return {"source_action": None, "export_action": None, "renamed": False}
+    source_name = animation_data.action.name
+    action_copy = animation_data.action.copy()
+    action_copy.name = requested_name
+    animation_data.action = action_copy
+    return {"source_action": source_name, "export_action": action_copy.name, "renamed": True}
+
+
 def normalize_bone_weights(mesh_obj, rig):
     """Normalize only weights whose vertex-group names match real bones on the rig."""
     bone_names = set(rig.data.bones.keys())
@@ -210,6 +222,8 @@ def parse_args():
     parser.add_argument("--overwrite", action="store_true", help="Allow replacing an existing file at the exact output path")
     parser.add_argument("--normalize-bone-weights-on-export-copy", action="store_true",
                         help="Normalize only real-bone weights on temporary copies; source scene is not modified")
+    parser.add_argument("--animation-name", default="Lam_Idle_GentleSway",
+                        help="Name assigned to a copied active rig action for preview runtime compatibility")
     parser.add_argument("--allow-incomplete-morphs", action="store_true",
                         help="Do not require all 12 Lam facial morph names in the exported GLB")
     return parser.parse_args(argv)
@@ -244,6 +258,7 @@ def main():
     export_rig, export_meshes, temp_objects = create_temporary_export_copies(
         scene, rig, linked_meshes, args.normalize_bone_weights_on_export_copy
     )
+    temporary_action_report = rename_temporary_rig_action(export_rig, args.animation_name)
     try:
         export_audit = audit_character_skinning(export_meshes, export_rig)
         failing = [
@@ -300,6 +315,7 @@ def main():
         "source_skinning_audit": source_audit,
         "export_copy_skinning_audit": export_audit,
         "pose_deformation_probe": pose_deformation_report,
+        "temporary_action_rename": temporary_action_report,
         "bone_weights_normalized_on_temporary_copies": args.normalize_bone_weights_on_export_copy,
         "gltf_skin_count": len(gltf.get("skins", [])),
         "gltf_skinned_node_count": sum(1 for node in gltf.get("nodes", []) if "skin" in node and "mesh" in node),
