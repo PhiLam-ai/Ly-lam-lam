@@ -50,6 +50,12 @@ jobs:
           LLL_ARTIFACT_DIR: artifacts/v386-r3
         run: node tools/v386-pages-review-smoke.cjs
 
+      - name: Test published V386-R9 HTTPS review route on mobile-sized Chromium
+        env:
+          LLL_REVIEW_URL: https://philam-ai.github.io/Ly-lam-lam/review-v386-r9/
+          LLL_ARTIFACT_DIR: artifacts/v386-r9
+        run: node tools/v386-pages-review-smoke.cjs
+
       - name: Upload V386 HTTPS smoke evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -60,5 +66,7 @@ jobs:
             artifacts/v386-https-review-smoke.png
             artifacts/v386-r3/v386-https-review-smoke.json
             artifacts/v386-r3/v386-https-review-smoke.png
+            artifacts/v386-r9/v386-https-review-smoke.json
+            artifacts/v386-r9/v386-https-review-smoke.png
           if-no-files-found: warn
           retention-days: 14
