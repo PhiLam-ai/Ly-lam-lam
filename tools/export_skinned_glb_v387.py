@@ -125,6 +125,84 @@ def has_positive_bone_weights(mesh_obj, rig):
     )
 
 
+def transfer_bone_weights_from_source(target_mesh, source_mesh, source_rig, export_rig):
+    """Transfer real-bone weights to baked evaluated geometry by nearest source vertex.
+
+    The V386 baked mesh can have a different vertex count after evaluated modifiers,
+    so index-to-index copying is unsafe. This creates weights only on the temporary
+    export copy, normalizes them, and records mapping distances for later inspection.
+    """
+    from mathutils.kdtree import KDTree
+
+    source_has_rig_modifier = any(
+        modifier.type == "ARMATURE" and modifier.object == source_rig
+        for modifier in source_mesh.modifiers
+    )
+    source_bone_names = set(source_rig.data.bones.keys())
+    source_groups = {group.index: group.name for group in source_mesh.vertex_groups}
+    valid_source_groups = {
+        index: name for index, name in source_groups.items() if name in source_bone_names
+    }
+    if not source_has_rig_modifier or not valid_source_groups:
+        return None
+    if not source_mesh.data.vertices or not target_mesh.data.vertices:
+        raise RuntimeError(f"Cannot transfer weights for empty mesh {source_mesh.name!r} or {target_mesh.name!r}")
+
+    tree = KDTree(len(source_mesh.data.vertices))
+    for vertex in source_mesh.data.vertices:
+        tree.insert(source_mesh.matrix_world @ vertex.co, vertex.index)
+    tree.balance()
+
+    target_groups = {}
+    for name in sorted(set(valid_source_groups.values())):
+        if export_rig.data.bones.get(name) is not None:
+            target_groups[name] = target_mesh.vertex_groups.new(name=name)
+    source_group_by_index = {
+        index: target_groups[name]
+        for index, name in valid_source_groups.items()
+        if name in target_groups
+    }
+
+    distances = []
+    zero_weight_targets = []
+    for target_vertex in target_mesh.data.vertices:
+        world_co = target_mesh.matrix_world @ target_vertex.co
+        _nearest_co, source_index, distance = tree.find(world_co)
+        distances.append(float(distance))
+        source_vertex = source_mesh.data.vertices[source_index]
+        weights = {}
+        for assignment in source_vertex.groups:
+            target_group = source_group_by_index.get(assignment.group)
+            if target_group is not None and assignment.weight > 0.0:
+                weights[target_group.index] = (target_group, float(assignment.weight))
+        total = sum(weight for _group, weight in weights.values())
+        if total <= 1e-8:
+            zero_weight_targets.append(target_vertex.index)
+            continue
+        for group, weight in weights.values():
+            group.add([target_vertex.index], weight / total, "REPLACE")
+
+    if zero_weight_targets:
+        raise RuntimeError(
+            f"Nearest-vertex weight transfer left {len(zero_weight_targets)} vertices "
+            f"unweighted on {target_mesh.name!r}; first indices: {zero_weight_targets[:20]}"
+        )
+
+    return {
+        "source_object": source_mesh.name,
+        "target_object": target_mesh.name,
+        "method": "nearest_source_vertex_world_space",
+        "source_vertex_count": len(source_mesh.data.vertices),
+        "target_vertex_count": len(target_mesh.data.vertices),
+        "mapped_vertex_count": len(target_mesh.data.vertices),
+        "max_nearest_vertex_distance_m": max(distances, default=0.0),
+        "mean_nearest_vertex_distance_m": sum(distances) / len(distances) if distances else 0.0,
+        "valid_bone_group_count": len(target_groups),
+        "weights_normalized": True,
+        "source_scene_modified": False,
+    }
+
+
 def rigid_bone_for_baked_mesh(mesh_name, rig):
     """Documented rigid attachment policy for V386's static wardrobe/face accessories."""
     name = mesh_name.lower()
@@ -170,9 +248,19 @@ def create_temporary_export_copies(scene, rig, source_meshes, normalize_weights,
         source_world = source.matrix_world.copy()
 
         if visual_source == "baked-v386":
+            # Baked V386 meshes are evaluated copies and usually have no vertex groups.
+            # Recover weights from the matching editable source mesh using spatial mapping;
+            # never copy by vertex index because evaluated modifiers may change topology.
+            original_name = source.name.removeprefix("V386_Baked_")
+            original_source = bpy.data.objects.get(original_name)
+            weight_transfer_report = None
+            if original_source is not None and original_source.type == "MESH":
+                weight_transfer_report = transfer_bone_weights_from_source(
+                    duplicate, original_source, rig, export_rig
+                )
             has_weights = has_positive_bone_weights(duplicate, export_rig)
             # Baked V386 geometry is already in world-space at identity. Add a new
-            # armature modifier only to meshes carrying real bone weights.
+            # armature modifier only to meshes carrying transferred real-bone weights.
             duplicate.parent = None
             duplicate.parent_type = "OBJECT"
             duplicate.matrix_world = source_world
@@ -189,9 +277,10 @@ def create_temporary_export_copies(scene, rig, source_meshes, normalize_weights,
                 mesh_policies.append({
                     "source_object": source.name,
                     "export_object": duplicate.name,
-                    "policy": "skinned_deformable_mesh",
+                    "policy": "nearest_vertex_weight_transfer_to_skinned_mesh" if weight_transfer_report else "skinned_deformable_mesh",
                     "attachment_bone": None,
                     "armature_modifier": modifier.name,
+                    "weight_transfer": weight_transfer_report,
                 })
             else:
                 bone = rigid_bone_for_baked_mesh(source.name, export_rig)
