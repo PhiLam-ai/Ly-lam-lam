@@ -206,7 +206,8 @@ const controls=new OrbitControls(camera,renderer.domElement); controls.target.se
 window.__lyLamRendererReady=true;
 let bindings=new Map(), targets={}, last=performance.now(), targetUrl='./lam-default.glb';
 const morphTransition=globalThis.AvatarMorphTransition.createMorphTransition({timeConstantSeconds:.12});
-let pollTimer=null, pollInFlight=false, viewerReady=false, disposed=false, debugWeights=null, apiFailureCount=0;
+const API_POLL_INTERVAL_MS=250;
+let pollTimer=null, pollInFlight=false, viewerReady=false, disposed=false, debugWeights=null;
 const retryPolicy=globalThis.AvatarApiRecovery.createRetryPolicy({baseDelayMs:1200,maxDelayMs:12000,factor:2});
 const blinkController=globalThis.AvatarExpressionMotion.createBlinkController();
 const quickControls=document.querySelector('#quick-controls');
@@ -233,7 +234,9 @@ async function getState(){
     return;
   }
   if(!viewerReady||disposed||document.hidden||pollInFlight)return;
+  if(pollTimer){clearTimeout(pollTimer);pollTimer=null;}
   pollInFlight=true;
+  let nextDelayMs=API_POLL_INTERVAL_MS;
   try{
     const response=await fetch(apiEndpoint.url,{method:'GET',headers:{Accept:'application/json'},cache:'no-store',credentials:'omit'});
     if(!response.ok)throw new Error(`HTTP ${response.status}`);
@@ -242,19 +245,19 @@ async function getState(){
     if(!parsed.ok)throw new Error(`Phản hồi không hợp lệ: ${parsed.reason}`);
     targets=parsed.weights;
     retryPolicy.success();
-    apiFailureCount=0;
     statusMessage.textContent=`Mô hình đã tải · ${bindings.size} morph · API đã kết nối`;
-    scheduleApiPoll(180);
   }catch(error){
     if(disposed)return;
-    apiFailureCount+=1;
     retryPolicy.failure();
-    const delay=retryPolicy.delay();
+    nextDelayMs=retryPolicy.delay();
     const reason=String(error&&error.message||'lỗi mạng').slice(0,100);
-    statusMessage.textContent=`Mô hình đã tải · API chưa kết nối (${reason}) · thử lại sau ${(delay/1000).toFixed(1)} giây`;
-    scheduleApiPoll(delay);
+    statusMessage.textContent=`Mô hình đã tải · API chưa kết nối (${reason}) · thử lại sau ${(nextDelayMs/1000).toFixed(1)} giây`;
   }finally{
     pollInFlight=false;
+    // Schedule after every request, whether it succeeded or failed. This also
+    // closes the visibility-change race where a foreground refresh occurs
+    // while an earlier request is still in flight.
+    if(!disposed&&!document.hidden&&apiEndpoint.ok)scheduleApiPoll(nextDelayMs);
   }
 }
 
@@ -359,6 +362,6 @@ function resizeRenderer(){const width=Math.max(1,stage.clientWidth||innerWidth),
 addEventListener('resize',resizeRenderer);window.visualViewport?.addEventListener('resize',resizeRenderer);
 renderer.domElement.addEventListener('webglcontextlost',event=>{event.preventDefault();statusMessage.textContent='Đồ họa 3D tạm ngắt (WebGL). Trình duyệt đang thử khôi phục; nếu không tự hồi phục, hãy tải lại trang.';window.__lyLamShowRetry();});
 renderer.domElement.addEventListener('webglcontextrestored',()=>{resizeRenderer();statusMessage.textContent=viewerReady?'Đồ họa 3D đã được khôi phục; bản xem thử sẵn sàng.':'Đồ họa 3D đã được khôi phục; đang chờ mô hình tải xong.';if(viewerReady){const retry=document.querySelector('#retry-startup'), modeButton=document.querySelector('#switch-three-mode');if(retry)retry.hidden=true;if(modeButton)modeButton.hidden=true;}});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){blinkController.reset();targets={};apiFailureCount=0;morphTransition.reset();if(pollTimer){clearTimeout(pollTimer);pollTimer=null;}}else if(viewerReady&&!pollTimer){retryPolicy.reset();getState();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){blinkController.reset();targets={};morphTransition.reset();if(pollTimer){clearTimeout(pollTimer);pollTimer=null;}}else if(viewerReady&&!pollTimer){retryPolicy.reset();void getState();}});
 window.addEventListener('pagehide',()=>{disposed=true;if(pollTimer)clearTimeout(pollTimer);if(diagnosticsEnabled)globalThis.AvatarMeshInspector.clearVertexHighlights(vertexHighlightRecords);if(animationMixer)animationMixer.stopAllAction();renderer.dispose();});
 </script></body></html>
