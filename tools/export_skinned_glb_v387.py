@@ -70,15 +70,64 @@ def choose_rig(scene, requested_name=None):
 
 
 def rename_temporary_rig_action(rig, requested_name="Lam_Idle_GentleSway"):
-    """Rename a copied action for the preview runtime without touching the source action."""
-    animation_data = rig.animation_data
-    if not animation_data or not animation_data.action:
-        return {"source_action": None, "export_action": None, "renamed": False}
-    source_name = animation_data.action.name
-    action_copy = animation_data.action.copy()
-    action_copy.name = requested_name
-    animation_data.action = action_copy
-    return {"source_action": source_name, "export_action": action_copy.name, "renamed": True}
+    """Create a deterministic joint animation on the temporary rig only.
+
+    V386's idle motion is on a non-skeletal root, which cannot satisfy the V387
+    joint-animation gate. This action is intentionally generated on the export copy
+    and does not alter or replace any source action.
+    """
+    animation_data = rig.animation_data_create()
+    source_action = animation_data.action.name if animation_data.action else None
+    action = bpy.data.actions.new(requested_name)
+    animation_data.action = action
+
+    motion = {
+        "spine_02": (("Z", math.radians(1.8)),),
+        "spine_03": (("Z", math.radians(-1.2)),),
+        "head": (("Z", math.radians(-0.7)),),
+    }
+    missing = [name for name in motion if rig.pose.bones.get(name) is None]
+    if missing:
+        bpy.data.actions.remove(action)
+        animation_data.action = None
+        raise RuntimeError(f"Cannot create skeletal idle action; missing bones: {missing}")
+
+    saved = {}
+    for bone_name in motion:
+        bone = rig.pose.bones[bone_name]
+        saved[bone_name] = (bone.rotation_mode, bone.rotation_euler.copy())
+        bone.rotation_mode = "XYZ"
+
+    frame_offsets = ((1, 0.0), (31, 1.0), (61, 0.0))
+    current_frame = bpy.context.scene.frame_current
+    try:
+        for frame, factor in frame_offsets:
+            bpy.context.scene.frame_set(frame)
+            for bone_name, channels in motion.items():
+                bone = rig.pose.bones[bone_name]
+                baseline = saved[bone_name][1]
+                bone.rotation_euler = baseline
+                for axis_name, amplitude in channels:
+                    axis_index = "XYZ".index(axis_name)
+                    bone.rotation_euler[axis_index] = baseline[axis_index] + amplitude * factor
+                bone.keyframe_insert(data_path="rotation_euler", frame=frame, group=bone_name)
+    finally:
+        for bone_name, (rotation_mode, rotation_euler) in saved.items():
+            bone = rig.pose.bones[bone_name]
+            bone.rotation_mode = rotation_mode
+            bone.rotation_euler = rotation_euler
+        bpy.context.scene.frame_set(current_frame)
+        bpy.context.view_layer.update()
+
+    return {
+        "source_action": source_action,
+        "export_action": action.name,
+        "renamed": False,
+        "generated_on_temporary_rig": True,
+        "keyframe_frames": [frame for frame, _factor in frame_offsets],
+        "animated_bones": sorted(motion),
+        "reason": "Generated skeletal idle because V386 root sway does not animate skin joints.",
+    }
 
 
 def normalize_bone_weights(mesh_obj, rig):
