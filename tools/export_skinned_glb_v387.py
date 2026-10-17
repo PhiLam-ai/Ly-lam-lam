@@ -15,8 +15,10 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import struct
 import sys
+import tempfile
 from pathlib import Path
 
 import bpy
@@ -233,6 +235,143 @@ def create_temporary_export_copies(scene, rig, source_meshes, normalize_weights,
     return export_rig, export_meshes, deformable_meshes, temp_objects, mesh_policies
 
 
+def extract_embedded_image_from_glb(glb_path, preferred_name):
+    """Return embedded PNG/JPEG bytes for a named image in an existing GLB."""
+    data = Path(glb_path).read_bytes()
+    if len(data) < 20:
+        raise RuntimeError(f"Texture source GLB is too small: {glb_path}")
+    magic, version, declared_length = struct.unpack_from("<4sII", data, 0)
+    if magic != b"glTF" or version != 2 or declared_length != len(data):
+        raise RuntimeError(f"Texture source GLB header is invalid: {glb_path}")
+    offset = 12
+    gltf = None
+    binary = None
+    while offset + 8 <= len(data):
+        length, chunk_type = struct.unpack_from("<I4s", data, offset)
+        offset += 8
+        payload = data[offset:offset + length]
+        if len(payload) != length:
+            raise RuntimeError("Texture source GLB contains a truncated chunk")
+        offset += length
+        if chunk_type == b"JSON":
+            gltf = json.loads(payload.decode("utf-8").rstrip(" \\t\\r\\n\\0"))
+        elif chunk_type == b"BIN\\0":
+            binary = payload
+    if gltf is None or binary is None:
+        raise RuntimeError("Texture source GLB must contain JSON and BIN chunks")
+    images = gltf.get("images", [])
+    matches = [image for image in images if preferred_name.lower() in image.get("name", "").lower()]
+    if not matches:
+        raise RuntimeError(f"Could not find embedded image {preferred_name!r} in {glb_path}")
+    image = matches[0]
+    view_index = image.get("bufferView")
+    if not isinstance(view_index, int) or not 0 <= view_index < len(gltf.get("bufferViews", [])):
+        raise RuntimeError(f"Embedded image {image.get('name')} has no valid bufferView")
+    view = gltf["bufferViews"][view_index]
+    start = int(view.get("byteOffset", 0))
+    length = int(view.get("byteLength", 0))
+    payload = binary[start:start + length]
+    if len(payload) != length or length == 0:
+        raise RuntimeError(f"Embedded image {image.get('name')} payload is empty or truncated")
+    mime = image.get("mimeType", "image/png")
+    extension = ".jpg" if mime == "image/jpeg" else ".png"
+    return payload, mime, image.get("name", preferred_name), extension
+
+
+def restore_baked_skin_material(export_meshes, texture_source_glb):
+    """Restore the embedded V386 skin diffuse image on a copied material only."""
+    source_glb = Path(texture_source_glb).expanduser().resolve()
+    if not source_glb.exists():
+        raise RuntimeError(f"Skin texture source GLB does not exist: {source_glb}")
+    payload, mime, image_name, extension = extract_embedded_image_from_glb(
+        source_glb, "young_lightskinned_female_diffuse3"
+    )
+    handle = tempfile.NamedTemporaryFile(prefix="v387-skin-", suffix=extension, delete=False)
+    temp_path = Path(handle.name)
+    try:
+        handle.write(payload)
+        handle.close()
+        image = bpy.data.images.load(str(temp_path), check_existing=False)
+        image.name = "V387_RestoredSkinDiffuse"
+        image.colorspace_settings.name = "sRGB"
+
+        body = next((obj for obj in export_meshes if obj.name == "V386_Baked_Human.V387_EXPORT_TEMP"), None)
+        if body is None:
+            bpy.data.images.remove(image)
+            raise RuntimeError("Cannot restore skin texture: baked base human mesh is missing")
+
+        material = bpy.data.materials.new("V387_GltfCompatibleSkin_Restored")
+        material.use_nodes = True
+        tree = material.node_tree
+        tree.nodes.clear()
+        output = tree.nodes.new("ShaderNodeOutputMaterial")
+        output.location = (420, 40)
+        principled = tree.nodes.new("ShaderNodeBsdfPrincipled")
+        principled.location = (120, 40)
+        principled.inputs["Roughness"].default_value = 0.48
+        if "Metallic" in principled.inputs:
+            principled.inputs["Metallic"].default_value = 0.0
+        if "Specular IOR Level" in principled.inputs:
+            principled.inputs["Specular IOR Level"].default_value = 0.28
+        if "Subsurface Weight" in principled.inputs:
+            principled.inputs["Subsurface Weight"].default_value = 0.025
+        uv_node = tree.nodes.new("ShaderNodeUVMap")
+        uv_node.uv_map = "UVMap"
+        uv_node.location = (-600, 40)
+        texture = tree.nodes.new("ShaderNodeTexImage")
+        texture.image = image
+        texture.interpolation = "Linear"
+        texture.extension = "REPEAT"
+        texture.location = (-340, 40)
+        texture.label = "V386 skin diffuse restored from embedded GLB"
+        tree.links.new(uv_node.outputs["UV"], texture.inputs["Vector"])
+        tree.links.new(texture.outputs["Color"], principled.inputs["Base Color"])
+        tree.links.new(principled.outputs["BSDF"], output.inputs["Surface"])
+        material.diffuse_color = (0.76, 0.48, 0.36, 1.0)
+
+        body.data.materials.clear()
+        body.data.materials.append(material)
+        return {
+            "status": "SKIN_TEXTURE_RESTORED_ON_EXPORT_COPY",
+            "source_glb": str(source_glb),
+            "source_image_name": image_name,
+            "mime_type": mime,
+            "bytes": len(payload),
+            "uv_map": "UVMap",
+            "material_name": material.name,
+            "temporary_image": image,
+            "temporary_material": material,
+            "temporary_file": str(temp_path),
+        }
+    except Exception:
+        try:
+            handle.close()
+        except Exception:
+            pass
+        try:
+            temp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        raise
+
+
+def cleanup_temporary_skin_material(report):
+    if not report:
+        return
+    material = report.get("temporary_material")
+    image = report.get("temporary_image")
+    if material is not None and material.users == 0:
+        bpy.data.materials.remove(material)
+    if image is not None and image.users == 0:
+        bpy.data.images.remove(image)
+    temp_file = report.get("temporary_file")
+    if temp_file:
+        try:
+            Path(temp_file).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
 def cleanup_temporary_copies(objects):
     """Remove temporary objects and orphaned copied data without touching source data."""
     for obj in reversed(objects):
@@ -378,6 +517,8 @@ def parse_args():
                         help="Name assigned to a copied active rig action for preview runtime compatibility")
     parser.add_argument("--visual-source", choices=("rigged", "baked-v386"), default="rigged",
                         help="Export original rigged meshes or V386's final baked visual meshes with experimental skin restoration")
+    parser.add_argument("--texture-source-glb", type=Path,
+                        help="GLB containing embedded V386 skin texture; defaults to the source .blend sibling GLB")
     parser.add_argument("--allow-incomplete-morphs", action="store_true",
                         help="Do not require all 12 Lam facial morph names in the exported GLB")
     return parser.parse_args(argv)
@@ -418,6 +559,10 @@ def main():
         scene, rig, source_meshes, args.normalize_bone_weights_on_export_copy, args.visual_source
     )
     temporary_action_report = rename_temporary_rig_action(export_rig, args.animation_name)
+    skin_texture_report = None
+    if args.visual_source == "baked-v386":
+        texture_source_glb = args.texture_source_glb or Path(bpy.data.filepath).with_suffix(".glb")
+        skin_texture_report = restore_baked_skin_material(export_meshes, texture_source_glb)
     try:
         export_audit = audit_character_skinning(deformable_meshes, export_rig)
         failing = [
@@ -462,6 +607,7 @@ def main():
         )
     finally:
         cleanup_temporary_copies(temp_objects)
+        cleanup_temporary_skin_material(skin_texture_report)
 
     glb_animation_rename_report = rename_glb_animation(
         output,
@@ -486,6 +632,10 @@ def main():
         "deformable_mesh_count": len(deformable_meshes),
         "rigid_accessory_count": len(export_meshes) - len(deformable_meshes),
         "mesh_export_policies": mesh_policies,
+        "skin_texture_restoration": {
+            key: value for key, value in (skin_texture_report or {}).items()
+            if key not in ("temporary_image", "temporary_material", "temporary_file")
+        },
         "source_skinning_audit": source_audit,
         "export_copy_skinning_audit": export_audit,
         "pose_deformation_probe": pose_deformation_report,
