@@ -4,6 +4,8 @@ a game-engine rig, a light idle action and 12 composite facial morphs.
 
 This is an experimental candidate. It never edits the production GLB.
 """
+
+# R12 validation retry: keep the deeper armhole control points covered by CI assertions.
 import argparse
 import hashlib
 import importlib.util
