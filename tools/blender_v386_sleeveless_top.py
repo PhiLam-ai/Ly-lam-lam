@@ -2018,7 +2018,7 @@ def remove_short_sleeve_components(clothing_objects):
             edge_face_counts[key] = edge_face_counts.get(key, 0) + 1
 
     profile_bisect_smoothing = "cut_profile_bisect_audit" in locals()
-    boundary_edge_profile_tolerance_m = 0.003 if profile_bisect_smoothing else 0.07
+    boundary_edge_profile_tolerance_m = 0.0005 if profile_bisect_smoothing else 0.07
     boundary_graph = {}
     selected_boundary_edges = []
     boundary_edge_profile_audit = {
@@ -2028,6 +2028,12 @@ def remove_short_sleeve_components(clothing_objects):
         "endpoint_match_count_8mm": 0,
         "endpoint_match_count_15mm": 0,
         "selected_edge_count": 0,
+        "selected_by_projected_profile_indices": 0,
+        "selection_method": (
+            "actual exposed edges whose endpoints were projected to the smooth profile; "
+            "preserve the audited shoulder-overlap offset"
+            if profile_bisect_smoothing else "measured midpoint/endpoint profile tolerance"
+        ),
     }
     for (a, b), face_count in edge_face_counts.items():
         if face_count != 1:
@@ -2037,42 +2043,43 @@ def remove_short_sleeve_components(clothing_objects):
         point_b = world_point(b)
         mid_x = (point_a[0] + point_b[0]) / 2.0
         mid_z = (point_a[2] + point_b[2]) / 2.0
+        if not (1.08 < mid_z < 1.39):
+            continue
+        if not (0.10 < abs(mid_x) < 0.35):
+            continue
+
+        if profile_bisect_smoothing:
+            # Shoulder overlap intentionally shifts the surface vertices outward
+            # after projection. Using distance to the un-offset curve here used
+            # to select only fragments and create a mixed, jagged boundary.
+            if a not in projected_mesh_vertex_indices or b not in projected_mesh_vertex_indices:
+                continue
+            boundary_edge_profile_audit["selected_edge_count"] += 1
+            boundary_edge_profile_audit["selected_by_projected_profile_indices"] += 1
+            selected_boundary_edges.append((a, b))
+            boundary_graph.setdefault(a, set()).add(b)
+            boundary_graph.setdefault(b, set()).add(a)
+            continue
+
         limit = lateral_limit(mid_z)
         limit_a = lateral_limit(point_a[2])
         limit_b = lateral_limit(point_b[2])
         if limit is None or limit_a is None or limit_b is None:
-            continue
-        if not (1.08 < mid_z < 1.39):
-            continue
-        if not (0.10 < abs(mid_x) < 0.30):
             continue
         midpoint_deviation = abs(abs(mid_x) - limit)
         endpoint_deviation = max(
             abs(abs(point_a[0]) - limit_a),
             abs(abs(point_b[0]) - limit_b),
         )
-        if midpoint_deviation <= 0.003:
+        if midpoint_deviation <= boundary_edge_profile_tolerance_m:
             boundary_edge_profile_audit["midpoint_match_count_3mm"] += 1
-        if endpoint_deviation <= 0.003:
-            boundary_edge_profile_audit["endpoint_match_count_3mm"] += 1
-        if endpoint_deviation <= 0.008:
-            boundary_edge_profile_audit["endpoint_match_count_8mm"] += 1
-        if endpoint_deviation <= 0.015:
-            boundary_edge_profile_audit["endpoint_match_count_15mm"] += 1
-        # Profile-clipped mesh edges can span a control-point kink even when
-        # their endpoints are on the intended envelope. Validate both endpoints
-        # separately, rather than rejecting the edge on midpoint curvature alone.
-        accepted = (
-            endpoint_deviation <= 0.008 and midpoint_deviation <= 0.015
-            if profile_bisect_smoothing
-            else midpoint_deviation <= boundary_edge_profile_tolerance_m
-        )
-        if not accepted:
-            continue
-        boundary_edge_profile_audit["selected_edge_count"] += 1
-        selected_boundary_edges.append((a, b))
-        boundary_graph.setdefault(a, set()).add(b)
-        boundary_graph.setdefault(b, set()).add(a)
+            boundary_edge_profile_audit["endpoint_match_count_3mm"] += int(endpoint_deviation <= 0.003)
+            boundary_edge_profile_audit["endpoint_match_count_8mm"] += int(endpoint_deviation <= 0.008)
+            boundary_edge_profile_audit["endpoint_match_count_15mm"] += int(endpoint_deviation <= 0.015)
+            boundary_edge_profile_audit["selected_edge_count"] += 1
+            selected_boundary_edges.append((a, b))
+            boundary_graph.setdefault(a, set()).add(b)
+            boundary_graph.setdefault(b, set()).add(a)
 
     # The native shirt mesh is relatively coarse around the cut. Smooth only
     # vertices along the exposed armhole boundary chain, not the shirt body,
@@ -2121,15 +2128,8 @@ def remove_short_sleeve_components(clothing_objects):
             neighbors = sorted(boundary_graph[index])
             current = boundary_smoothed_positions[index]
             if len(neighbors) < 2:
-                # Even open-chain endpoints must remain on the measured X/Z
-                # profile; skipping relaxation must not skip profile projection.
-                endpoint_point = current.copy()
-                if profile_bisect_smoothing:
-                    endpoint_limit = smooth_profile_limit(float(current.z)) if profile_bisect_smoothing else lateral_limit(float(current.z))
-                    if endpoint_limit is not None and 0.10 < abs(float(current.x)) < 0.35:
-                        endpoint_point.x = math.copysign(endpoint_limit, float(current.x))
-                        endpoint_point.z = current.z
-                next_positions[index] = endpoint_point
+                # Preserve endpoint X/Z, including the intentional shoulder overlap.
+                next_positions[index] = current.copy()
                 continue
             neighbor_mean = sum(
                 (boundary_smoothed_positions[neighbor] for neighbor in neighbors),
@@ -2152,10 +2152,12 @@ def remove_short_sleeve_components(clothing_objects):
                     min(original_y + max_depth_offset, float(target_y)),
                 )
             next_point.y = target_y
-            limit = smooth_profile_limit(float(current.z)) if profile_bisect_smoothing else lateral_limit(float(current.z))
-            if limit is not None and 0.10 < abs(float(current.x)) < 0.35:
-                next_point.x = math.copysign(limit, float(current.x))
-                next_point.z = current.z
+            if not profile_bisect_smoothing:
+                limit = lateral_limit(float(current.z))
+                if limit is not None and 0.10 < abs(float(current.x)) < 0.35:
+                    next_point.x = math.copysign(limit, float(current.x))
+                    next_point.z = current.z
+            # R10 leaves X/Z unchanged after the shoulder-overlap offset.
             next_positions[index] = next_point
         boundary_smoothed_positions = next_positions
 
@@ -2185,18 +2187,26 @@ def remove_short_sleeve_components(clothing_objects):
         and 0.10 < abs(float(boundary_smoothed_positions[index].x)) < 0.35
     )
     profile_fit_deviations = []
+    profile_xz_displacements_after_smoothing = []
     for index in boundary_vertex_indices:
         point = boundary_smoothed_positions[index]
+        original_point = boundary_original_positions[index]
         limit = smooth_profile_limit(float(point.z)) if profile_bisect_smoothing else lateral_limit(float(point.z))
         if limit is not None and 0.10 < abs(float(point.x)) < 0.35:
             profile_fit_deviations.append(abs(abs(float(point.x)) - limit))
+        profile_xz_displacements_after_smoothing.append(
+            math.hypot(float(point.x - original_point.x), float(point.z - original_point.z))
+        )
     max_profile_deviation_after_smoothing_m = (
         max(profile_fit_deviations) if profile_fit_deviations else float("inf")
+    )
+    max_profile_xz_displacement_after_smoothing_m = (
+        max(profile_xz_displacements_after_smoothing) if profile_xz_displacements_after_smoothing else float("inf")
     )
     profile_bisect_active = "cut_profile_bisect_audit" in locals()
     boundary_smoothing_audit = {
         "status": "APPLIED",
-        "method": "eight-pass depth-only Laplacian relaxation (world Y, factor 0.40) of the locally projected smooth-profile boundary, with each vertex limited to +/-5 mm from original depth; measured profile X/Z remain fixed",
+        "method": "eight-pass depth-only Laplacian relaxation of the full projected armhole boundary chain; preserve shoulder-overlap offset and keep X/Z unchanged",
         "vertex_count": len(boundary_vertex_indices),
         "iterations": boundary_smoothing_iterations,
         "relaxation_factor": boundary_smoothing_factor,
@@ -2206,13 +2216,15 @@ def remove_short_sleeve_components(clothing_objects):
         "depth_roughness_before_m": round(depth_roughness_before_m, 7),
         "depth_roughness_after_m": round(depth_roughness_after_m, 7),
         "depth_roughness_reduction_fraction": round(depth_roughness_reduction_fraction, 6),
-        "depth_roughness_gate_scope": "depth Y component only for exact-profile R8; if baseline is at or below 5 micrometres, enforce an absolute floor instead of requiring a meaningless percentage reduction",
+        "depth_roughness_gate_scope": "depth Y component only for R10 after the audited shoulder-overlap offset; near-flat baselines use the absolute floor",
         "depth_roughness_baseline_floor_m": 0.000005 if profile_bisect_smoothing else None,
-        "roughness_gate_scope": "depth Y component only for exact-profile R8; full XYZ roughness remains diagnostic because X/Z follow intentional profile curvature",
+        "roughness_gate_scope": "depth Y component only for R10; X/Z retain the smooth-profile projection plus intentional shoulder-overlap offset",
         "profile_projection_vertex_count": profile_projection_count,
         "boundary_edge_profile_tolerance_m": boundary_edge_profile_tolerance_m,
         "boundary_edge_profile_audit": boundary_edge_profile_audit,
         "max_profile_deviation_after_smoothing_m": round(max_profile_deviation_after_smoothing_m, 8) if max_profile_deviation_after_smoothing_m != float("inf") else None,
+        "max_profile_xz_displacement_after_smoothing_m": round(max_profile_xz_displacement_after_smoothing_m, 9) if max_profile_xz_displacement_after_smoothing_m != float("inf") else None,
+        "post_overlap_profile_deviation_note": "distance to the raw PCHIP curve includes the intentional shoulder-overlap offset; X/Z drift caused by smoothing must remain zero",
         "mean_displacement_m": round(sum(smoothing_displacements) / len(smoothing_displacements), 6) if smoothing_displacements else 0.0,
         "max_displacement_m": round(max(smoothing_displacements), 6) if smoothing_displacements else 0.0,
         "max_depth_smoothing_offset_m": 0.005 if profile_bisect_smoothing else None,
@@ -2238,8 +2250,8 @@ def remove_short_sleeve_components(clothing_objects):
         )
     if not smoothing_displacements or max(smoothing_displacements) > 0.035:
         raise RuntimeError("V386 armhole boundary smoothing exceeded its 35 mm safety limit: " + repr(boundary_smoothing_audit))
-    # The exact R8 profile has intentional X/Z curvature along the smoothed design curve.
-    # Gate R8 on depth-only roughness so that profile curvature is not misreported as noise.
+    # R10 preserves the PCHIP curve plus the separately measured shoulder-overlap offset.
+    # Gate R10 on depth-only roughness so the intended overlap offset is not counted as random geometry noise.
     pretrim_cuts = armhole_topology_refinement_audit["cuts_per_edge"]
     profile_bisect_active = "cut_profile_bisect_audit" in locals()
     if profile_bisect_active:
@@ -2252,19 +2264,19 @@ def remove_short_sleeve_components(clothing_objects):
             boundary_smoothing_audit["depth_roughness_gate_mode"] = "ALREADY_FLAT_ABSOLUTE_FLOOR"
             if depth_roughness_after_m > depth_roughness_baseline_floor_m:
                 raise RuntimeError(
-                    "V386-R8 depth roughness grew beyond the 5-micrometre flat-baseline floor: "
+                    "V386-R10 depth roughness grew beyond the 5-micrometre flat-baseline floor: "
                     + repr(boundary_smoothing_audit)
                 )
         else:
             boundary_smoothing_audit["depth_roughness_gate_mode"] = "RELATIVE_REDUCTION"
             if depth_roughness_reduction_fraction < minimum_depth_roughness_reduction:
                 raise RuntimeError(
-                    "V386-R8 depth roughness did not improve by the 10% minimum: "
+                    "V386-R10 depth roughness did not improve by the 10% minimum: "
                     + repr(boundary_smoothing_audit)
                 )
         if max(smoothing_displacements) > 0.010:
             raise RuntimeError(
-                "V386-R8 depth-only smoothing exceeded its 10 mm displacement limit: "
+                "V386-R10 depth-only smoothing exceeded its 10 mm displacement limit: "
                 + repr(boundary_smoothing_audit)
             )
     else:
@@ -2283,9 +2295,14 @@ def remove_short_sleeve_components(clothing_objects):
                 "V386 armhole roughness exceeds the cut-strategy absolute limit: "
                 + repr(boundary_smoothing_audit)
             )
-    if profile_bisect_active and max_profile_deviation_after_smoothing_m > 0.0001:
+    if profile_bisect_active and profile_bisect_smoothing and max_profile_xz_displacement_after_smoothing_m > 1e-7:
         raise RuntimeError(
-            "V386-R8 smoothed boundary drifted more than 0.1 mm from its smooth profile: "
+            "V386-R10 depth smoothing altered the projected/overlapped X/Z boundary: "
+            + repr(boundary_smoothing_audit)
+        )
+    if profile_bisect_active and not profile_bisect_smoothing and max_profile_deviation_after_smoothing_m > 0.0001:
+        raise RuntimeError(
+            "V386 profile-constrained smoothing drifted more than 0.1 mm from its measured profile: "
             + repr(boundary_smoothing_audit)
         )
     if profile_bisect_active and profile_projection_count < 40:
@@ -2457,7 +2474,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R9 uses four profile subdivisions and projects only exposed edge vertices onto the smooth PCHIP curve; this reduces horizontal slice bands while keeping profile error and per-vertex corrections below 0.5 mm. Inspect front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R10 builds smoothing and binding from the exact projected boundary-edge indices, retaining the audited shoulder-overlap offset and changing only boundary depth. Review underarm teeth and binding alignment from front, side and three-quarter renders before approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
