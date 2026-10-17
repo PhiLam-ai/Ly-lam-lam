@@ -85,6 +85,106 @@ jobs:
             artifacts/lam-v387-skinned-exploratory.glb \
             --report artifacts/standalone-gltf-skinning-validation.json
 
+      - name: Browser-load and skeletal animation smoke test
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp artifacts/lam-v387-skinned-exploratory.glb v312-work/lam-default.glb
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path("v312-work/index.html")
+          html = path.read_text(encoding="utf-8")
+          needle = "animationMixer=new THREE.AnimationMixer(gltf.scene);"
+          replacement = needle + "window.__v387TestScene=gltf.scene;window.__v387TestAnimations=loadedAnimations;window.__v387TestMixer=animationMixer;"
+          if needle not in html:
+              raise SystemExit("Could not add isolated browser test hooks to preview copy")
+          path.write_text(html.replace(needle, replacement, 1), encoding="utf-8")
+          PY
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          python3 -m http.server 4173 --directory v312-work > artifacts/browser-preview-server.log 2>&1 &
+          echo $! > /tmp/v387-preview-server.pid
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then break; fi
+            sleep 1
+          done
+          cat > /tmp/v387-browser-check.cjs <<'JS'
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch({
+              headless: true,
+              args: ['--enable-webgl', '--use-gl=angle', '--use-angle=swiftshader', '--ignore-gpu-blocklist']
+            });
+            const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+            const errors = [];
+            const modelResponses = [];
+            page.on('pageerror', e => errors.push(e.message));
+            page.on('response', r => { if (new URL(r.url()).pathname.endsWith('/lam-default.glb')) modelResponses.push({status:r.status(),url:r.url()}); });
+            const response = await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+            if (!response || !response.ok()) throw new Error('Preview HTML failed to load');
+            await page.waitForFunction(() => window.__lyLamAppBooted === true || window.__lyLamBootFailed === true, { timeout: 60000 });
+            if (await page.evaluate(() => window.__lyLamAppBooted !== true)) throw new Error('Avatar preview failed to boot');
+            const state = await page.evaluate(async () => {
+              const scene = window.__v387TestScene;
+              if (!scene) throw new Error('Test hook did not expose loaded avatar scene');
+              const skinnedMeshes = [];
+              const morphNames = new Set();
+              scene.traverse(node => {
+                if (node.isSkinnedMesh) skinnedMeshes.push(node);
+                if (node.morphTargetDictionary) Object.keys(node.morphTargetDictionary).forEach(name => morphNames.add(name));
+              });
+              const mesh = skinnedMeshes.sort((a,b) =>
+                (b.geometry?.attributes?.position?.count || 0) - (a.geometry?.attributes?.position?.count || 0)
+              )[0];
+              if (!mesh) throw new Error('No THREE.SkinnedMesh found in loaded GLB');
+              const count = mesh.geometry.attributes.position.count;
+              const indices = [];
+              const sampleCount = Math.min(256, count);
+              for (let i=0; i<sampleCount; i++) indices.push(Math.floor(i * (count-1) / Math.max(1, sampleCount-1)));
+              const sample = () => indices.map(index => {
+                const v = mesh.getVertexPosition(index, new THREE.Vector3());
+                return [v.x,v.y,v.z];
+              });
+              const before = sample();
+              await new Promise(resolve => setTimeout(resolve, 1200));
+              const after = sample();
+              let maxVertexDisplacement = 0;
+              for (let i=0; i<before.length; i++) {
+                const dx=after[i][0]-before[i][0], dy=after[i][1]-before[i][1], dz=after[i][2]-before[i][2];
+                maxVertexDisplacement = Math.max(maxVertexDisplacement, Math.sqrt(dx*dx+dy*dy+dz*dz));
+              }
+              return {
+                booted: window.__lyLamAppBooted === true,
+                activeAnimationName: window.__lyLamActiveAnimationName || '',
+                animationTime: window.__lyLamAnimationTime || 0,
+                skinnedMeshCount: skinnedMeshes.length,
+                sampledMesh: mesh.name,
+                sampledVertexCount: count,
+                maxVertexDisplacement,
+                morphNames: [...morphNames].sort(),
+                canvasCount: document.querySelectorAll('#stage canvas').length,
+                status: document.querySelector('#status-message')?.textContent || ''
+              };
+            });
+            require('fs').writeFileSync('artifacts/v387-browser-smoke.json', JSON.stringify({state,errors,modelResponses}, null, 2));
+            await page.screenshot({path:'artifacts/v387-browser-smoke.png', fullPage:true});
+            console.log('V387_BROWSER_STATE=' + JSON.stringify(state));
+            console.log('V387_BROWSER_ERRORS=' + JSON.stringify(errors));
+            if (!state.booted || state.canvasCount !== 1) throw new Error('Preview/renderer did not initialize');
+            if (!modelResponses.some(r => r.status === 200)) throw new Error('Candidate GLB did not return HTTP 200');
+            if (state.activeAnimationName !== 'Lam_Idle_GentleSway') throw new Error('Expected idle animation was not activated: ' + state.activeAnimationName);
+            if (state.animationTime < 0.5) throw new Error('Animation mixer time did not advance');
+            if (state.skinnedMeshCount < 1 || state.maxVertexDisplacement < 1e-5) throw new Error('No measurable animated skinned-vertex movement');
+            const expected = ['blink_left','blink_right','brow_raise','cheek_raise','jaw_hinge','jaw_open','lip_fv','lip_press','lip_round','mouth_open','smile','tongue_tip'];
+            const missing = expected.filter(name => !state.morphNames.includes(name));
+            if (missing.length) throw new Error('Missing browser morph targets: ' + missing.join(', '));
+            if (errors.length) throw new Error('Browser page errors: ' + errors.join(' | '));
+            await browser.close();
+          })().catch(e => { console.error(e.stack || e); process.exit(1); });
+          JS
+          NODE_PATH="$GITHUB_WORKSPACE/node_modules" node /tmp/v387-browser-check.cjs
+
       - name: Upload exploratory candidate and reports
         if: always()
         uses: actions/upload-artifact@v4
