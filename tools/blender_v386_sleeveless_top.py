@@ -1694,6 +1694,9 @@ def remove_short_sleeve_components(clothing_objects):
         "horizontal_slice_plane_count": profile_horizontal_slice_plane_count,
         "profile_segment_plane_count": profile_segment_plane_count,
         "clipped_face_count": cut_face_count,
+        "removed_original_vertex_count": removed_vertex_count,
+        "pretrim_vertex_count": vertex_count_before,
+        "removed_original_vertex_fraction": round(removed_vertex_fraction, 6),
         "side_face_counts": cut_face_counts,
         "profile_boundary_vertex_count": len(profile_boundary_samples),
         "max_profile_deviation_m": round(max_profile_deviation_m, 8),
@@ -1715,9 +1718,9 @@ def remove_short_sleeve_components(clothing_objects):
         "scope": "Human.female_sportsuit01 lateral armhole profile only",
     }
     if uv_names_before_profile_clip != uv_names_after_profile_clip:
-        raise RuntimeError("V386-R8 profile bisect changed garment UV-layer names")
+        raise RuntimeError("V386-R9 profile bisect changed garment UV-layer names")
     if material_names_before_profile_clip != material_names_after_profile_clip:
-        raise RuntimeError("V386-R8 profile bisect changed garment material slots")
+        raise RuntimeError("V386-R9 profile bisect changed garment material slots")
     if max_profile_deviation_m > 0.0001:
         raise RuntimeError("V386-R8 generated armhole boundary drifted more than 0.1 mm from the smooth profile: " + repr(cut_profile_bisect_audit))
 
@@ -1743,8 +1746,17 @@ def remove_short_sleeve_components(clothing_objects):
         "touched_vertex_count_total": len(cut_vertex_indices["left"] | cut_vertex_indices["right"]),
         "bounds_world_m": cut_bounds,
     }
-    if removed_vertex_count < 0 or removed_vertex_count > 1800:
-        raise RuntimeError("V386-R8 profile bisect removed an unexpected number of original vertices: " + str(removed_vertex_count))
+    removed_vertex_fraction = removed_vertex_count / float(max(1, vertex_count_before))
+    if removed_vertex_count < 0 or removed_vertex_fraction > 0.40:
+        raise RuntimeError(
+            "V386-R9 underarm scoop removed more than 40% of the pre-trim garment vertices: "
+            + repr({
+                "removed_vertex_count": removed_vertex_count,
+                "vertex_count_before": vertex_count_before,
+                "removed_vertex_fraction": round(removed_vertex_fraction, 6),
+                "profile_variant": "R9_DEEPER_UNDERARM_SCOOP",
+            })
+        )
 
     trim_vertex_count_after = len(mesh.vertices)
     trim_face_count_after = len(mesh.polygons)
@@ -1836,12 +1848,19 @@ def remove_short_sleeve_components(clothing_objects):
     # final-minus-initial arithmetic no longer represents removed geometry.
     components_after = connected_components(mesh)
     if removed_face_count != cut_face_count:
-        raise RuntimeError("V386-R8 profile bisect face-count accounting failed: " + repr({
+        raise RuntimeError("V386-R9 profile bisect face-count accounting failed: " + repr({
             "removed_face_count": removed_face_count,
             "selected_cut_face_count": cut_face_count,
         }))
-    if removed_vertex_count < 0 or removed_vertex_count > 1800:
-        raise RuntimeError("V386-R3 profile trim removed an unexpected number of unused vertices: " + str(removed_vertex_count))
+    if removed_vertex_count < 0 or removed_vertex_fraction > 0.40:
+        raise RuntimeError(
+            "V386-R9 profile trim exceeded its 40% removed-vertex fraction limit: "
+            + repr({
+                "removed_vertex_count": removed_vertex_count,
+                "vertex_count_before": vertex_count_before,
+                "removed_vertex_fraction": round(removed_vertex_fraction, 6),
+            })
+        )
     if len(components_before) != 2 or len(components_after) != 2:
         raise RuntimeError("V386 must retain exactly the expected shirt and trouser regions: " + repr({
             "components_before": components_before,
@@ -2398,6 +2417,7 @@ def remove_short_sleeve_components(clothing_objects):
         "cut_region_audit": cut_region_audit,
         "cut_face_count": cut_face_count,
         "removed_vertex_count": removed_vertex_count,
+        "removed_vertex_fraction": round(removed_vertex_fraction, 6),
         "removed_face_count": removed_face_count,
         "vertex_count_before": vertex_count_before,
         "vertex_count_after": trim_vertex_count_after,
