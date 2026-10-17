@@ -1281,11 +1281,8 @@ def remove_short_sleeve_components(clothing_objects):
         return result
 
     components_before = connected_components(mesh)
-    cut_profile_control = [
-        # Preserve the measured underarm and shoulder envelope, then use a
-        # shape-preserving cubic interpolation to remove hard direction changes
-        # between control points. Eight slices per control segment keep the
-        # polygonal clipping approximation within roughly 0.1 mm of the curve.
+    cut_profile_base_control = [
+        # Measured base contour before the shoulder-cap coverage allowance.
         (1.095, 0.210),
         (1.115, 0.210),
         (1.135, 0.215),
@@ -1302,6 +1299,26 @@ def remove_short_sleeve_components(clothing_objects):
         (1.380, 0.145),
     ]
     profile_subdivisions_per_segment = 8
+    integrated_shoulder_overlap_max_m = 0.018
+
+    def profile_smooth_unit(value):
+        value = min(1.0, max(0.0, float(value)))
+        return value * value * (3.0 - 2.0 * value)
+
+    def armhole_overlap_offset_at(z_value):
+        rise = profile_smooth_unit((float(z_value) - 1.12) / (1.18 - 1.12))
+        fall = profile_smooth_unit((1.34 - float(z_value)) / (1.34 - 1.26))
+        return integrated_shoulder_overlap_max_m * rise * fall
+
+    # R9: incorporate shoulder-cap coverage before clipping. Avoid cutting the
+    # base curve then pulling only selected boundary vertices outward afterward.
+    profile_overlap_control_offsets = [
+        armhole_overlap_offset_at(z_value) for z_value, _x_value in cut_profile_base_control
+    ]
+    cut_profile_control = [
+        (z_value, x_value + offset)
+        for (z_value, x_value), offset in zip(cut_profile_base_control, profile_overlap_control_offsets)
+    ]
 
     def pchip_profile_slopes(control_points):
         z_values = [float(point[0]) for point in control_points]
@@ -1651,7 +1668,7 @@ def remove_short_sleeve_components(clothing_objects):
     ]
     cut_profile_bisect_audit = {
         "status": "APPLIED",
-        "method": "shape-preserving PCHIP interpolation of 14 measured armhole control points, sampled at eight subdivisions per control segment, then horizontal slicing and profile-plane bisect clipping",
+        "method": "18 mm maximum tapered shoulder overlap integrated into 14 measured armhole control points, shape-preserving PCHIP interpolation, eight subdivisions per segment, horizontal slicing and profile-plane bisect clipping",
         "profile_point_count": len(cut_profile_control),
         "profile_control_point_count": len(cut_profile_control),
         "profile_segment_count": len(cut_profile_control) - 1,
@@ -1700,6 +1717,8 @@ def remove_short_sleeve_components(clothing_objects):
         "method": "smooth-profile-segment plane bisect clipping with dense Z-knot slicing; retain measured armhole envelope and central shirt/trouser regions",
         "profile_world_xz_m": [[z, x] for z, x in cut_profile],
         "profile_control_world_xz_m": [[z, x] for z, x in cut_profile_control],
+        "profile_base_control_world_xz_m": [[z, x] for z, x in cut_profile_base_control],
+        "integrated_shoulder_overlap_max_m": integrated_shoulder_overlap_max_m,
         "face_count": cut_face_count,
         "side_face_counts": cut_face_counts,
         "side_touched_vertex_counts": {side: len(indices) for side, indices in cut_vertex_indices.items()},
@@ -1714,84 +1733,26 @@ def remove_short_sleeve_components(clothing_objects):
     profile_vertex_count_before = vertex_count_before
     profile_face_count_before = face_count_before
 
-    # Widen the retained upper armhole edge itself. The profile-plane bisect now
-    # generates a true intersection edge, so this offset remains localized and
-    # is no longer being used to disguise a coarse whole-face cut.
-    # Widen the retained upper armhole edge itself. A face-centroid/vertex trim
-    # leaves a coarse topology edge too far inward; a small smooth edge offset
-    # gives the sleeveless shoulder panel enough overlap to cover the arm-cap
-    # without filling the armhole or adding a detached sleeve.
-    boundary_edge_counts = {}
-    for polygon in mesh.polygons:
-        ids = list(polygon.vertices)
-        for edge_a, edge_b in zip(ids, ids[1:] + ids[:1]):
-            edge_key = (edge_a, edge_b) if edge_a < edge_b else (edge_b, edge_a)
-            boundary_edge_counts[edge_key] = boundary_edge_counts.get(edge_key, 0) + 1
-
-    shoulder_boundary_vertex_indices = set()
-    for (edge_a, edge_b), face_count in boundary_edge_counts.items():
-        if face_count != 1:
-            continue
-        for vertex_index in (edge_a, edge_b):
-            point = world_point(vertex_index)
-            point_z = point[2]
-            limit = lateral_limit(point_z)
-            if limit is None or not (1.12 < point_z < 1.34):
-                continue
-            absolute_x = abs(point[0])
-            if not (0.10 < absolute_x < 0.255):
-                continue
-            if abs(absolute_x - limit) > 0.095:
-                continue
-            shoulder_boundary_vertex_indices.add(vertex_index)
-
-    if len(shoulder_boundary_vertex_indices) < 20:
-        raise RuntimeError("V386 could not find enough retained shoulder-edge vertices to overlap the arm cap: " + repr({
-            "candidate_boundary_vertex_count": len(shoulder_boundary_vertex_indices),
-        }))
-
-    def smooth_unit(value):
-        value = min(1.0, max(0.0, float(value)))
-        return value * value * (3.0 - 2.0 * value)
-
-    inverse_matrix = matrix.inverted()
-    shoulder_edge_offsets = []
-    max_abs_x_before_overlap = max(abs(world_point(index)[0]) for index in range(len(mesh.vertices)))
-    for vertex_index in shoulder_boundary_vertex_indices:
-        point = world_point(vertex_index)
-        point_z = point[2]
-        rise = smooth_unit((point_z - 1.12) / (1.18 - 1.12))
-        fall = smooth_unit((1.34 - point_z) / (1.34 - 1.26))
-        weight = rise * fall
-        # A22 visual candidate: modest local overlap; require front/side visual review before promotion.
-        # Keep the taper localized; the former 30 mm trial made the shoulder cap look too broad.
-        delta_x = 0.022 * weight
-        if delta_x < 0.002:
-            continue
-        side_sign = 1.0 if point[0] >= 0.0 else -1.0
-        widened_point = Vector((point[0] + side_sign * delta_x, point[1], point[2]))
-        mesh.vertices[vertex_index].co = inverse_matrix @ widened_point
-        shoulder_edge_offsets.append(delta_x)
-
-    if len(shoulder_edge_offsets) < 12:
-        raise RuntimeError("V386 shoulder edge overlap moved too few vertices to be reliable: " + repr({
-            "candidate_boundary_vertex_count": len(shoulder_boundary_vertex_indices),
-            "moved_vertex_count": len(shoulder_edge_offsets),
-        }))
-    mesh.update()
-    bpy.context.view_layer.update()
-    max_abs_x_after_overlap = max(abs(world_point(index)[0]) for index in range(len(mesh.vertices)))
+    # R9 integrates the shoulder-cap allowance into the smooth cutting
+    # envelope before bisection; no post-cut coordinate edit is performed.
+    profile_overlap_sample_offsets = [
+        armhole_overlap_offset_at(z_value) for z_value, _x_value in cut_profile
+    ]
+    max_abs_x_before_overlap = max(abs(x_value) for _z_value, x_value in cut_profile_base_control)
+    max_abs_x_after_overlap = max(abs(x_value) for _z_value, x_value in cut_profile_control)
     shoulder_edge_overlap_audit = {
         "status": "APPLIED",
-        "method": "smooth localized 22 mm maximum outward offset on the retained upper armhole boundary; tapered at underarm and shoulder-top ends",
-        "candidate_boundary_vertex_count": len(shoulder_boundary_vertex_indices),
-        "moved_vertex_count": len(shoulder_edge_offsets),
-        "max_offset_m": round(max(shoulder_edge_offsets), 6),
-        "mean_offset_m": round(sum(shoulder_edge_offsets) / len(shoulder_edge_offsets), 6),
+        "method": "integrated tapered shoulder-cap coverage into PCHIP profile control points before clipping; no post-cut vertex displacement",
+        "application": "INTEGRATED_BEFORE_PROFILE_CLIP",
+        "candidate_boundary_vertex_count": len(profile_boundary_samples),
+        "moved_vertex_count": 0,
+        "profile_control_point_count": len(cut_profile_base_control),
+        "max_offset_m": round(max(profile_overlap_sample_offsets), 6) if profile_overlap_sample_offsets else 0.0,
+        "mean_offset_m": round(sum(profile_overlap_sample_offsets) / len(profile_overlap_sample_offsets), 6) if profile_overlap_sample_offsets else 0.0,
         "max_abs_x_before_m": round(max_abs_x_before_overlap, 6),
         "max_abs_x_after_m": round(max_abs_x_after_overlap, 6),
-        "preserved": "underarm opening remains open; no detached sleeve or solid armhole cap added",
-        "visual_warning": "Inspect the widened upper edge from front/side/three-quarter views for cloth stretching before approval.",
+        "preserved": "underarm opening remains open; shoulder allowance is part of the smooth cut envelope; no post-cut garment vertices or faces are stretched",
+        "visual_warning": "Confirm integrated shoulder overlap covers the arm-cap without appearing too broad in front/side/three-quarter views.",
     }
 
     # Counts are recorded from the actual BMesh deletions above. Profile bisect
@@ -2379,7 +2340,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R8 clips the lateral shirt surface against an eight-subdivision PCHIP armhole profile, then smooths only boundary depth while keeping X/Z constrained. Inspect front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R9 integrates shoulder coverage into the smooth PCHIP armhole cutting profile before mesh clipping; no post-cut edge vertices are pulled out of shape. Inspect front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
