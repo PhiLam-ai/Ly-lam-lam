@@ -1282,24 +1282,23 @@ def remove_short_sleeve_components(clothing_objects):
 
     components_before = connected_components(mesh)
     cut_profile_control = [
-        # Preserve the measured underarm and shoulder envelope, then use a
-        # shape-preserving cubic interpolation to remove hard direction changes
-        # between control points. Eight slices per control segment keep the
-        # polygonal clipping approximation within roughly 0.1 mm of the curve.
-        (1.095, 0.210),
-        (1.115, 0.210),
-        (1.135, 0.215),
-        (1.165, 0.215),
-        (1.200, 0.220),
-        (1.235, 0.220),
-        (1.265, 0.225),
-        (1.290, 0.235),
-        (1.310, 0.240),
-        (1.325, 0.240),
-        (1.340, 0.225),
-        (1.355, 0.195),
-        (1.370, 0.165),
-        (1.380, 0.145),
+        # R9 pulls the former cap-sleeve edge inward around the lateral shoulder
+        # while preserving the underarm coverage and smooth PCHIP interpolation.
+        # The narrower measured envelope exposes more upper arm than R8.
+        (1.095, 0.200),
+        (1.115, 0.198),
+        (1.135, 0.198),
+        (1.165, 0.195),
+        (1.200, 0.195),
+        (1.235, 0.195),
+        (1.265, 0.200),
+        (1.290, 0.208),
+        (1.310, 0.212),
+        (1.325, 0.210),
+        (1.340, 0.195),
+        (1.355, 0.175),
+        (1.370, 0.145),
+        (1.380, 0.130),
     ]
     profile_subdivisions_per_segment = 8
 
@@ -1311,7 +1310,7 @@ def remove_short_sleeve_components(clothing_objects):
             for index in range(len(control_points) - 1)
         ]
         if any(interval <= 0.0 for interval in intervals):
-            raise RuntimeError("V386-R8 profile control Z coordinates must be strictly increasing")
+            raise RuntimeError("V386-R9 profile control Z coordinates must be strictly increasing")
         secants = [
             (x_values[index + 1] - x_values[index]) / intervals[index]
             for index in range(len(intervals))
@@ -2379,7 +2378,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R8 clips the lateral shirt surface against an eight-subdivision PCHIP armhole profile, then smooths only boundary depth while keeping X/Z constrained. Inspect front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R9 narrows the lateral shoulder/armhole profile to expose more upper arm, using eight-subdivision PCHIP clipping and depth-only boundary smoothing. Inspect armhole coverage from front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
