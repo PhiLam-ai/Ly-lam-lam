@@ -96,7 +96,7 @@ jobs:
           path = Path("v312-work/index.html")
           html = path.read_text(encoding="utf-8")
           needle = "animationMixer=new THREE.AnimationMixer(gltf.scene);"
-          replacement = needle + "window.__v387TestScene=gltf.scene;window.__v387TestAnimations=loadedAnimations;window.__v387TestMixer=animationMixer;"
+          replacement = needle + "window.__v387TestScene=gltf.scene;window.__v387TestAnimations=loadedAnimations;window.__v387TestMixer=animationMixer;window.__v387TestThree=THREE;"
           if needle not in html:
               raise SystemExit("Could not add isolated browser test hooks to preview copy")
           path.write_text(html.replace(needle, replacement, 1), encoding="utf-8")
