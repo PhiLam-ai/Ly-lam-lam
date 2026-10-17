@@ -309,9 +309,31 @@ function updateAvatarViewDiagnostics(){
   };
   return window.__lyLamAvatarDiagnostics;
 }
+function computeAvatarBounds(root){
+  // Box3.setFromObject does not consistently account for posed/skinned vertices.
+  // Evaluate those vertices through the skin before fitting the preview camera.
+  root.updateMatrixWorld(true);
+  const bounds=new THREE.Box3();
+  root.traverse(node=>{
+    if(node.isSkinnedMesh&&node.geometry?.attributes?.position){
+      node.skeleton?.update();
+      const vertex=new THREE.Vector3();
+      const count=node.geometry.attributes.position.count;
+      for(let i=0;i<count;i++){
+        node.getVertexPosition(i,vertex);
+        vertex.applyMatrix4(node.matrixWorld);
+        bounds.expandByPoint(vertex);
+      }
+    }else if(node.isMesh){
+      bounds.union(new THREE.Box3().setFromObject(node));
+    }
+  });
+  if(bounds.isEmpty())bounds.setFromObject(root);
+  return bounds;
+}
 function setQuickView(mode){
   if(!avatarScene)return;
-  const box=new THREE.Box3().setFromObject(avatarScene), size=box.getSize(new THREE.Vector3());
+  const box=computeAvatarBounds(avatarScene), size=box.getSize(new THREE.Vector3());
   const target=box.getCenter(new THREE.Vector3());
   let distance=cameraDistance;
   if(mode==='face'){
@@ -345,7 +367,7 @@ loader.load(targetUrl,gltf=>{
   window.__lyLamAnimationTime=0;
   if(idleClip)animationMixer.clipAction(idleClip).reset().play();
   scene.add(gltf.scene);avatarScene=gltf.scene;
-  const box=new THREE.Box3().setFromObject(gltf.scene), size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
+  const box=computeAvatarBounds(gltf.scene), size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
   // Fit around the actual world-space center. Do not translate a skinned scene root
   // by a world-space Box3 center: the GLB has its own rig/skin coordinate frames.
   const halfFov=Math.tan(THREE.MathUtils.degToRad(camera.fov)/2);
