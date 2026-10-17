@@ -1301,7 +1301,7 @@ def remove_short_sleeve_components(clothing_objects):
         (1.370, 0.165),
         (1.380, 0.145),
     ]
-    profile_subdivisions_per_segment = 8
+    profile_subdivisions_per_segment = 4
 
     def pchip_profile_slopes(control_points):
         z_values = [float(point[0]) for point in control_points]
@@ -1571,26 +1571,53 @@ def remove_short_sleeve_components(clothing_objects):
             bmesh.ops.delete(profile_bm, geom=loose_vertices, context="VERTS")
         removed_vertex_count = sum(1 for vertex in original_profile_vertices if not vertex.is_valid)
         removed_face_count = cut_face_count
-        # Derive the profile-vertex audit from final world coordinates, not
-        # BMElement.tag: BMesh operators may reuse/reset that temporary flag.
+
+        # R9: four local profile subdivisions limit horizontal cut bands. Snap
+        # only vertices on the actual exposed profile boundary to the smooth
+        # PCHIP curve; do not project nearby interior cloth vertices.
+        projected_profile_vertices = set()
+        profile_projection_displacements_m = []
+        for edge in profile_bm.edges:
+            if not edge.is_boundary:
+                continue
+            for vertex in edge.verts:
+                point = profile_world_point(vertex)
+                sampled_limit = lateral_limit(point[2])
+                smooth_limit = smooth_profile_limit(point[2])
+                if sampled_limit is None or smooth_limit is None:
+                    continue
+                if not (0.10 < abs(point[0]) < 0.35):
+                    continue
+                sampled_deviation = abs(abs(point[0]) - sampled_limit)
+                if sampled_deviation > 0.001:
+                    continue
+                target_x = math.copysign(smooth_limit, point[0])
+                profile_projection_displacements_m.append(abs(target_x - point[0]))
+                vertex.co = inverse_matrix @ Vector((target_x, point[1], point[2]))
+                projected_profile_vertices.add(vertex)
+
+        profile_boundary_samples = [
+            profile_world_point(vertex) for vertex in projected_profile_vertices
+        ]
         profile_boundary_candidates = []
         for vertex in profile_bm.verts:
             point = profile_world_point(vertex)
-            limit = lateral_limit(point[2])
-            if limit is None or not (0.10 < abs(point[0]) < 0.35):
+            smooth_limit = smooth_profile_limit(point[2])
+            if smooth_limit is None or not (0.10 < abs(point[0]) < 0.35):
                 continue
-            deviation = abs(abs(point[0]) - limit)
+            deviation = abs(abs(point[0]) - smooth_limit)
             profile_boundary_candidates.append((point, deviation))
-        profile_boundary_samples = [
-            point for point, deviation in profile_boundary_candidates
-            if deviation <= 0.0001
-        ]
         profile_vertices_within_1mm = sum(
             1 for _point, deviation in profile_boundary_candidates
             if deviation <= 0.001
         )
-        min_profile_candidate_deviation_m = (
-            min((deviation for _point, deviation in profile_boundary_candidates), default=float("inf"))
+        min_profile_candidate_deviation_m = min(
+            (deviation for _point, deviation in profile_boundary_candidates),
+            default=float("inf"),
+        )
+        max_profile_projection_displacement_m = (
+            max(profile_projection_displacements_m)
+            if profile_projection_displacements_m else float("inf")
         )
         profile_bm.to_mesh(mesh)
     finally:
@@ -1598,6 +1625,37 @@ def remove_short_sleeve_components(clothing_objects):
 
     mesh.update()
     bpy.context.view_layer.update()
+    # Measure the actual mesh-edge chord error against PCHIP at quarter points.
+    projected_coord_keys = {
+        (round(point[0], 6), round(point[1], 6), round(point[2], 6))
+        for point in profile_boundary_samples
+    }
+    projected_mesh_vertex_indices = set()
+    for vertex_index, vertex in enumerate(mesh.vertices):
+        point = matrix @ vertex.co
+        key = (round(float(point.x), 6), round(float(point.y), 6), round(float(point.z), 6))
+        if key in projected_coord_keys:
+            projected_mesh_vertex_indices.add(vertex_index)
+    max_profile_edge_chord_deviation_m = 0.0
+    profile_edge_chord_count = 0
+    for edge in mesh.edges:
+        a_index, b_index = int(edge.vertices[0]), int(edge.vertices[1])
+        if a_index not in projected_mesh_vertex_indices or b_index not in projected_mesh_vertex_indices:
+            continue
+        point_a = world_point(a_index)
+        point_b = world_point(b_index)
+        if abs(point_b[2] - point_a[2]) <= 1e-7:
+            continue
+        profile_edge_chord_count += 1
+        for fraction in (0.25, 0.50, 0.75):
+            x_value = point_a[0] + (point_b[0] - point_a[0]) * fraction
+            z_value = point_a[2] + (point_b[2] - point_a[2]) * fraction
+            smooth_limit = smooth_profile_limit(z_value)
+            if smooth_limit is not None:
+                max_profile_edge_chord_deviation_m = max(
+                    max_profile_edge_chord_deviation_m,
+                    abs(abs(x_value) - smooth_limit),
+                )
     if not 60 <= cut_face_count <= 1400:
         raise RuntimeError(
             "V386-R8 smooth-profile trim rejected: clipped face count outside conservative safety bounds: "
@@ -1628,13 +1686,16 @@ def remove_short_sleeve_components(clothing_objects):
 
     profile_deviations = []
     smooth_profile_deviations = []
+    sampled_envelope_deviations = []
     for point in profile_boundary_samples:
         limit = lateral_limit(point[2])
         smooth_limit = smooth_profile_limit(point[2])
         if limit is not None:
-            profile_deviations.append(abs(abs(point[0]) - limit))
+            sampled_envelope_deviations.append(abs(abs(point[0]) - limit))
         if smooth_limit is not None:
-            smooth_profile_deviations.append(abs(abs(point[0]) - smooth_limit))
+            deviation = abs(abs(point[0]) - smooth_limit)
+            profile_deviations.append(deviation)
+            smooth_profile_deviations.append(deviation)
     max_profile_deviation_m = max(profile_deviations) if profile_deviations else float("inf")
     mean_profile_deviation_m = (
         sum(profile_deviations) / len(profile_deviations) if profile_deviations else float("inf")
@@ -1645,19 +1706,24 @@ def remove_short_sleeve_components(clothing_objects):
     mean_smooth_profile_deviation_m = (
         sum(smooth_profile_deviations) / len(smooth_profile_deviations) if smooth_profile_deviations else float("inf")
     )
+    max_sampled_envelope_deviation_m = (
+        max(sampled_envelope_deviations) if sampled_envelope_deviations else float("inf")
+    )
     uv_names_after_profile_clip = [layer.name for layer in mesh.uv_layers]
     material_names_after_profile_clip = [
         slot.material.name if slot.material else None for slot in obj.material_slots
     ]
     cut_profile_bisect_audit = {
         "status": "APPLIED",
-        "method": "shape-preserving PCHIP interpolation of 14 measured armhole control points, sampled at eight subdivisions per control segment, then horizontal slicing and profile-plane bisect clipping",
+        "method": "shape-preserving PCHIP interpolation of 14 measured armhole control points, sampled at four subdivisions per control segment, then local boundary-vertex projection to the smooth curve",
         "profile_point_count": len(cut_profile_control),
         "profile_control_point_count": len(cut_profile_control),
         "profile_segment_count": len(cut_profile_control) - 1,
         "sampled_profile_point_count": len(cut_profile),
         "sampled_profile_segment_count": profile_segments_processed,
         "subdivisions_per_control_segment": profile_subdivisions_per_segment,
+        "profile_boundary_projection_vertex_count": len(profile_boundary_samples),
+        "max_profile_projection_displacement_m": round(max_profile_projection_displacement_m, 8),
         "horizontal_slice_plane_count": profile_horizontal_slice_plane_count,
         "profile_segment_plane_count": profile_segment_plane_count,
         "clipped_face_count": cut_face_count,
@@ -1667,6 +1733,9 @@ def remove_short_sleeve_components(clothing_objects):
         "mean_profile_deviation_m": round(mean_profile_deviation_m, 8),
         "max_smooth_profile_deviation_m": round(max_smooth_profile_deviation_m, 8),
         "mean_smooth_profile_deviation_m": round(mean_smooth_profile_deviation_m, 8),
+        "max_sampled_envelope_deviation_m": round(max_sampled_envelope_deviation_m, 8),
+        "max_profile_edge_chord_deviation_m": round(max_profile_edge_chord_deviation_m, 8),
+        "profile_edge_chord_count": profile_edge_chord_count,
         "smooth_profile_control_points_world_xz_m": [[z, x] for z, x in cut_profile_control],
         "world_y_interpolated": True,
         "uv_layer_names_before": uv_names_before_profile_clip,
@@ -1682,7 +1751,13 @@ def remove_short_sleeve_components(clothing_objects):
     if material_names_before_profile_clip != material_names_after_profile_clip:
         raise RuntimeError("V386-R8 profile bisect changed garment material slots")
     if max_profile_deviation_m > 0.0001:
-        raise RuntimeError("V386-R8 generated armhole boundary drifted more than 0.1 mm from the smooth profile: " + repr(cut_profile_bisect_audit))
+        raise RuntimeError("V386-R9 projected armhole vertices drifted more than 0.1 mm from the smooth profile: " + repr(cut_profile_bisect_audit))
+    if max_sampled_envelope_deviation_m > 0.0005:
+        raise RuntimeError("V386-R9 boundary projection moved more than 0.5 mm from the sampled cut envelope: " + repr(cut_profile_bisect_audit))
+    if max_profile_projection_displacement_m > 0.0005:
+        raise RuntimeError("V386-R9 per-vertex profile projection exceeded 0.5 mm: " + repr(cut_profile_bisect_audit))
+    if profile_edge_chord_count < 10 or max_profile_edge_chord_deviation_m > 0.0005:
+        raise RuntimeError("V386-R9 mesh boundary chords deviate more than 0.5 mm from the smooth profile: " + repr(cut_profile_bisect_audit))
 
     if not cut_points_by_side["left"] or not cut_points_by_side["right"]:
         raise RuntimeError("V386-R8 profile bisect did not capture removed patches on both sides")
