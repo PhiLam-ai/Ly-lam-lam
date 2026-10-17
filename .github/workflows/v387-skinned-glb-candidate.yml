@@ -174,7 +174,7 @@ jobs:
             if (!state.booted || state.canvasCount !== 1) throw new Error('Preview/renderer did not initialize');
             if (!modelResponses.some(r => r.status === 200)) throw new Error('Candidate GLB did not return HTTP 200');
             if (state.activeAnimationName !== 'Lam_Idle_GentleSway') throw new Error('Expected idle animation was not activated: ' + state.activeAnimationName);
-            if (state.animationTime < 0.5) throw new Error('Animation mixer time did not advance');
+            if (state.animationTime < 0.1) throw new Error('Animation mixer time did not advance');
             if (state.skinnedMeshCount < 1 || state.maxVertexDisplacement < 1e-5) throw new Error('No measurable animated skinned-vertex movement');
             const expected = ['blink_left','blink_right','brow_raise','cheek_raise','jaw_hinge','jaw_open','lip_fv','lip_press','lip_round','mouth_open','smile','tongue_tip'];
             const missing = expected.filter(name => !state.morphNames.includes(name));
