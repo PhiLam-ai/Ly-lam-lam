@@ -1,6 +1,12 @@
 name: V387 Real Scene Skinning Probe
 
 on:
+  push:
+    branches:
+      - avatar/v387-rig-preserving-export-prototype
+    paths:
+      - "tools/probe_blend_skinning_v387.py"
+      - ".github/workflows/v387-real-scene-skinning-probe.yml"
   workflow_dispatch:
     inputs:
       source_run_id:
@@ -27,7 +33,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           repository: ${{ github.repository }}
-          run-id: ${{ inputs.source_run_id }}
+          run-id: ${{ inputs.source_run_id || '38997553610' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pattern: ly-lam-lam-v386-r9-profile-integrated-overlap-*
           path: source-artifact
@@ -68,7 +74,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v387-source-scene-skinning-probe-${{ inputs.source_run_id }}
+          name: v387-source-scene-skinning-probe-${{ inputs.source_run_id || '38997553610' }}
           path: v387-source-scene-skinning-probe.json
           if-no-files-found: warn
           retention-days: 14
