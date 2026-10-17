@@ -76,7 +76,8 @@ jobs:
             --python tools/export_skinned_glb_v387.py -- \
             --output "$RUNNER_TEMP/lam-v387-skinned.glb" \
             --visual-source baked-v386 \
-            --texture-source-glb "${{ steps.source.outputs.glb }}"
+            --texture-source-glb "${{ steps.source.outputs.glb }}" \
+            --normalize-bone-weights-on-export-copy
           python3 tools/validate_gltf_skinning_v387.py \
             "$RUNNER_TEMP/lam-v387-skinned.glb" \
             --report "$RUNNER_TEMP/lam-v387-skinned-validation.json"
