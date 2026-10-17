@@ -1648,6 +1648,9 @@ def remove_short_sleeve_components(clothing_objects):
     material_names_after_profile_clip = [
         slot.material.name if slot.material else None for slot in obj.material_slots
     ]
+    # Calculate these before assembling the audit that serializes them.
+    removed_original_vertex_fraction = removed_vertex_count / float(max(vertex_count_before, 1))
+    maximum_removed_original_vertex_fraction = 0.55
     cut_profile_bisect_audit = {
         "status": "APPLIED",
         "method": "shape-preserving PCHIP interpolation of 14 measured armhole control points, sampled at eight subdivisions per control segment, then horizontal slicing and profile-plane bisect clipping",
@@ -1709,8 +1712,6 @@ def remove_short_sleeve_components(clothing_objects):
         "touched_vertex_count_total": len(cut_vertex_indices["left"] | cut_vertex_indices["right"]),
         "bounds_world_m": cut_bounds,
     }
-    removed_original_vertex_fraction = removed_vertex_count / float(max(vertex_count_before, 1))
-    maximum_removed_original_vertex_fraction = 0.55
     if removed_vertex_count < 0 or removed_original_vertex_fraction > maximum_removed_original_vertex_fraction:
         raise RuntimeError(
             "V386-R9 profile bisect removed an unexpectedly large fraction of source vertices: "
