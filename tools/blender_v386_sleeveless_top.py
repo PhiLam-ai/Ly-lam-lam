@@ -4309,6 +4309,69 @@ def render_evidence(scene, cameras, output_dir, character_bounds):
 
 
 
+def audit_source_rig_skinning(character_objects, rig):
+    """Audit the live Blender source rig before the V386 bake path hides its skinning data."""
+    bone_names = {bone.name for bone in rig.data.bones} if rig and rig.type == "ARMATURE" else set()
+    mesh_reports = []
+    deformable_meshes = []
+    for obj in character_objects:
+        if obj.type != "MESH":
+            continue
+        armature_modifiers = [
+            modifier for modifier in obj.modifiers
+            if modifier.type == "ARMATURE" and modifier.object == rig
+        ]
+        valid_group_names = {group.name for group in obj.vertex_groups if group.name in bone_names}
+        weighted_vertices = 0
+        zero_weight_vertices = 0
+        invalid_group_refs = set()
+        weight_sum_min = None
+        weight_sum_max = None
+        for vertex in obj.data.vertices:
+            total = 0.0
+            for assignment in vertex.groups:
+                if assignment.group >= len(obj.vertex_groups):
+                    continue
+                group_name = obj.vertex_groups[assignment.group].name
+                if group_name in bone_names:
+                    total += assignment.weight
+                elif assignment.weight > 0.0:
+                    invalid_group_refs.add(group_name)
+            if total > 1e-6:
+                weighted_vertices += 1
+                weight_sum_min = total if weight_sum_min is None else min(weight_sum_min, total)
+                weight_sum_max = total if weight_sum_max is None else max(weight_sum_max, total)
+            else:
+                zero_weight_vertices += 1
+        is_body_candidate = any(token in obj.name.lower() for token in ("human", "body", "basemesh", "skin"))
+        if is_body_candidate:
+            deformable_meshes.append(obj.name)
+        mesh_reports.append({
+            "object": obj.name,
+            "vertices": len(obj.data.vertices),
+            "armature_modifier_count": len(armature_modifiers),
+            "armature_modifier_targets_rig": bool(armature_modifiers),
+            "valid_bone_vertex_groups": sorted(valid_group_names),
+            "weighted_vertex_count": weighted_vertices,
+            "zero_weight_vertex_count": zero_weight_vertices,
+            "weight_sum_min": weight_sum_min,
+            "weight_sum_max": weight_sum_max,
+            "positive_weights_on_nonbone_groups": sorted(invalid_group_refs),
+            "body_candidate_by_name": is_body_candidate,
+        })
+    body_reports = [item for item in mesh_reports if item["body_candidate_by_name"]]
+    return {
+        "rig_name": rig.name if rig else None,
+        "bone_count": len(bone_names),
+        "mesh_count": len(mesh_reports),
+        "body_candidates": deformable_meshes,
+        "body_candidates_with_armature_modifier": sum(1 for item in body_reports if item["armature_modifier_targets_rig"]),
+        "body_candidates_with_weighted_vertices": sum(1 for item in body_reports if item["weighted_vertex_count"] > 0),
+        "meshes": mesh_reports,
+        "note": "Source-scene diagnostic only; this does not imply that the exported GLB contains a skin.",
+    }
+
+
 def evaluated_world_mesh(obj, depsgraph):
     """Return an evaluated mesh copy with rig deformation baked into world-space vertices."""
     evaluated = obj.evaluated_get(depsgraph)
@@ -5430,6 +5493,7 @@ def main():
     character_objects.extend(face_framing_hair_objects)
     necklace_objects, necklace_accessory_audit = create_necklace_accessory(bpy.context.scene, basemesh, clothing_objects)
     character_objects.extend(necklace_objects)
+    source_skinning_audit = audit_source_rig_skinning(character_objects, rig)
     composite_report = make_composite_morphs(character_objects)
     base_morphs = composite_report.get(basemesh.name, {}).get("composite_morphs", [])
     if base_morphs != EXPECTED_MORPHS:
@@ -5888,6 +5952,7 @@ def main():
         "face_framing_hair_audit": face_framing_hair_audit,
         "necklace_accessory_audit": necklace_accessory_audit,
         "source_rig_diagnostic_only": idle_report,
+        "source_skinning_audit": source_skinning_audit,
         "idle_animation": baked_idle_report,
         "body_skinning": "Baked neutral evaluated mesh; exported skin_count must be zero; twelve face morphs retained.",
         "baked_mesh_diagnostics": baked_mesh_report,
