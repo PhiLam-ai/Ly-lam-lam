@@ -12,6 +12,7 @@ on:
       - avatar/v386-r7-profile-bisect-trim
       - avatar/v386-r8-smooth-profile
       - avatar/v386-r9-profile-integrated-overlap
+      - avatar/v387-skinning-prototype
     paths:
       - "tools/blender_v386_sleeveless_top.py"
       - "tools/v386_apply_viewer_camera_fit.cjs"
