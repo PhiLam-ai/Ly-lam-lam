@@ -490,7 +490,7 @@ jobs:
           assert profile_shape and profile_shape["status"] == "APPLIED", profile_shape
           assert profile_shape["baseline"] == "V386-R8", profile_shape
           assert profile_shape["control_point_count"] == 14, profile_shape
-          assert profile_shape["deepening_zone_z_m"] == [1.135, 1.290], profile_shape
+          assert profile_shape["deepening_zone_z_m"] == [1.135, 1.265], profile_shape
           assert profile_shape["max_inward_shift_m"] == 0.030, profile_shape
           assert 0.018 <= profile_shape["mean_inward_shift_m"] <= 0.022, profile_shape
           assert profile_shape["underarm_min_x_limit_m"] == 0.190, profile_shape
