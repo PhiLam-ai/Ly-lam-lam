@@ -26,7 +26,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: v386-r9-profile-integrated-overlap
+  group: v386-candidate-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
