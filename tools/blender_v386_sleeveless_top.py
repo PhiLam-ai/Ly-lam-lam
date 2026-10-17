@@ -1964,7 +1964,21 @@ def remove_short_sleeve_components(clothing_objects):
             edge_face_counts[key] = edge_face_counts.get(key, 0) + 1
 
     profile_bisect_smoothing = "cut_profile_bisect_audit" in locals()
-    boundary_edge_profile_tolerance_m = 0.003 if profile_bisect_smoothing else 0.07
+    profile_control_max_x_m = (
+        max(float(point[1]) for point in cut_profile_control)
+        if profile_bisect_smoothing and "cut_profile_control" in locals()
+        else None
+    )
+    narrow_sleeveless_profile = (
+        profile_bisect_smoothing
+        and profile_control_max_x_m is not None
+        and profile_control_max_x_m <= 0.2121
+    )
+    boundary_edge_profile_tolerance_m = (
+        0.030 if narrow_sleeveless_profile else
+        0.003 if profile_bisect_smoothing else
+        0.07
+    )
     boundary_graph = {}
     selected_boundary_edges = []
     boundary_edge_profile_audit = {
@@ -1973,6 +1987,8 @@ def remove_short_sleeve_components(clothing_objects):
         "endpoint_match_count_3mm": 0,
         "endpoint_match_count_8mm": 0,
         "endpoint_match_count_15mm": 0,
+        "endpoint_match_count_30mm": 0,
+        "midpoint_match_count_35mm": 0,
         "selected_edge_count": 0,
     }
     for (a, b), face_count in edge_face_counts.items():
@@ -2005,14 +2021,23 @@ def remove_short_sleeve_components(clothing_objects):
             boundary_edge_profile_audit["endpoint_match_count_8mm"] += 1
         if endpoint_deviation <= 0.015:
             boundary_edge_profile_audit["endpoint_match_count_15mm"] += 1
+        if endpoint_deviation <= 0.030:
+            boundary_edge_profile_audit["endpoint_match_count_30mm"] += 1
+        if midpoint_deviation <= 0.035:
+            boundary_edge_profile_audit["midpoint_match_count_35mm"] += 1
         # Profile-clipped mesh edges can span a control-point kink even when
         # their endpoints are on the intended envelope. Validate both endpoints
         # separately, rather than rejecting the edge on midpoint curvature alone.
-        accepted = (
-            endpoint_deviation <= 0.008 and midpoint_deviation <= 0.015
-            if profile_bisect_smoothing
-            else midpoint_deviation <= boundary_edge_profile_tolerance_m
-        )
+        if narrow_sleeveless_profile:
+            # R9 moves the desired envelope inward by up to 30 mm relative to
+            # the native open edge. Select those legacy boundary edges only
+            # inside that bounded band, then project their X/Z onto the new
+            # measured profile before creating the matching binding.
+            accepted = endpoint_deviation <= 0.030 and midpoint_deviation <= 0.035
+        elif profile_bisect_smoothing:
+            accepted = endpoint_deviation <= 0.008 and midpoint_deviation <= 0.015
+        else:
+            accepted = midpoint_deviation <= boundary_edge_profile_tolerance_m
         if not accepted:
             continue
         boundary_edge_profile_audit["selected_edge_count"] += 1
@@ -2157,6 +2182,9 @@ def remove_short_sleeve_components(clothing_objects):
         "roughness_gate_scope": "depth Y component only for exact-profile R8; full XYZ roughness remains diagnostic because X/Z follow intentional profile curvature",
         "profile_projection_vertex_count": profile_projection_count,
         "boundary_edge_profile_tolerance_m": boundary_edge_profile_tolerance_m,
+        "narrow_sleeveless_profile": narrow_sleeveless_profile,
+        "profile_control_max_x_m": profile_control_max_x_m,
+        "maximum_total_boundary_displacement_m": 0.035 if narrow_sleeveless_profile else 0.010,
         "boundary_edge_profile_audit": boundary_edge_profile_audit,
         "max_profile_deviation_after_smoothing_m": round(max_profile_deviation_after_smoothing_m, 8) if max_profile_deviation_after_smoothing_m != float("inf") else None,
         "mean_displacement_m": round(sum(smoothing_displacements) / len(smoothing_displacements), 6) if smoothing_displacements else 0.0,
@@ -2182,8 +2210,9 @@ def remove_short_sleeve_components(clothing_objects):
                 ][:12],
             })
         )
-    if not smoothing_displacements or max(smoothing_displacements) > 0.035:
-        raise RuntimeError("V386 armhole boundary smoothing exceeded its 35 mm safety limit: " + repr(boundary_smoothing_audit))
+    maximum_total_boundary_displacement_m = 0.035 if narrow_sleeveless_profile else 0.010
+    if not smoothing_displacements or max(smoothing_displacements) > maximum_total_boundary_displacement_m:
+        raise RuntimeError("V386 armhole boundary smoothing exceeded its strategy-specific movement limit: " + repr(boundary_smoothing_audit))
     # The exact R8 profile has intentional X/Z curvature along the smoothed design curve.
     # Gate R8 on depth-only roughness so that profile curvature is not misreported as noise.
     pretrim_cuts = armhole_topology_refinement_audit["cuts_per_edge"]
