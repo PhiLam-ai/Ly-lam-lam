@@ -143,7 +143,7 @@ jobs:
               const sampleCount = Math.min(256, count);
               for (let i=0; i<sampleCount; i++) indices.push(Math.floor(i * (count-1) / Math.max(1, sampleCount-1)));
               const sample = () => indices.map(index => {
-                const v = mesh.getVertexPosition(index, new THREE.Vector3());
+                const v = mesh.getVertexPosition(index, new window.__v387TestThree.Vector3());
                 return [v.x,v.y,v.z];
               });
               const before = sample();
