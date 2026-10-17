@@ -1906,7 +1906,7 @@ def remove_short_sleeve_components(clothing_objects):
                 "V386-R4 armhole boundary refinement selected an unexpectedly large region: "
                 + str(len(selected_boundary_refine_edges))
             )
-        boundary_refine_cuts_per_edge = 5 if profile_boundary_refinement_mode else 2
+        boundary_refine_cuts_per_edge = 10 if profile_boundary_refinement_mode else 2
         bmesh.ops.subdivide_edges(
             boundary_refine_bm,
             edges=selected_boundary_refine_edges,
@@ -1924,7 +1924,7 @@ def remove_short_sleeve_components(clothing_objects):
     ]
     armhole_boundary_topology_refinement_audit = {
         "status": "APPLIED",
-        "method": "subdivide only actual exposed profile-matched armhole edges using endpoint deviation <= 8 mm and midpoint deviation <= 15 mm; split five cuts per selected edge for dense R9 profile-matched chains before rebuilding the smoothing/binding graph; preserve UV layers and material slots",
+        "method": "subdivide only actual exposed profile-matched armhole edges using endpoint deviation <= 8 mm and midpoint deviation <= 15 mm; split ten cuts per selected edge for dense R10 profile-matched chains before rebuilding the smoothing/binding graph; preserve UV layers and material slots",
         "selected_boundary_edge_count": len(selected_boundary_refine_edges),
         "profile_matched_boundary_mode": profile_boundary_refinement_mode,
         "endpoint_profile_tolerance_m": 0.008 if profile_boundary_refinement_mode else None,
@@ -1948,7 +1948,7 @@ def remove_short_sleeve_components(clothing_objects):
         raise RuntimeError("V386-R4 boundary refinement changed garment UV-layer names")
     if boundary_refine_materials_before != boundary_refine_materials_after:
         raise RuntimeError("V386-R4 boundary refinement changed garment material slots")
-    if armhole_boundary_topology_refinement_audit["vertices_added"] < 80:
+    if armhole_boundary_topology_refinement_audit["vertices_added"] < (160 if profile_boundary_refinement_mode else 80):
         raise RuntimeError(
             "V386-R4 boundary refinement added too few vertices for a meaningful density increase: "
             + repr(armhole_boundary_topology_refinement_audit)
@@ -2024,6 +2024,43 @@ def remove_short_sleeve_components(clothing_objects):
         selected_boundary_edges.append((a, b))
         boundary_graph.setdefault(a, set()).add(b)
         boundary_graph.setdefault(b, set()).add(a)
+
+    selected_boundary_edge_lengths_m = []
+    for edge_a, edge_b in selected_boundary_edges:
+        point_a = world_point(edge_a)
+        point_b = world_point(edge_b)
+        selected_boundary_edge_lengths_m.append(
+            math.sqrt(sum((float(point_a[axis]) - float(point_b[axis])) ** 2 for axis in range(3)))
+        )
+    selected_boundary_edge_lengths_sorted_m = sorted(selected_boundary_edge_lengths_m)
+    selected_edge_p95_index = (
+        min(len(selected_boundary_edge_lengths_sorted_m) - 1, int(0.95 * (len(selected_boundary_edge_lengths_sorted_m) - 1)))
+        if selected_boundary_edge_lengths_sorted_m else 0
+    )
+    boundary_edge_profile_audit.update({
+        "selected_edge_length_mean_m": (
+            sum(selected_boundary_edge_lengths_m) / len(selected_boundary_edge_lengths_m)
+            if selected_boundary_edge_lengths_m else 0.0
+        ),
+        "selected_edge_length_p95_m": (
+            selected_boundary_edge_lengths_sorted_m[selected_edge_p95_index]
+            if selected_boundary_edge_lengths_sorted_m else 0.0
+        ),
+        "selected_edge_length_max_m": (
+            max(selected_boundary_edge_lengths_m) if selected_boundary_edge_lengths_m else 0.0
+        ),
+    })
+    if profile_bisect_smoothing:
+        if len(selected_boundary_edges) < 180:
+            raise RuntimeError(
+                "V386-R10 exposed boundary chain does not have enough sampled segments: "
+                + repr(boundary_edge_profile_audit)
+            )
+        if boundary_edge_profile_audit["selected_edge_length_max_m"] > 0.006:
+            raise RuntimeError(
+                "V386-R10 exposed boundary segment exceeds 6 mm: "
+                + repr(boundary_edge_profile_audit)
+            )
 
     # The native shirt mesh is relatively coarse around the cut. Smooth only
     # vertices along the exposed armhole boundary chain, not the shirt body,
@@ -2408,7 +2445,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R9 clips the lateral shirt surface against an eight-subdivision PCHIP profile, subdivides the actual exposed profile-matched boundary chain before smoothing/binding, and preserves X/Z. Inspect front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R10 clips the lateral shirt surface against an eight-subdivision PCHIP profile, subdivides the actual exposed chain with ten cuts per selected boundary edge and verifies that no selected segment exceeds 6 mm. Inspect front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
