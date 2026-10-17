@@ -1281,11 +1281,7 @@ def remove_short_sleeve_components(clothing_objects):
         return result
 
     components_before = connected_components(mesh)
-    cut_profile_control = [
-        # Preserve the measured underarm and shoulder envelope, then use a
-        # shape-preserving cubic interpolation to remove hard direction changes
-        # between control points. Eight slices per control segment keep the
-        # polygonal clipping approximation within roughly 0.1 mm of the curve.
+    r8_reference_profile_control = [
         (1.095, 0.210),
         (1.115, 0.210),
         (1.135, 0.215),
@@ -1301,6 +1297,76 @@ def remove_short_sleeve_components(clothing_objects):
         (1.370, 0.165),
         (1.380, 0.145),
     ]
+    cut_profile_control = [
+        # R9: deepen the underarm scoop to remove the remaining cap-sleeve panel.
+        # Keep the lower crop hem and shoulder-top anchors fixed, and move only
+        # the mid-armhole envelope inward by 10-30 mm for a more open sleeveless cut.
+        (1.095, 0.210),
+        (1.115, 0.210),
+        (1.135, 0.205),
+        (1.165, 0.195),
+        (1.200, 0.190),
+        (1.235, 0.195),
+        (1.265, 0.210),
+        (1.290, 0.228),
+        (1.310, 0.240),
+        (1.325, 0.240),
+        (1.340, 0.225),
+        (1.355, 0.195),
+        (1.370, 0.165),
+        (1.380, 0.145),
+    ]
+    if len(r8_reference_profile_control) != len(cut_profile_control):
+        raise RuntimeError("V386-R9 profile must preserve the R8 control-point count")
+    if [point[0] for point in r8_reference_profile_control] != [point[0] for point in cut_profile_control]:
+        raise RuntimeError("V386-R9 must preserve the armhole control-point height anchors")
+    r8_profile_by_z = {z: x for z, x in r8_reference_profile_control}
+    profile_insets = [
+        {
+            "z_m": z,
+            "r8_x_limit_m": r8_profile_by_z[z],
+            "r9_x_limit_m": x,
+            "inward_shift_m": round(r8_profile_by_z[z] - x, 6),
+        }
+        for z, x in cut_profile_control
+        if 1.135 <= z <= 1.290
+    ]
+    preserved_hem_points = [
+        (z, x) for z, x in cut_profile_control if z <= 1.115
+    ]
+    reference_hem_points = [
+        (z, x) for z, x in r8_reference_profile_control if z <= 1.115
+    ]
+    preserved_shoulder_points = [
+        (z, x) for z, x in cut_profile_control if z >= 1.310
+    ]
+    reference_shoulder_points = [
+        (z, x) for z, x in r8_reference_profile_control if z >= 1.310
+    ]
+    armhole_profile_shape_audit = {
+        "status": "APPLIED",
+        "baseline": "V386-R8",
+        "method": "deepen the mid-armhole contour while preserving lower hem and upper shoulder control points",
+        "control_point_count": len(cut_profile_control),
+        "deepening_zone_z_m": [1.135, 1.290],
+        "control_point_insets": profile_insets,
+        "max_inward_shift_m": max(item["inward_shift_m"] for item in profile_insets),
+        "mean_inward_shift_m": round(
+            sum(item["inward_shift_m"] for item in profile_insets) / len(profile_insets), 6
+        ),
+        "underarm_min_x_limit_m": min(x for z, x in cut_profile_control if 1.135 <= z <= 1.265),
+        "lower_hem_anchor_points_preserved": preserved_hem_points == reference_hem_points,
+        "shoulder_top_anchor_points_preserved": preserved_shoulder_points == reference_shoulder_points,
+        "scope": "control-point X/Z envelope for lateral sleeveless armhole only; no production assets changed",
+    }
+    if not armhole_profile_shape_audit["lower_hem_anchor_points_preserved"]:
+        raise RuntimeError("V386-R9 altered the crop-hem anchor points")
+    if not armhole_profile_shape_audit["shoulder_top_anchor_points_preserved"]:
+        raise RuntimeError("V386-R9 altered the shoulder-top anchor points")
+    if not 0.029 <= armhole_profile_shape_audit["max_inward_shift_m"] <= 0.031:
+        raise RuntimeError("V386-R9 armhole depth change is outside the 29-31 mm safety band: " + repr(armhole_profile_shape_audit))
+    if not 0.018 <= armhole_profile_shape_audit["mean_inward_shift_m"] <= 0.022:
+        raise RuntimeError("V386-R9 mean armhole inset is outside the 18-22 mm safety band: " + repr(armhole_profile_shape_audit))
     profile_subdivisions_per_segment = 8
 
     def pchip_profile_slopes(control_points):
@@ -2358,6 +2424,7 @@ def remove_short_sleeve_components(clothing_objects):
         "armhole_topology_refinement_audit": armhole_topology_refinement_audit,
         "armhole_boundary_topology_refinement_audit": armhole_boundary_topology_refinement_audit,
         "cut_profile_bisect_audit": cut_profile_bisect_audit,
+        "armhole_profile_shape_audit": armhole_profile_shape_audit,
         "cut_region_audit": cut_region_audit,
         "cut_face_count": cut_face_count,
         "removed_vertex_count": removed_vertex_count,
@@ -2379,7 +2446,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R8 clips the lateral shirt surface against an eight-subdivision PCHIP armhole profile, then smooths only boundary depth while keeping X/Z constrained. Inspect front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R9 deepens the mid-armhole profile 10-30 mm relative to R8 while keeping the crop hem and shoulder-top anchors fixed; it uses the same eight-subdivision PCHIP clipping and depth-only boundary smoothing. Review front, side and three-quarter renders for armhole clearance and fabric coverage before approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
