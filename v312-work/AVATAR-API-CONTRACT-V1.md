@@ -16,7 +16,7 @@ The URL must use HTTPS when the preview itself is loaded over HTTPS. Credentials
 
 The browser makes a read-only HTTP `GET` request with `Accept: application/json`, no cookies, and no request body. The endpoint must allow cross-origin requests from the deployed Pages origin if it is hosted on a different origin.
 
-The client polls at a modest interval while the page is visible. Failed requests use bounded exponential retry from 1.2 seconds up to 12 seconds. On a transient error, the last valid weights remain applied.
+The client polls every 250 ms after the previous request completes while the page is visible; polling pauses when the tab is hidden and resumes when it returns. Failed requests use bounded exponential retry from 1.2 seconds up to 12 seconds. On a transient error, the last valid weights remain applied.
 
 ## Response schema
 
