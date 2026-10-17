@@ -20,6 +20,7 @@ from pathlib import Path
 
 import bpy
 from mathutils import Vector
+from audit_blender_skinning_v387 import audit_character_skinning
 
 EXPECTED_MORPHS = [
     "smile", "blink_left", "blink_right", "mouth_open", "jaw_open", "jaw_hinge",
@@ -5494,6 +5495,7 @@ def main():
     necklace_objects, necklace_accessory_audit = create_necklace_accessory(bpy.context.scene, basemesh, clothing_objects)
     character_objects.extend(necklace_objects)
     source_skinning_audit = audit_source_rig_skinning(character_objects, rig)
+    source_skinning_gate_audit = audit_character_skinning(character_objects, rig)
     composite_report = make_composite_morphs(character_objects)
     base_morphs = composite_report.get(basemesh.name, {}).get("composite_morphs", [])
     if base_morphs != EXPECTED_MORPHS:
@@ -5953,6 +5955,7 @@ def main():
         "necklace_accessory_audit": necklace_accessory_audit,
         "source_rig_diagnostic_only": idle_report,
         "source_skinning_audit": source_skinning_audit,
+        "source_skinning_gate_audit": source_skinning_gate_audit,
         "idle_animation": baked_idle_report,
         "body_skinning": "Baked neutral evaluated mesh; exported skin_count must be zero; twelve face morphs retained.",
         "baked_mesh_diagnostics": baked_mesh_report,
