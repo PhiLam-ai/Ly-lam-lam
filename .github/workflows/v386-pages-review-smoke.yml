@@ -11,8 +11,6 @@ on:
       - ".github/workflows/v386-pages-review-smoke.yml"
       - "tools/v386-pages-review-smoke.cjs"
   workflow_dispatch:
-    branches: [main]
-  workflow_dispatch:
   schedule:
     # 01:00 Vietnam time (UTC+7)
     - cron: "0 18 * * *"
