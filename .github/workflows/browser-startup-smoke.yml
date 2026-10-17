@@ -6,6 +6,10 @@ on:
     paths:
       - "v312-work/**"
       - ".github/workflows/browser-startup-smoke.yml"
+  pull_request:
+    paths:
+      - "v312-work/**"
+      - ".github/workflows/browser-startup-smoke.yml"
   workflow_dispatch:
   schedule:
     # 23:35 Vietnam time (UTC+7)
@@ -31,6 +35,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Validate avatar state API contract
+        run: node --test v312-work/tools/test-avatar-api-client.cjs
 
       - name: Install Playwright and Chromium
         run: |
@@ -89,7 +96,60 @@ jobs:
             if (!state.booted) throw new Error('Avatar did not finish loading: ' + state.status);
             if (!state.rendererReady || state.canvasCount !== 1) throw new Error('WebGL renderer/canvas not initialized');
             if (!modelResponses.some(r => r.status === 200)) throw new Error('GLB request did not return HTTP 200: ' + JSON.stringify(modelResponses));
+            if (!state.status.includes('API trạng thái biểu cảm chưa cấu hình')) {
+              throw new Error('Default preview must state truthfully that no avatar API endpoint is configured: ' + state.status);
+            }
             if (errors.length) throw new Error('Browser page errors: ' + errors.join(' | '));
+
+            // Exercise the configurable, read-only API route against a local deterministic response.
+            const apiPage = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+            const apiErrors = [];
+            let mockApiRequests = 0;
+            apiPage.on('pageerror', e => apiErrors.push(e.message));
+            await apiPage.route('http://127.0.0.1:4173/mock-avatar-state', async route => {
+              mockApiRequests += 1;
+              await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                  schema: 'ly-lam-lam/avatar-state',
+                  version: 1,
+                  sequence: mockApiRequests,
+                  weights: { smile: 0.35, mouth_open: 0.1 }
+                })
+              });
+            });
+            const apiUrl = encodeURIComponent('http://127.0.0.1:4173/mock-avatar-state');
+            const apiResponse = await apiPage.goto(
+              'http://127.0.0.1:4173/?diagnostics=1&avatarApi=' + apiUrl,
+              { waitUntil: 'domcontentloaded', timeout: 30000 }
+            );
+            if (!apiResponse || !apiResponse.ok()) throw new Error('Configured API preview HTML response failed');
+            await apiPage.waitForFunction(
+              () => document.querySelector('#status-message')?.textContent.includes('API đã kết nối'),
+              { timeout: 45000 }
+            );
+            const apiState = await apiPage.evaluate(() => ({
+              booted: window.__lyLamAppBooted === true,
+              status: document.querySelector('#status-message')?.textContent || '',
+              apiButtonDisabled: document.querySelector('#api-mode')?.disabled,
+              apiButtonText: document.querySelector('#api-mode')?.textContent || ''
+            }));
+            console.log('CONFIGURED_API_STATE=' + JSON.stringify(apiState));
+            if (!apiState.booted || !apiState.status.includes('API đã kết nối')) {
+              throw new Error('Configured API state did not connect: ' + JSON.stringify(apiState));
+            }
+            if (apiState.apiButtonDisabled || apiState.apiButtonText !== 'Trở lại điều khiển API') {
+              throw new Error('API return-to-control button has incorrect state: ' + JSON.stringify(apiState));
+            }
+            if (mockApiRequests < 1) throw new Error('Configured API endpoint was never requested');
+            if (apiErrors.length) throw new Error('Configured API page errors: ' + apiErrors.join(' | '));
+            await apiPage.locator('#api-mode').click();
+            await apiPage.waitForFunction(
+              () => document.querySelector('#status-message')?.textContent.includes('API đã kết nối'),
+              { timeout: 10000 }
+            );
+            if (apiErrors.length) throw new Error('Browser errors after returning to API control: ' + apiErrors.join(' | '));
             await browser.close();
           })().catch(e => { console.error(e.stack || e); process.exit(1); });
           JS
