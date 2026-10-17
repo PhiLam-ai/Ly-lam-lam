@@ -376,6 +376,8 @@ def parse_args():
                         help="Normalize only real-bone weights on temporary copies; source scene is not modified")
     parser.add_argument("--animation-name", default="Lam_Idle_GentleSway",
                         help="Name assigned to a copied active rig action for preview runtime compatibility")
+    parser.add_argument("--visual-source", choices=("rigged", "baked-v386"), default="rigged",
+                        help="Export original rigged meshes or V386's final baked visual meshes with experimental skin restoration")
     parser.add_argument("--allow-incomplete-morphs", action="store_true",
                         help="Do not require all 12 Lam facial morph names in the exported GLB")
     return parser.parse_args(argv)
@@ -385,8 +387,13 @@ def main():
     args = parse_args()
     scene = bpy.context.scene
     rig, linked_meshes = choose_rig(scene, args.rig_name)
-
     source_audit = audit_character_skinning(linked_meshes, rig)
+
+    if args.visual_source == "baked-v386":
+        source_meshes = select_baked_visual_meshes(scene)
+    else:
+        source_meshes = linked_meshes
+
     source_failures = [
         mesh["object"] for mesh in source_audit["meshes"]
         if not mesh["has_intended_armature_modifier"]
@@ -395,7 +402,7 @@ def main():
         or (mesh["non_normalized_weighted_vertex_count"] > 0
             and not args.normalize_bone_weights_on_export_copy)
     ]
-    if source_failures:
+    if args.visual_source == "rigged" and source_failures:
         raise RuntimeError("Source skinning audit failed; refusing export: " + json.dumps({
             "failed_meshes": source_failures,
             "normalization_requested": args.normalize_bone_weights_on_export_copy,
@@ -407,12 +414,12 @@ def main():
         raise RuntimeError(f"Output already exists; choose a new path or pass --overwrite: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    export_rig, export_meshes, temp_objects = create_temporary_export_copies(
-        scene, rig, linked_meshes, args.normalize_bone_weights_on_export_copy
+    export_rig, export_meshes, deformable_meshes, temp_objects, mesh_policies = create_temporary_export_copies(
+        scene, rig, source_meshes, args.normalize_bone_weights_on_export_copy, args.visual_source
     )
     temporary_action_report = rename_temporary_rig_action(export_rig, args.animation_name)
     try:
-        export_audit = audit_character_skinning(export_meshes, export_rig)
+        export_audit = audit_character_skinning(deformable_meshes, export_rig)
         failing = [
             mesh["object"] for mesh in export_audit["meshes"]
             if not mesh["has_intended_armature_modifier"]
@@ -425,9 +432,14 @@ def main():
                 "failed_meshes": failing, "audit": export_audit,
             }, ensure_ascii=False))
 
-        body_copy = next((obj for obj in export_meshes if obj.name == "Human.V387_EXPORT_TEMP"), None)
+        expected_body_name = (
+            "V386_Baked_Human.V387_EXPORT_TEMP"
+            if args.visual_source == "baked-v386"
+            else "Human.V387_EXPORT_TEMP"
+        )
+        body_copy = next((obj for obj in deformable_meshes if obj.name == expected_body_name), None)
         if body_copy is None:
-            raise RuntimeError("Cannot run pose deformation probe: expected Human body mesh copy is missing")
+            raise RuntimeError(f"Cannot run pose deformation probe: expected body mesh copy {expected_body_name!r} is missing")
         pose_deformation_report = probe_pose_deformation(body_copy, export_rig)
 
         bpy.ops.object.select_all(action="DESELECT")
@@ -466,9 +478,14 @@ def main():
         "status": "STRUCTURAL_SKINNING_GATE_PASSED",
         "output": str(output),
         "bytes": output.stat().st_size,
+        "visual_source": args.visual_source,
         "rig_name": rig.name,
         "rig_bone_count": len(rig.data.bones),
-        "source_mesh_count": len(linked_meshes),
+        "source_mesh_count": len(source_meshes),
+        "source_rigged_mesh_count": len(linked_meshes),
+        "deformable_mesh_count": len(deformable_meshes),
+        "rigid_accessory_count": len(export_meshes) - len(deformable_meshes),
+        "mesh_export_policies": mesh_policies,
         "source_skinning_audit": source_audit,
         "export_copy_skinning_audit": export_audit,
         "pose_deformation_probe": pose_deformation_report,
@@ -484,7 +501,7 @@ def main():
             name for mesh in gltf.get("meshes", [])
             for name in mesh.get("extras", {}).get("targetNames", [])
         }),
-        "note": "Structural gate only. Pose-deformation renders, browser runtime tests, visual quality review, and accessory integration remain required.",
+        "note": "Structural and Blender pose-deformation gates only. Browser runtime and visual quality review remain required.",
     }
     report_path = output.with_suffix(".skinning-report.json")
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
