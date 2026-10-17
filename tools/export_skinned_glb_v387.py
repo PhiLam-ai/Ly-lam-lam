@@ -101,8 +101,52 @@ def normalize_bone_weights(mesh_obj, rig):
                 group.add([vertex.index], weight / total, "REPLACE")
 
 
-def create_temporary_export_copies(scene, rig, linked_meshes, normalize_weights):
-    """Duplicate rig and mesh datablocks for export-only edits; caller must clean up."""
+def select_baked_visual_meshes(scene):
+    """Select V386's final baked visual meshes, excluding hidden editable source meshes."""
+    meshes = [
+        obj for obj in scene.objects
+        if obj.type == "MESH" and obj.name.startswith("V386_Baked_")
+    ]
+    if not meshes:
+        raise RuntimeError("No V386_Baked_ visual meshes found in the source scene")
+    return sorted(meshes, key=lambda obj: obj.name)
+
+
+def has_positive_bone_weights(mesh_obj, rig):
+    bone_names = set(rig.data.bones.keys())
+    bone_group_indices = {group.index for group in mesh_obj.vertex_groups if group.name in bone_names}
+    if not bone_group_indices:
+        return False
+    return any(
+        assignment.group in bone_group_indices and assignment.weight > 0.0
+        for vertex in mesh_obj.data.vertices for assignment in vertex.groups
+    )
+
+
+def rigid_bone_for_baked_mesh(mesh_name, rig):
+    """Documented rigid attachment policy for V386's static wardrobe/face accessories."""
+    name = mesh_name.lower()
+    if "faceframe" in name or "forelock" in name or "temple" in name:
+        candidate = "head"
+    elif "necklace" in name or "pendant" in name:
+        candidate = "neck_01"
+    elif "anklecover_left" in name:
+        candidate = "foot_l"
+    elif "anklecover_right" in name:
+        candidate = "foot_r"
+    elif "armholebinding" in name:
+        candidate = "spine_03"
+    elif any(token in name for token in ("beltstrap", "buckle", "waistgappatch", "cargopocket")):
+        candidate = "pelvis"
+    else:
+        candidate = "spine_03"
+    if rig.data.bones.get(candidate) is None:
+        raise RuntimeError(f"Rigid mesh {mesh_name!r} maps to missing attachment bone {candidate!r}")
+    return candidate
+
+
+def create_temporary_export_copies(scene, rig, source_meshes, normalize_weights, visual_source="rigged"):
+    """Create isolated export copies; source scene objects/data are never edited."""
     temp_objects = []
     export_rig = rig.copy()
     export_rig.data = rig.data.copy()
@@ -111,26 +155,82 @@ def create_temporary_export_copies(scene, rig, linked_meshes, normalize_weights)
     temp_objects.append(export_rig)
 
     export_meshes = []
-    for source in linked_meshes:
+    deformable_meshes = []
+    mesh_policies = []
+    bone_names = set(export_rig.data.bones.keys())
+
+    for source in source_meshes:
         duplicate = source.copy()
         duplicate.data = source.data.copy()
         duplicate.name = f"{source.name}.V387_EXPORT_TEMP"
         scene.collection.objects.link(duplicate)
         temp_objects.append(duplicate)
-        # The glTF exporter reliably binds a skin when each deforming mesh is
-        # parented to the same exported armature. Preserve world transform while
-        # establishing that relationship on temporary copies only.
         source_world = source.matrix_world.copy()
-        duplicate.parent = export_rig
-        duplicate.matrix_parent_inverse = export_rig.matrix_world.inverted()
-        duplicate.matrix_world = source_world
-        for modifier in duplicate.modifiers:
-            if modifier.type == "ARMATURE" and modifier.object == rig:
+
+        if visual_source == "baked-v386":
+            has_weights = has_positive_bone_weights(duplicate, export_rig)
+            # Baked V386 geometry is already in world-space at identity. Add a new
+            # armature modifier only to meshes carrying real bone weights.
+            duplicate.parent = None
+            duplicate.parent_type = "OBJECT"
+            duplicate.matrix_world = source_world
+            if has_weights:
+                modifier = duplicate.modifiers.new(name="V387_Armature", type="ARMATURE")
                 modifier.object = export_rig
-        if normalize_weights:
-            normalize_bone_weights(duplicate, export_rig)
+                duplicate.parent = export_rig
+                duplicate.parent_type = "OBJECT"
+                duplicate.matrix_parent_inverse = export_rig.matrix_world.inverted()
+                duplicate.matrix_world = source_world
+                if normalize_weights:
+                    normalize_bone_weights(duplicate, export_rig)
+                deformable_meshes.append(duplicate)
+                mesh_policies.append({
+                    "source_object": source.name,
+                    "export_object": duplicate.name,
+                    "policy": "skinned_deformable_mesh",
+                    "attachment_bone": None,
+                    "armature_modifier": modifier.name,
+                })
+            else:
+                bone = rigid_bone_for_baked_mesh(source.name, export_rig)
+                duplicate.parent = export_rig
+                duplicate.parent_type = "BONE"
+                duplicate.parent_bone = bone
+                duplicate.matrix_parent_inverse.identity()
+                duplicate.matrix_world = source_world
+                mesh_policies.append({
+                    "source_object": source.name,
+                    "export_object": duplicate.name,
+                    "policy": "rigid_bone_attachment",
+                    "attachment_bone": bone,
+                    "armature_modifier": None,
+                })
+        else:
+            duplicate.parent = export_rig
+            duplicate.parent_type = "OBJECT"
+            duplicate.matrix_parent_inverse = export_rig.matrix_world.inverted()
+            duplicate.matrix_world = source_world
+            for modifier in duplicate.modifiers:
+                if modifier.type == "ARMATURE" and modifier.object == rig:
+                    modifier.object = export_rig
+            deformable_meshes.append(duplicate)
+            if normalize_weights:
+                normalize_bone_weights(duplicate, export_rig)
+            mesh_policies.append({
+                "source_object": source.name,
+                "export_object": duplicate.name,
+                "policy": "existing_rigged_mesh",
+                "attachment_bone": None,
+                "armature_modifier": next((
+                    modifier.name for modifier in duplicate.modifiers
+                    if modifier.type == "ARMATURE" and modifier.object == export_rig
+                ), None),
+            })
         export_meshes.append(duplicate)
-    return export_rig, export_meshes, temp_objects
+
+    if not deformable_meshes:
+        raise RuntimeError("No deformable meshes with positive real-bone weights found for export")
+    return export_rig, export_meshes, deformable_meshes, temp_objects, mesh_policies
 
 
 def cleanup_temporary_copies(objects):
