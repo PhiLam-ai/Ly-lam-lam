@@ -502,6 +502,9 @@ jobs:
           assert profile_clip["profile_boundary_vertex_count"] >= 40, profile_clip
           assert profile_clip["max_profile_deviation_m"] <= 0.0001, profile_clip
           assert profile_clip["max_smooth_profile_deviation_m"] <= 0.0001, profile_clip
+          assert 0.0 <= profile_clip["source_vertex_removal_fraction"] <= profile_clip["maximum_allowed_source_vertex_removal_fraction"] == 0.55, profile_clip
+          assert profile_clip["source_vertex_count_before_clip"] == sleeves["vertex_count_before"], profile_clip
+          assert profile_clip["source_vertices_removed_by_clip"] == sleeves["removed_vertex_count"], profile_clip
           assert profile_clip["uv_layer_names_preserved"] is True, profile_clip
           assert profile_clip["material_slots_preserved"] is True, profile_clip
           assert profile_clip["world_y_interpolated"] is True, profile_clip
