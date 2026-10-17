@@ -2122,7 +2122,7 @@ def remove_short_sleeve_components(clothing_objects):
                 # profile; skipping relaxation must not skip profile projection.
                 endpoint_point = current.copy()
                 if profile_bisect_smoothing:
-                    endpoint_limit = lateral_limit(float(current.z))
+                    endpoint_limit = smooth_profile_limit(float(current.z)) if profile_bisect_smoothing else lateral_limit(float(current.z))
                     if endpoint_limit is not None and 0.10 < abs(float(current.x)) < 0.35:
                         endpoint_point.x = math.copysign(endpoint_limit, float(current.x))
                         endpoint_point.z = current.z
@@ -2149,7 +2149,7 @@ def remove_short_sleeve_components(clothing_objects):
                     min(original_y + max_depth_offset, float(target_y)),
                 )
             next_point.y = target_y
-            limit = lateral_limit(float(current.z))
+            limit = smooth_profile_limit(float(current.z)) if profile_bisect_smoothing else lateral_limit(float(current.z))
             if limit is not None and 0.10 < abs(float(current.x)) < 0.35:
                 next_point.x = math.copysign(limit, float(current.x))
                 next_point.z = current.z
@@ -2184,7 +2184,7 @@ def remove_short_sleeve_components(clothing_objects):
     profile_fit_deviations = []
     for index in boundary_vertex_indices:
         point = boundary_smoothed_positions[index]
-        limit = lateral_limit(float(point.z))
+        limit = smooth_profile_limit(float(point.z)) if profile_bisect_smoothing else lateral_limit(float(point.z))
         if limit is not None and 0.10 < abs(float(point.x)) < 0.35:
             profile_fit_deviations.append(abs(abs(float(point.x)) - limit))
     max_profile_deviation_after_smoothing_m = (
@@ -2193,7 +2193,7 @@ def remove_short_sleeve_components(clothing_objects):
     profile_bisect_active = "cut_profile_bisect_audit" in locals()
     boundary_smoothing_audit = {
         "status": "APPLIED",
-        "method": "eight-pass depth-only Laplacian relaxation (world Y, factor 0.40) of the smooth-profile boundary, with each vertex limited to +/-5 mm from original depth; measured profile X/Z remain fixed",
+        "method": "eight-pass depth-only Laplacian relaxation (world Y, factor 0.40) of the locally projected smooth-profile boundary, with each vertex limited to +/-5 mm from original depth; measured profile X/Z remain fixed",
         "vertex_count": len(boundary_vertex_indices),
         "iterations": boundary_smoothing_iterations,
         "relaxation_factor": boundary_smoothing_factor,
@@ -2454,7 +2454,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R8 clips the lateral shirt surface against an eight-subdivision PCHIP armhole profile, then smooths only boundary depth while keeping X/Z constrained. Inspect front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R9 uses four profile subdivisions and projects only exposed edge vertices onto the smooth PCHIP curve; this reduces horizontal slice bands while keeping profile error and per-vertex corrections below 0.5 mm. Inspect front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
