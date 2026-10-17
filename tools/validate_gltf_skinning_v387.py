@@ -44,18 +44,28 @@ def validate(gltf: dict) -> list[str]:
         joints = skin.get("joints", [])
         if not joints: errors.append(f"Skin {si} has no joints")
         if len(joints) != len(set(joints)): errors.append(f"Skin {si} contains duplicate joint node indices")
-        invalid = [j for j in joints if not isinstance(j, int) or j < 0 or j >= len(nodes)]
+        invalid = [j for j in joints if not isinstance(j, int) or isinstance(j, bool) or j < 0 or j >= len(nodes)]
         if invalid: errors.append(f"Skin {si} references invalid joint node indices: {invalid}")
+        skeleton = skin.get("skeleton")
+        if skeleton is not None and (not isinstance(skeleton, int) or isinstance(skeleton, bool) or skeleton < 0 or skeleton >= len(nodes)):
+            errors.append(f"Skin {si} references invalid skeleton node index {skeleton}")
         ibm = skin.get("inverseBindMatrices")
-        if ibm is None: errors.append(f"Skin {si} has no inverseBindMatrices accessor")
-        elif not isinstance(ibm, int) or ibm < 0 or ibm >= len(accessors):
+        if ibm is None:
+            errors.append(f"Skin {si} has no inverseBindMatrices accessor")
+        elif not isinstance(ibm, int) or isinstance(ibm, bool) or ibm < 0 or ibm >= len(accessors):
             errors.append(f"Skin {si} has invalid inverseBindMatrices accessor {ibm}")
-        elif accessors[ibm].get("count") is not None and accessors[ibm]["count"] != len(joints):
-            errors.append(f"Skin {si} inverse bind matrix count {accessors[ibm]['count']} != joint count {len(joints)}")
-    all_joints = {j for skin in skins for j in skin.get("joints", []) if isinstance(j, int)}
+        else:
+            accessor = accessors[ibm]
+            if accessor.get("type") != "MAT4":
+                errors.append(f"Skin {si} inverseBindMatrices accessor must have type MAT4")
+            if accessor.get("componentType") != 5126:
+                errors.append(f"Skin {si} inverseBindMatrices accessor must use FLOAT components")
+            if accessor.get("count") is not None and accessor["count"] != len(joints):
+                errors.append(f"Skin {si} inverse bind matrix count {accessor['count']} != joint count {len(joints)}")
+    all_joints = {j for skin in skins for j in skin.get("joints", []) if isinstance(j, int) and not isinstance(j, bool)}
     for ni, node in enumerate(nodes):
         if "skin" not in node: continue
-        if not isinstance(node["skin"], int) or node["skin"] < 0 or node["skin"] >= len(skins):
+        if not isinstance(node["skin"], int) or isinstance(node["skin"], bool) or node["skin"] < 0 or node["skin"] >= len(skins):
             errors.append(f"Node {ni} references invalid skin index {node['skin']}")
         if "mesh" not in node: errors.append(f"Node {ni} has a skin but no mesh")
         elif isinstance(node.get("mesh"), int) and 0 <= node["mesh"] < len(meshes):
@@ -64,7 +74,7 @@ def validate(gltf: dict) -> list[str]:
                 if "JOINTS_0" not in attrs or "WEIGHTS_0" not in attrs:
                     errors.append(f"Skinned node {ni} primitive {pi} lacks JOINTS_0/WEIGHTS_0")
                 pos_i, joints_i, weights_i = attrs.get("POSITION"), attrs.get("JOINTS_0"), attrs.get("WEIGHTS_0")
-                if not all(isinstance(i, int) and 0 <= i < len(accessors) for i in (pos_i, joints_i, weights_i)):
+                if not all(isinstance(i, int) and not isinstance(i, bool) and 0 <= i < len(accessors) for i in (pos_i, joints_i, weights_i)):
                     errors.append(f"Skinned node {ni} primitive {pi} has an invalid POSITION/JOINTS_0/WEIGHTS_0 accessor")
                     continue
                 pa, ja, wa = accessors[pos_i], accessors[joints_i], accessors[weights_i]
@@ -83,7 +93,7 @@ def validate(gltf: dict) -> list[str]:
         for channel in animation.get("channels", []):
             channel_count += 1
             target = channel.get("target", {})
-            if target.get("path") in ("translation", "rotation", "scale") and isinstance(target.get("node"), int):
+            if target.get("path") in ("translation", "rotation", "scale") and isinstance(target.get("node"), int) and not isinstance(target.get("node"), bool):
                 joint_targets.add(target["node"])
     if not animations: errors.append("No animation clips found")
     elif not joint_targets.intersection(all_joints): errors.append("No animation channel targets a joint in any exported skin")
@@ -111,7 +121,7 @@ def main() -> int:
               "errors": errors, "passed": not errors}
     serialized = json.dumps(report, indent=2, ensure_ascii=False)
     print(serialized)
-    if args.report: args.report.write_text(serialized + "\n", encoding="utf-8")
+    if args.report: args.report.write_text(serialized + "\\n", encoding="utf-8")
     return 0 if not errors else 1
 
 if __name__ == "__main__":
