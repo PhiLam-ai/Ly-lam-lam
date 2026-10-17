@@ -150,6 +150,32 @@ jobs:
               { timeout: 10000 }
             );
             if (apiErrors.length) throw new Error('Browser errors after returning to API control: ' + apiErrors.join(' | '));
+
+            // Simulate a backgrounded tab. Polling should pause, then resume on foreground.
+            await apiPage.waitForTimeout(350);
+            await apiPage.evaluate(() => {
+              Object.defineProperty(document, 'hidden', {
+                configurable: true,
+                get: () => window.__simulateTabHidden === true
+              });
+              window.__simulateTabHidden = true;
+              document.dispatchEvent(new Event('visibilitychange'));
+            });
+            await apiPage.waitForTimeout(450);
+            const settledHiddenRequestCount = mockApiRequests;
+            await apiPage.waitForTimeout(600);
+            if (mockApiRequests !== settledHiddenRequestCount) {
+              throw new Error('API polling continued while the tab was simulated as hidden');
+            }
+            await apiPage.evaluate(() => {
+              window.__simulateTabHidden = false;
+              document.dispatchEvent(new Event('visibilitychange'));
+            });
+            await apiPage.waitForTimeout(400);
+            if (mockApiRequests <= settledHiddenRequestCount) {
+              throw new Error('API polling did not resume after the tab became visible');
+            }
+            if (apiErrors.length) throw new Error('Browser errors after visibility recovery: ' + apiErrors.join(' | '));
             await browser.close();
           })().catch(e => { console.error(e.stack || e); process.exit(1); });
           JS
