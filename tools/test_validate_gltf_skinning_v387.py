@@ -57,6 +57,30 @@ class SkinningValidatorTests(unittest.TestCase):
         errors = validate(gltf)
         self.assertTrue(any("JOINTS_0 must be VEC4 unsigned byte/short" in error for error in errors))
 
+    def test_rejects_inverse_bind_matrices_with_wrong_type(self):
+        gltf = valid_gltf()
+        gltf["accessors"][3]["type"] = "VEC4"
+        errors = validate(gltf)
+        self.assertTrue(any("inverseBindMatrices accessor must have type MAT4" in error for error in errors))
+
+    def test_rejects_inverse_bind_matrices_with_non_float_components(self):
+        gltf = valid_gltf()
+        gltf["accessors"][3]["componentType"] = 5123
+        errors = validate(gltf)
+        self.assertTrue(any("inverseBindMatrices accessor must use FLOAT components" in error for error in errors))
+
+    def test_rejects_invalid_skeleton_node(self):
+        gltf = valid_gltf()
+        gltf["skins"][0]["skeleton"] = 99
+        errors = validate(gltf)
+        self.assertTrue(any("invalid skeleton node index" in error for error in errors))
+
+    def test_rejects_invalid_joint_node(self):
+        gltf = valid_gltf()
+        gltf["skins"][0]["joints"] = [99]
+        errors = validate(gltf)
+        self.assertTrue(any("invalid joint node indices" in error for error in errors))
+
     def test_requires_all_expected_facial_morph_names(self):
         gltf = valid_gltf()
         gltf["meshes"][0]["extras"]["targetNames"].remove("smile")
