@@ -1685,6 +1685,8 @@ def remove_short_sleeve_components(clothing_objects):
         "max_smooth_profile_deviation_m": round(max_smooth_profile_deviation_m, 8),
         "mean_smooth_profile_deviation_m": round(mean_smooth_profile_deviation_m, 8),
         "smooth_profile_control_points_world_xz_m": [[z, x] for z, x in cut_profile_control],
+        "base_profile_control_world_xz_m": [[z, x] for z, x in cut_profile_base_control],
+        "integrated_shoulder_overlap_max_m": integrated_shoulder_overlap_max_m,
         "world_y_interpolated": True,
         "uv_layer_names_before": uv_names_before_profile_clip,
         "uv_layer_names_after": uv_names_after_profile_clip,
