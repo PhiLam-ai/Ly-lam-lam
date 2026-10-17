@@ -1714,13 +1714,10 @@ def remove_short_sleeve_components(clothing_objects):
     profile_vertex_count_before = vertex_count_before
     profile_face_count_before = face_count_before
 
-    # Widen the retained upper armhole edge itself. The profile-plane bisect now
-    # generates a true intersection edge, so this offset remains localized and
-    # is no longer being used to disguise a coarse whole-face cut.
-    # Widen the retained upper armhole edge itself. A face-centroid/vertex trim
-    # leaves a coarse topology edge too far inward; a small smooth edge offset
-    # gives the sleeveless shoulder panel enough overlap to cover the arm-cap
-    # without filling the armhole or adding a detached sleeve.
+    # R9: keep only a small shoulder-edge overlap after smooth-profile clipping.
+    # The previous 22 mm version looked too much like a short sleeve in renders;
+    # this 10 mm maximum aims to preserve coverage with a narrower silhouette.
+    # Retain a tapered overlap, but keep it visually restrained for R9.
     boundary_edge_counts = {}
     for polygon in mesh.polygons:
         ids = list(polygon.vertices)
@@ -1763,9 +1760,9 @@ def remove_short_sleeve_components(clothing_objects):
         rise = smooth_unit((point_z - 1.12) / (1.18 - 1.12))
         fall = smooth_unit((1.34 - point_z) / (1.34 - 1.26))
         weight = rise * fall
-        # A22 visual candidate: modest local overlap; require front/side visual review before promotion.
-        # Keep the taper localized; the former 30 mm trial made the shoulder cap look too broad.
-        delta_x = 0.022 * weight
+        # R9 visual candidate: reduce the outward edge offset from 22 mm to 10 mm.
+        # Keep the taper localized and verify arm coverage from front/side renders.
+        delta_x = 0.010 * weight
         if delta_x < 0.002:
             continue
         side_sign = 1.0 if point[0] >= 0.0 else -1.0
@@ -1783,7 +1780,7 @@ def remove_short_sleeve_components(clothing_objects):
     max_abs_x_after_overlap = max(abs(world_point(index)[0]) for index in range(len(mesh.vertices)))
     shoulder_edge_overlap_audit = {
         "status": "APPLIED",
-        "method": "smooth localized 22 mm maximum outward offset on the retained upper armhole boundary; tapered at underarm and shoulder-top ends",
+        "method": "R9 smooth localized 10 mm maximum outward offset on the retained upper armhole boundary; tapered at underarm and shoulder-top ends",
         "candidate_boundary_vertex_count": len(shoulder_boundary_vertex_indices),
         "moved_vertex_count": len(shoulder_edge_offsets),
         "max_offset_m": round(max(shoulder_edge_offsets), 6),
@@ -1791,7 +1788,7 @@ def remove_short_sleeve_components(clothing_objects):
         "max_abs_x_before_m": round(max_abs_x_before_overlap, 6),
         "max_abs_x_after_m": round(max_abs_x_after_overlap, 6),
         "preserved": "underarm opening remains open; no detached sleeve or solid armhole cap added",
-        "visual_warning": "Inspect the widened upper edge from front/side/three-quarter views for cloth stretching before approval.",
+        "visual_warning": "R9 reduces shoulder overlap to 10 mm maximum to avoid a short-sleeve cap appearance; inspect arm coverage and cloth stretching from front/side/three-quarter views before approval.",
     }
 
     # Counts are recorded from the actual BMesh deletions above. Profile bisect
@@ -2379,7 +2376,7 @@ def remove_short_sleeve_components(clothing_objects):
             "face, eyes/iris, hair, necklace, belt/pockets and ankle details",
             "12 facial morphs and Lam_Idle_GentleSway",
         ],
-        "visual_warning": "V386-R8 clips the lateral shirt surface against an eight-subdivision PCHIP armhole profile, then smooths only boundary depth while keeping X/Z constrained. Inspect front, side and three-quarter renders before visual approval.",
+        "visual_warning": "V386-R9 clips the lateral shirt surface against an eight-subdivision PCHIP armhole profile and reduces shoulder-edge overlap to 10 mm maximum. Inspect front, side and three-quarter renders before visual approval.",
     }
 
 def apply_relaxed_arm_pose(basemesh, clothing_objects):
