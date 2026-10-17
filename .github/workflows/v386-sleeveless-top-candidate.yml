@@ -184,15 +184,19 @@ jobs:
           }
           assert report["status"] == "EXPERIMENTAL_V386_GLTFSKIN_FACE_ACCESSORY_CANDIDATE_NOT_APPROVED", report
           assert report["version"] == "V386", report
-          refinement = report["sleeve_removal_audit"].get("armhole_topology_refinement_audit")
+          report_sleeves = report["sleeve_removal_audit"]
+          refinement = report_sleeves.get("armhole_topology_refinement_audit")
           assert refinement and refinement["status"] == "APPLIED", refinement
-          assert refinement["profile_point_count"] == 14, refinement
-          assert refinement["sampled_profile_point_count"] >= 100, refinement
-          assert refinement["profile_edge_overlap_max_offset_m"] == 0.015, refinement
-          assert refinement["max_smooth_profile_deviation_m"] < 0.00011, refinement
-          assert refinement["world_y_interpolated"] is True, refinement
+          assert refinement["cuts_per_edge"] == 5 and refinement["selected_edge_count"] >= 40, refinement
           assert refinement["uv_layer_names_before"] == refinement["uv_layer_names_after"], refinement
           assert refinement["material_names_before"] == refinement["material_names_after"], refinement
+          profile = report_sleeves.get("cut_profile_bisect_audit")
+          assert profile and profile["status"] == "APPLIED", profile
+          assert profile["profile_point_count"] == 14, profile
+          assert profile["sampled_profile_point_count"] >= 100, profile
+          assert profile["profile_edge_overlap_max_offset_m"] == 0.015, profile
+          assert profile["max_smooth_profile_deviation_m"] < 0.00011, profile
+          assert profile["world_y_interpolated"] is True, profile
           report_sleeves = report["sleeve_removal_audit"]
           report_smoothing = report_sleeves["armhole_boundary_smoothing_audit"]
           expected_smoothing_iterations = 8 if "cut_profile_bisect_audit" in report_sleeves else 12
