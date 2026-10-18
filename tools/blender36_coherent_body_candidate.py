@@ -26,7 +26,7 @@ def main():
     def material(name,color,rough=.6):
         m=bpy.data.materials.new(name); m.diffuse_color=(*color,1); m.roughness=rough; return m
     skin=material("Lam warm natural skin",(0.62,.34,.23),.52)
-    shirt=material("Lam clean white streetwear top",(.88,.88,.84),.62)
+    shirt=material("Lam deep teal fitted crop top",(.025,.095,.105),.48)
     pants=material("Lam matte black biker pants",(.018,.018,.022),.5)
     hair=material("Lam deep black hair",(.012,.010,.013),.50)
     shoes=material("Lam white sneakers",(.88,.88,.86),.45)
@@ -132,28 +132,23 @@ def main():
         for poly in obj.data.polygons:poly.use_smooth=True
         return obj
 
-    # White short-sleeved streetwear tee with a shaped waist and sloped shoulder line.
-    shirt_obj=loft_rings("LAM_WHITE_TEE",[
-        (3.36,.345,.190,0),(3.40,.370,.202,0),(3.48,.385,.210,0),
-        (3.58,.392,.214,0),(3.72,.400,.218,0),(3.86,.415,.222,0),
-        (3.98,.435,.225,0),(4.08,.448,.224,0),(4.16,.438,.215,0),
-        (4.22,.402,.202,0),(4.33,.315,.170,0),(4.43,.245,.145,0),(4.49,.132,.106,0)
+    # Reference-led everyday outfit: fitted dark-teal crop tank, not the earlier white tee blockout.
+    shirt_obj=loft_rings("LAM_DARK_TEAL_CROP_TOP",[
+        (3.46,.300,.176,0),(3.51,.330,.190,0),(3.60,.350,.198,0),
+        (3.72,.365,.202,0),(3.84,.370,.204,0),(3.95,.365,.198,0),
+        (4.05,.350,.186,0),(4.13,.323,.166,0),(4.20,.275,.137,0),
+        (4.25,.215,.116,0)
     ],shirt,64,False)
-
-    # Real short sleeves extend the white tee over the upper arms; fuse them into its body.
-    tee_sleeves=[]
+    # Narrow shoulder straps follow the reference outfit and connect the neckline toward the shoulders.
     for sign,side in [(-1,"L"),(1,"R")]:
-        tee_sleeves.append(tube_path("TEE_SLEEVE_"+side,[
-            (sign*.385,-.002,4.23,.108,.112),(sign*.415,-.003,4.15,.126,.128),
-            (sign*.448,-.006,4.05,.127,.130),(sign*.476,-.010,3.94,.119,.123),
-            (sign*.488,-.012,3.875,.115,.118)
-        ],shirt,40))
-    # Keep the garment pieces as intersecting closed shells: voxel-remeshing the open-neck
-    # tee surface can erase its torso. Their overlap is intentional and will be inspected in renders.
+        curve_stroke("CROP_TOP_STRAP_"+side,[
+            (sign*.225,-.105,4.105),(sign*.205,-.137,4.19),
+            (sign*.167,-.123,4.285),(sign*.142,-.096,4.345)
+        ],.027,shirt)
 
     # A narrow dark rib around the open collar helps define a finished neckline.
     bpy.ops.mesh.primitive_torus_add(major_segments=48,minor_segments=10,
-        location=(0,0,4.445),major_radius=.116,minor_radius=.008)
+        location=(0,0,4.315),major_radius=.108,minor_radius=.006)
     collar=bpy.context.object; collar.name="TEE_BLACK_RIB_COLLAR"; collar.scale.y=.90
     bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
     collar.data.materials.append(pants)
@@ -221,9 +216,9 @@ def main():
 
     # Inset eyes, brown irises, dark pupils and small highlights.
     for x,side in [(-.104,"L"),(.104,"R")]:
-        uv("EYE_WHITE_"+side,(x,-.219,5.080),(.034,.008,.018),white,40,28)
-        uv("IRIS_"+side,(x,-.226,5.079),(.0125,.0035,.0125),iris,32,24)
-        uv("PUPIL_"+side,(x,-.230,5.079),(.0055,.0022,.0070),pupil,24,18)
+        uv("EYE_WHITE_"+side,(x,-.219,5.080),(.032,.0065,.0155),white,40,28)
+        uv("IRIS_"+side,(x,-.226,5.079),(.0115,.0028,.0115),iris,32,24)
+        uv("PUPIL_"+side,(x,-.230,5.079),(.0050,.0018,.0065),pupil,24,18)
         uv("EYE_GLINT_"+side,(x-.004,-.233,5.085),(.0025,.0013,.0028),white,20,12)
         # Curved eyelid rims integrate the eyeballs into the head and soften the stylized gaze.
         curve_stroke("EYELID_UPPER_"+side,[
@@ -265,6 +260,39 @@ def main():
     fringe=capsule_piece("HAIR_SIDE_SWEPT_FRINGE",(-.155,-.197,5.365),(.125,-.245,5.270),.045,hair,.018)
     hair_parts.append(fringe)
     fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.010,.26,1)
+
+    # Reference-led hair flow: layered curved locks add directional silhouette beyond the cap.
+    hair_sheen=material("Lam hair soft charcoal sheen",(.035,.027,.032),.36)
+    hair_glint=material("Lam hair subtle warm strand",(.060,.043,.045),.40)
+    for sign,side in [(-1,"L"),(1,"R")]:
+        # Face-framing locks taper from the part, pass beside the cheek, then fall over the chest.
+        for idx,offset in enumerate((0.0,.035,.070,.105)):
+            x0=sign*(.035+offset*.32)
+            x1=sign*(.105+offset*.52)
+            x2=sign*(.185+offset*.62)
+            x3=sign*(.235+offset*.62)
+            x4=sign*(.270+offset*.58)
+            pts=[
+                (x0,-.155-offset*.08,5.435-offset*.06),
+                (x1,-.206-offset*.035,5.315-offset*.035),
+                (x2,-.222-offset*.020,5.145),
+                (x3,-.205-offset*.012,4.945),
+                (x4,-.178-offset*.010,4.725),
+                (sign*(.285+offset*.52),-.145-offset*.008,4.485),
+                (sign*(.300+offset*.45),-.115-offset*.006,4.315)
+            ]
+            curve_stroke("HAIR_FACE_FRAME_"+side+str(idx),pts,.0045 if idx%2 else .006,hair_sheen if idx%2 else hair_glint)
+        # Longer side/back locks follow the shoulder line rather than ending as a single lump.
+        for idx,offset in enumerate((0.0,.045,.090)):
+            pts=[
+                (sign*(.075+offset*.20),.025+offset*.15,5.420-offset*.025),
+                (sign*(.150+offset*.24),.095+offset*.12,5.245),
+                (sign*(.215+offset*.20),.135+offset*.10,5.030),
+                (sign*(.245+offset*.18),.155+offset*.08,4.790),
+                (sign*(.255+offset*.15),.135+offset*.08,4.560),
+                (sign*(.260+offset*.12),.105+offset*.06,4.345)
+            ]
+            curve_stroke("HAIR_BACK_FLOW_"+side+str(idx),pts,.0045,hair_sheen)
 
     # Slim, tapered arm lofts; elbow transitions are built into each surface.
     arm_parts=[]
@@ -526,7 +554,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","V402 visual-review pass: sculpted asymmetrical swept hairline to remove flat helmet rim, reduced rear hair bulk, and slightly strengthened chin taper; candidate remains unapproved pending fresh render review","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Reference Reconstruction V1: changed everyday outfit to dark-teal crop top, refined eye proportions, and added layered front/back hair-flow curves; head sculpt remains a procedural approximation and candidate is not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
