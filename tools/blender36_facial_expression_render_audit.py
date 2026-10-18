@@ -50,7 +50,7 @@ def main():
     scene.world.color=(0.055,0.055,0.055)
     cam_data=bpy.data.cameras.new("FacialExpressionAuditCamera")
     cam=bpy.data.objects.new("FacialExpressionAuditCamera",cam_data); scene.collection.objects.link(cam)
-    cam.location=(center[0],center[1]-head_h*4,center[2]); aim(cam,center)
+    # GLB front-facing features face toward +Y; render from +Y so eyes and mouth are visible.\n    cam.location=(center[0],center[1]+head_h*4,center[2]); aim(cam,center)
     cam_data.type="ORTHO"; cam_data.ortho_scale=head_h*1.38; scene.camera=cam
     for o in shape_objs:
         for k in o.data.shape_keys.key_blocks: k.value=0.0
