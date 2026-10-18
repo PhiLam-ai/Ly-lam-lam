@@ -271,9 +271,9 @@ def main():
             vert.co.y *= .96
             frontness=min(1.0,max(0.0,(-vert.co.y-.095)/.105))
             zlocal=vert.co.z
-            bridge=.010*math.exp(-((vert.co.x/.040)**2)-(((zlocal+.012)/.105)**2))
-            tip=.018*math.exp(-((vert.co.x/.038)**2)-(((zlocal+.044)/.034)**2))
-            cheek=.007*math.exp(-(((abs(vert.co.x)-.142)/.068)**2)-(((zlocal+.060)/.058)**2))
+            bridge=.014*math.exp(-((vert.co.x/.043)**2)-(((zlocal+.006)/.112)**2))
+            tip=.022*math.exp(-((vert.co.x/.040)**2)-(((zlocal+.044)/.036)**2))
+            cheek=.009*math.exp(-(((abs(vert.co.x)-.142)/.068)**2)-(((zlocal+.060)/.058)**2))
             # V415: soft eye sockets, brow ridge and cheekbone planes are sculpted into the base face.
             eye_socket=.012*(math.exp(-(((vert.co.x-.100)/.060)**2)-(((zlocal-.055)/.034)**2)) +
                              math.exp(-(((vert.co.x+.100)/.060)**2)-(((zlocal-.055)/.034)**2)))
@@ -299,8 +299,8 @@ def main():
 
     # Ears are fused into the head/neck shell so they no longer look like buttons attached
     # to the side of the face. Keep the outer lobes shallow and close to the head silhouette.
-    ear_l=uv("EAR_L",(-.257,.003,5.015),(.018,.022,.035),skin,40,28)  # V417: ear sits close to skull under hair
-    ear_r=uv("EAR_R",(.257,.003,5.015),(.020,.024,.038),skin,40,28)
+    ear_l=uv("EAR_L",(-.257,.003,5.015),(.010,.018,.028),skin,40,28)  # V418: keep ears tucked beneath the side hair
+    ear_r=uv("EAR_R",(.257,.003,5.015),(.010,.018,.028),skin,40,28)
     fused_head_neck=fuse([neck,fused_head,ear_l,ear_r],"LAM_CONTINUOUS_HEAD_NECK",.007,.22,1)
 
     # V408 jewelry cues from the canonical face/outfit references: discreet silver drops and pendant.
@@ -328,7 +328,7 @@ def main():
         ],.0030,skin)
         curve_stroke("BROW_"+side,[
             (x-.058,-.219,5.129),(x,-.229,5.151),(x+.058,-.219,5.129)
-        ],.0065,hair)
+        ],.0048,hair)
     lips_obj=uv("LAM_LIPS",(0,-.228,4.905),(.070,.010,.016),lipmat,48,28)
     mouth_dark=material("Mouth cavity deep rose",(.075,.018,.022),.62)
     tongue_mat=material("Tongue muted rose",(.48,.12,.15),.52)
@@ -377,13 +377,13 @@ def main():
     # around the temples/ears. They taper into the back hair mass rather than ending as ovals.
     for sign,side in [(-1,"L"),(1,"R")]:
         hair_parts.append(tube_path("HAIR_LONG_SIDE_MASS_"+side,[
-            (sign*.212,-.030,5.285,.045,.095),
-            (sign*.222,-.040,5.120,.052,.110),
-            (sign*.235,-.035,4.900,.060,.120),
-            (sign*.248,-.020,4.650,.066,.125),
-            (sign*.258,-.005,4.350,.068,.122),
-            (sign*.268,.008,4.020,.068,.118),
-            (sign*.278,.020,3.680,.064,.108),
+            (sign*.215,-.020,5.285,.065,.105),
+            (sign*.232,-.010,5.120,.085,.130),
+            (sign*.240,-.005,4.900,.090,.135),
+            (sign*.250,.000,4.650,.088,.135),
+            (sign*.260,.005,4.350,.082,.130),
+            (sign*.270,.015,4.020,.075,.120),
+            (sign*.278,.025,3.680,.068,.108),
             (sign*.283,.035,3.340,.055,.092),
             (sign*.280,.045,3.050,.038,.070),
             (sign*.275,.055,2.860,.012,.038)
@@ -715,7 +715,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V417: continuous profiled rear hair shell, temple-to-shoulder curtains and reduced ear protrusion; candidate remains experimental and not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V418: broader temple curtains conceal the ear seam, with finer brows and stronger integrated nose/cheek relief; candidate remains experimental and not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
