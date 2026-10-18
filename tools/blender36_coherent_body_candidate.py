@@ -46,7 +46,7 @@ def main():
         return m
     skin=material("Lam warm natural skin",(0.62,.40,.34),.50)  # V412: moderated warm skin tone
     shirt=material("Lam deep teal fitted crop top",(.025,.095,.105),.48)
-    pants=material("Lam matte black biker pants",(.018,.018,.022),.5)
+    pants=material("Lam charcoal cargo pants",(.045,.046,.052),.62)  # V415: reveal fabric shape in the dark studio render
     hair=material("Lam deep black hair",(.012,.010,.013),.50)
     shoes=material("Lam white sneakers",(.88,.88,.86),.45)
     sole=material("Sneaker dark sole",(.04,.04,.045),.62)
@@ -186,13 +186,22 @@ def main():
         for poly in obj.data.polygons: poly.use_smooth=True
         return obj
 
-    # Reference-led everyday outfit: fitted dark-teal crop tank, not the earlier white tee blockout.
+    # Reference-led fitted dark-teal crop top with subtle garment volume at the chest.
     shirt_obj=loft_rings("LAM_DARK_TEAL_CROP_TOP",[
         (3.46,.300,.176,0),(3.51,.330,.190,0),(3.60,.350,.198,0),
         (3.72,.365,.202,0),(3.84,.370,.204,0),(3.95,.365,.198,0),
         (4.05,.350,.186,0),(4.16,.323,.166,0),(4.27,.275,.137,0),
         (4.36,.215,.116,0)
     ],shirt,64,False)
+    # V415: add a restrained, symmetric bust contour to the fabric surface rather than attaching spheres.
+    for vert in shirt_obj.data.vertices:
+        x,y,z=vert.co
+        if y < -.015:
+            frontness=max(0.0,min(1.0,(-y-.015)/.18))
+            left_bust=math.exp(-(((x+.125)/.105)**2)-(((z-3.80)/.145)**2))
+            right_bust=math.exp(-(((x-.125)/.105)**2)-(((z-3.80)/.145)**2))
+            vert.co.y -= frontness*.034*(left_bust+right_bust)
+    shirt_obj.data.update()
     # Narrow shoulder straps follow the reference outfit and connect the neckline toward the shoulders.
     for sign,side in [(-1,"L"),(1,"R")]:
         curve_stroke("CROP_TOP_STRAP_"+side,[
@@ -229,8 +238,8 @@ def main():
     fused_pants=fuse(pant_parts,"LAM_CONTINUOUS_BLACK_PANTS",.012,.55,2)
 
     # V411: fitted cargo pockets give the charcoal trousers the established utility silhouette.
-    pocketmat=material("Charcoal cargo pocket fabric",(.038,.040,.045),.72)
-    pocketflap=material("Cargo pocket flap fabric",(.055,.057,.062),.68)
+    pocketmat=material("Charcoal cargo pocket fabric",(.070,.072,.080),.70)
+    pocketflap=material("Cargo pocket flap fabric",(.095,.098,.108),.66)
     def garment_box(name,loc,half_extents,mat,bevel=.012):
         bpy.ops.mesh.primitive_cube_add(size=1,location=loc)
         obj=bpy.context.object; obj.name=name; obj.scale=half_extents
@@ -240,8 +249,8 @@ def main():
         obj.modifiers.new("Weighted garment normals","WEIGHTED_NORMAL")
         return obj
     for sign,side in [(-1,"L"),(1,"R")]:
-        garment_box("CARGO_THIGH_POCKET_"+side,(sign*.292,-.166,2.16),(.078,.020,.125),pocketmat,.015)
-        garment_box("CARGO_THIGH_FLAP_"+side,(sign*.292,-.190,2.272),(.070,.010,.024),pocketflap,.009)
+        garment_box("CARGO_THIGH_POCKET_"+side,(sign*.292,-.184,2.16),(.086,.022,.145),pocketmat,.015)
+        garment_box("CARGO_THIGH_FLAP_"+side,(sign*.292,-.211,2.292),(.078,.012,.028),pocketflap,.009)
 
     # Shorter/slimmer neck, partly hidden by the collar and lower head.
     neck=tube_path("LAM_NECK",[
@@ -265,7 +274,17 @@ def main():
             bridge=.010*math.exp(-((vert.co.x/.040)**2)-(((zlocal+.012)/.105)**2))
             tip=.018*math.exp(-((vert.co.x/.038)**2)-(((zlocal+.044)/.034)**2))
             cheek=.007*math.exp(-(((abs(vert.co.x)-.142)/.068)**2)-(((zlocal+.060)/.058)**2))
-            vert.co.y -= frontness*(bridge+tip+cheek)
+            # V415: soft eye sockets, brow ridge and cheekbone planes are sculpted into the base face.
+            eye_socket=.012*(math.exp(-(((vert.co.x-.100)/.060)**2)-(((zlocal-.055)/.034)**2)) +
+                             math.exp(-(((vert.co.x+.100)/.060)**2)-(((zlocal-.055)/.034)**2)))
+            brow_ridge=.006*(math.exp(-(((vert.co.x-.100)/.073)**2)-(((zlocal-.112)/.026)**2)) +
+                             math.exp(-(((vert.co.x+.100)/.073)**2)-(((zlocal-.112)/.026)**2)))
+            cheekbone=.010*(math.exp(-(((vert.co.x-.145)/.065)**2)-(((zlocal+.045)/.050)**2)) +
+                            math.exp(-(((vert.co.x+.145)/.065)**2)-(((zlocal+.045)/.050)**2)))
+            muzzle=.004*math.exp(-((vert.co.x/.075)**2)-(((zlocal+.115)/.040)**2))
+            vert.co.y += frontness*eye_socket
+            vert.co.y -= frontness*(bridge+tip+cheek+0.0)
+            vert.co.y -= frontness*(brow_ridge+cheekbone+muzzle)
     head.data.update()
     for poly in head.data.polygons:poly.use_smooth=True
 
@@ -338,12 +357,15 @@ def main():
             front_weight=max(0.0,min(1.0,(-y-.025)/.20))
             edge_weight=max(0.0,min(1.0,(5.38-z)/.15))
             sweep_weight=max(0.0,min(1.0,.5-x/.52))
-            vert.co.z += front_weight*edge_weight*(.004 + .008*(x/.25))  # V413: remove center notch and create a mild center-part sweep
+            # V415: lift the center part and soften the temple transition into a natural curved hairline.
+            center_peak=.050*math.exp(-((x/.080)**2))
+            temple_dip=.012*math.exp(-((abs(x)-.215)/.055)**2)
+            vert.co.z += front_weight*edge_weight*(.025+center_peak-temple_dip)
     hair_cap.data.update()
     hair_parts=[hair_cap]
-    hair_parts.append(uv("HAIR_BACK_MASS",(0,.105,5.005),(.270,.115,.238),hair,48,32))
-    hair_parts.append(uv("HAIR_LOCK_L",(-.242,.006,4.995),(.041,.052,.174),hair,36,24))
-    hair_parts.append(uv("HAIR_LOCK_R",(.242,.006,4.995),(.041,.052,.174),hair,36,24))
+    # V415: a single elongated rear mass makes long hair continuous down the back;
+    # remove the small temple ovals that created a detached clump at profile view.
+    hair_parts.append(uv("HAIR_BACK_MASS",(0,.135,4.12),(.242,.128,1.23),hair,64,48))
     # V403: broad layered curtains create the main long-hair silhouette; thin sheen strokes
     # are only accents, never the primary hair mass. Panels are behind the facial surface.
     for sign,side in [(-1,"L"),(1,"R")]:
