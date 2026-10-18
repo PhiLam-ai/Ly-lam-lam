@@ -46,6 +46,25 @@ def main():
         o=uv(name,mid,(radius,radius if depth is None else depth,vec.length/2+radius),mat)
         o.rotation_mode="QUATERNION"; o.rotation_quaternion=vec.to_track_quat("Z","Y")
         return o
+
+    def curve_stroke(name, points, radius, mat):
+        """Smooth beveled facial stroke, converted to mesh for GLB export."""
+        curve=bpy.data.curves.new(name+"Curve","CURVE")
+        curve.dimensions="3D"; curve.resolution_u=16
+        curve.bevel_depth=radius; curve.bevel_resolution=4; curve.resolution_u=16
+        spline=curve.splines.new("BEZIER")
+        spline.bezier_points.add(len(points)-1)
+        for i,point in enumerate(points):
+            bp=spline.bezier_points[i]; bp.co=point
+            bp.handle_left_type="AUTO"; bp.handle_right_type="AUTO"
+        obj=bpy.data.objects.new(name,curve); scene.collection.objects.link(obj)
+        obj.data.materials.append(mat)
+        bpy.ops.object.select_all(action="DESELECT")
+        obj.select_set(True); bpy.context.view_layer.objects.active=obj
+        bpy.ops.object.convert(target="MESH")
+        obj=bpy.context.object
+        for poly in obj.data.polygons: poly.use_smooth=True
+        return obj
     # Integrated character candidate: use lofted garment/limb surfaces and fuse the key
     # transition areas. This replaces the old stacked torso, capsule arms and skirt blockout.
 
@@ -206,8 +225,21 @@ def main():
         uv("IRIS_"+side,(x,-.235,5.079),(.020,.007,.020),iris,32,24)
         uv("PUPIL_"+side,(x,-.241,5.079),(.009,.0035,.011),pupil,24,18)
         uv("EYE_GLINT_"+side,(x-.005,-.244,5.086),(.0038,.002,.0042),white,20,12)
-        uv("BROW_"+side,(x,-.219,5.137),(.058,.008,.011),hair,32,20)
-    uv("LAM_LIPS",(0,-.232,4.905),(.047,.006,.010),lipmat,40,24)
+        # Curved eyelid rims integrate the eyeballs into the head and soften the stylized gaze.
+        curve_stroke("EYELID_UPPER_"+side,[
+            (x-.047,-.228,5.079),(x,-.239,5.106),(x+.047,-.228,5.079)
+        ],.0045,skin)
+        curve_stroke("EYELID_LOWER_"+side,[
+            (x-.044,-.226,5.077),(x,-.234,5.054),(x+.044,-.226,5.077)
+        ],.0035,skin)
+        curve_stroke("BROW_"+side,[
+            (x-.052,-.222,5.145),(x,-.233,5.157),(x+.052,-.222,5.145)
+        ],.006,hair)
+    lips_obj=uv("LAM_LIPS",(0,-.232,4.905),(.047,.006,.010),lipmat,40,24)
+    mouth_dark=material("Mouth cavity deep rose",(.075,.018,.022),.62)
+    tongue_mat=material("Tongue muted rose",(.48,.12,.15),.52)
+    mouth_cavity=uv("LAM_MOUTH_CAVITY",(0,-.224,4.904),(.034,.0035,.007),mouth_dark,40,24)
+    tongue_obj=uv("LAM_TONGUE",(0,-.228,4.897),(.016,.0025,.0035),tongue_mat,32,20)
 
     # Hair cap and back/side locks are fused into one continuous black hair mass.
     hair_cap=loft_rings("HAIR_CAP_SURFACE",[
@@ -301,7 +333,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","V394 fixes V393 torso loss by retaining the open-neck tee shell and overlapping sleeves without destructive remesh; review shirt/shoulder junction and collar before approval","Experimental candidate only; no production rig or facial morph transfer; must pass front/profile/three-quarter, pose/deformation and web/mobile acceptance gates before production consideration"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","V395 facial detail pass adds upper/lower eyelid contours and a layered mouth cavity/tongue for later expressive morph testing; still requires visual approval","Experimental candidate only; no production rig or facial morph transfer; must pass front/profile/three-quarter, pose/deformation and web/mobile acceptance gates before production consideration"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
