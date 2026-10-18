@@ -79,8 +79,14 @@ def main():
         uv("eye_white."+side,(x,-.257,5.075),(.057,.030,.040),white)
         uv("iris."+side,(x,-.288,5.074),(.023,.014,.025),iris)
         uv("brow."+side,(x,-.258,5.145),(.075,.025,.018),hair)
-    uv("nose",(0,-.294,4.995),(.032,.048,.052),skin)
-    uv("mouth",(0,-.275,4.91),(.075,.018,.022),material("Muted rose lips",(.34,.075,.08),.4))
+    # V388: keep facial features independently editable, but tune their layout as a coherent face.
+    # All features face -Y. These remain blockout primitives and require visual approval.
+    uv("nose",(0,-.294,4.995),(.034,.046,.055),skin)
+    lips=material("Muted rose lips",(.34,.075,.08),.4)
+    uv("mouth",(0,-.276,4.914),(.068,.016,.018),lips)
+    # Subtle cheek volume helps transition between eye region and tapered jaw.
+    uv("cheek.L",(-.155,-.215,4.975),(.082,.035,.085),skin,40,28)
+    uv("cheek.R",(.155,-.215,4.975),(.082,.035,.085),skin,40,28)
     # Arms are grouped and voxel-fused per side to reduce toy-like elbow/wrist seams.
     arms=[]
     for sign,side in [(-1,"L"),(1,"R")]:
@@ -150,13 +156,25 @@ def main():
     scene.render.filepath=os.path.join(out,"coherent-body-front.png"); bpy.ops.render.render(write_still=True)
     cam2=camera("ThreeQuarterCamera",(dist*.7,-dist*.7,.77)); scene.camera=cam2
     scene.render.filepath=os.path.join(out,"coherent-body-three-quarter.png"); bpy.ops.render.render(write_still=True)
+    # V388 diagnostic views: face close-up from front and profile, to reveal feature placement.
+    face_target=(0,0,1.455)
+    def face_camera(name,loc,ortho):
+        d=bpy.data.cameras.new(name); cc=bpy.data.objects.new(name,d); scene.collection.objects.link(cc); cc.location=loc
+        cc.rotation_euler=(Vector(face_target)-cc.location).to_track_quat("-Z","Y").to_euler()
+        d.type="ORTHO"; d.ortho_scale=ortho; return cc
+    face_front=face_camera("FaceCloseupFront",(0,-2.5,1.455),.58); scene.camera=face_front
+    scene.render.resolution_x=900; scene.render.resolution_y=900
+    scene.render.filepath=os.path.join(out,"coherent-body-face-front.png"); bpy.ops.render.render(write_still=True)
+    face_profile=face_camera("FaceCloseupProfile",(2.5,0,1.455),.58); scene.camera=face_profile
+    scene.render.filepath=os.path.join(out,"coherent-body-face-profile.png"); bpy.ops.render.render(write_still=True)
+    scene.render.resolution_x=900; scene.render.resolution_y=1100
     glb=os.path.join(out,"lam-coherent-body-candidate.glb")
     bpy.ops.object.select_all(action="DESELECT")
     for o in scene.objects:
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=fused_trunk
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","Experimental face refinement: tapered lower-face silhouette and slightly flattened facial plane; requires visual review"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","Experimental face refinement: tapered lower-face silhouette, subtle cheek volume and facial feature layout; requires visual review","V388 adds face close-up front/profile diagnostic renders; this does not establish visual approval"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
