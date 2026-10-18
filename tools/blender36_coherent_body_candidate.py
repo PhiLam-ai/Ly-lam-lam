@@ -60,9 +60,17 @@ def main():
             t=min(1.0,max(0.0,(-z-0.05)/0.95))
             vert.co.x *= (1.0 - 0.28*t)
             vert.co.y *= (1.0 - 0.08*t)
-        # Slightly flatten the front plane so facial features sit closer to the skin surface.
+        # Flatten the front plane, then sculpt subtle facial relief directly into the head mesh.
+        # This avoids separate cheek/nose spheres creating obvious circular seams.
         if vert.co.y < 0:
             vert.co.y *= 0.94
+            x_local = vert.co.x
+            z_local = vert.co.z
+            frontness = min(1.0, max(0.0, (-vert.co.y - 0.105) / 0.085))
+            bridge = 0.010 * math.exp(-((x_local / 0.042) ** 2) - (((z_local + 0.002) / 0.105) ** 2))
+            tip = 0.020 * math.exp(-((x_local / 0.041) ** 2) - (((z_local + 0.047) / 0.038) ** 2))
+            cheek = 0.006 * math.exp(-(((abs(x_local) - 0.145) / 0.065) ** 2) - (((z_local + 0.060) / 0.055) ** 2))
+            vert.co.y -= frontness * (bridge + tip + cheek)
     head.data.update()
     for poly in head.data.polygons:
         poly.use_smooth=True
@@ -76,18 +84,14 @@ def main():
     uv("hair_side.R",(.25,.015,4.99),(.057,.09,.34),hair)
     # eyes face toward -Y
     for x,side in [(-.112,"L"),(.112,"R")]:
-        # Keep the whites close to the face surface; the iris should only sit slightly proud.
-        uv("eye_white."+side,(x,-.247,5.075),(.050,.019,.033),white)
-        uv("iris."+side,(x,-.264,5.074),(.021,.009,.021),iris)
-        uv("brow."+side,(x,-.247,5.142),(.064,.014,.013),hair)
-    # V389: reduce the detached-primitive effect by embedding features farther into the head.
-    # This remains a stylized blockout, not a final sculpt or production-ready face.
-    uv("nose",(0,-.272,4.997),(.026,.025,.038),skin)
+        # Let the head surface contain most of each eye; keep only a shallow visible shell.
+        uv("eye_white."+side,(x,-.243,5.075),(.050,.018,.030),white)
+        uv("iris."+side,(x,-.258,5.074),(.021,.006,.020),iris)
+        uv("brow."+side,(x,-.244,5.142),(.060,.008,.011),hair)
+    # V390: nose bridge/tip and cheekbone relief are sculpted into the head mesh above.
+    # This mouth is deliberately shallow; all features still need visual and animation review.
     lips=material("Muted rose lips",(.34,.075,.08),.4)
-    uv("mouth",(0,-.259,4.914),(.056,.009,.013),lips)
-    # Symmetric, low-relief cheek accents; keep both sides identical.
-    uv("cheek.L",(-.15,-.218,4.975),(.052,.015,.045),skin,40,28)
-    uv("cheek.R",(.15,-.218,4.975),(.052,.015,.045),skin,40,28)
+    uv("mouth",(0,-.256,4.914),(.056,.005,.011),lips)
     # Arms are grouped and voxel-fused per side to reduce toy-like elbow/wrist seams.
     arms=[]
     for sign,side in [(-1,"L"),(1,"R")]:
@@ -175,7 +179,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=fused_trunk
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","V389 face-integration pass: symmetric low-relief cheeks, smaller embedded eyes/brows/nose/lips, and smaller partly embedded ears; requires visual review","V389 renders are diagnostic only and do not establish visual approval"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","V390 face-surface pass: sculpted low-relief nose/cheek contours on the head mesh and shallower eyes, brows, and lips; requires visual review","V390 renders are diagnostic only and do not establish visual approval"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
