@@ -81,11 +81,11 @@ def main():
         uv("brow."+side,(x,-.258,5.145),(.075,.025,.018),hair)
     # V388: keep facial features independently editable, but tune their layout as a coherent face.
     # All features face -Y. These remain blockout primitives and require visual approval.
-    uv("nose",(0,-.294,4.995),(.034,.046,.055),skin)
+    uv("nose",(0,-.294,4.995),(.030,.040,.048),skin)
     lips=material("Muted rose lips",(.34,.075,.08),.4)
-    uv("mouth",(0,-.276,4.914),(.068,.016,.018),lips)
+    uv("mouth",(0,-.276,4.914),(.064,.014,.016),lips)
     # Subtle cheek volume helps transition between eye region and tapered jaw.
-    uv("cheek.L",(-.155,-.215,4.975),(.082,.035,.085),skin,40,28)
+    uv("cheek.L",(-.155,-.215,4.975),(.060,.022,.060),skin,40,28)
     uv("cheek.R",(.155,-.215,4.975),(.082,.035,.085),skin,40,28)
     # Arms are grouped and voxel-fused per side to reduce toy-like elbow/wrist seams.
     arms=[]
@@ -174,7 +174,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=fused_trunk
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","Experimental face refinement: tapered lower-face silhouette, subtle cheek volume and facial feature layout; requires visual review","V388 adds face close-up front/profile diagnostic renders; this does not establish visual approval"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","Experimental face refinement: tapered lower-face silhouette, reduced cheek volume, slightly smaller nose and lips, and facial feature layout; requires visual review","V388 adds face close-up front/profile diagnostic renders; this does not establish visual approval"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
