@@ -8,7 +8,6 @@ on:
       - "references/lam-reference.png"
       - "references/lam-reference.png.png"
       - ".github/workflows/auto-generate-lam-avatar.yml"
-      - ".github/workflows/auto-generate-lam-avatar.yml"
   workflow_dispatch:
 
 permissions:
@@ -19,7 +18,63 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  inspect-alternatives:
+    name: Check alternative hosted 3D generators
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Inspect public Space health and APIs
+        run: |
+          python -m pip install --upgrade gradio_client
+          python - <<'PY'
+          import json, urllib.request, urllib.error
+          from gradio_client import Client
+
+          spaces = [
+              "TencentARC/InstantMesh",
+              "hysts/TripoSR",
+              "camenduru/TripoSR",
+              "numz/TripoSR",
+              "tencent/Hunyuan3D-2",
+              "stabilityai/TripoSR",
+          ]
+          for space_id in spaces:
+              print("\\n=== SPACE:", space_id, "===")
+              req = urllib.request.Request(
+                  "https://huggingface.co/api/spaces/" + space_id,
+                  headers={"User-Agent": "LyLamLam-space-diagnostic/1.0"},
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=25) as response:
+                      meta = json.load(response)
+                  stage = (meta.get("runtime") or {}).get("stage", "unknown")
+                  print("STATUS=AVAILABLE")
+                  print("RUNTIME_STAGE=" + str(stage))
+                  print("SDK=" + str(meta.get("sdk", "unknown")))
+                  if stage != "RUNNING":
+                      print("API_DISCOVERY=SKIPPED_RUNTIME_NOT_RUNNING")
+                      continue
+                  try:
+                      client = Client(space_id, verbose=False)
+                      info = client.view_api(return_format="dict")
+                      print("API_INFO=" + json.dumps(info, default=str)[:12000])
+                  except Exception as exc:
+                      print("API_DISCOVERY_ERROR=" + repr(exc))
+              except urllib.error.HTTPError as exc:
+                  print("STATUS=HTTP_ERROR")
+                  print("HTTP_CODE=" + str(exc.code))
+              except Exception as exc:
+                  print("STATUS=ERROR")
+                  print("ERROR=" + repr(exc))
+          PY
+
   generate:
+    name: Generate isolated Lam 3D candidate
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -43,10 +98,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install client
-        run: python -m pip install --upgrade gradio_client
+      - name: Install client and mesh converter
+        run: python -m pip install --upgrade gradio_client trimesh pygltflib
 
-      - name: Generate candidate and export GLB through Hunyuan3D-2
+      - name: Try Hunyuan3D shape-only endpoint and export a GLB candidate
         env:
           IMAGE_PATH: ${{ steps.reference.outputs.image_path }}
         run: |
@@ -56,10 +111,8 @@ jobs:
 
           image_path = os.environ["IMAGE_PATH"]
           print("Reference image found:", image_path)
-          print("Connecting to hosted Hunyuan3D-2. Hosted availability and free quota are not guaranteed.")
+          print("The combined Hunyuan3D endpoint previously failed with a server-side NameError. Trying the shape-only endpoint once.")
           client = Client("tencent/Hunyuan3D-2", verbose=True)
-          client.view_api()
-
           result = client.predict(
               caption="Lam, realistic female avatar; preserve the reference face, hairstyle and body proportions",
               image=handle_file(image_path),
@@ -74,47 +127,35 @@ jobs:
               check_box_rembg=True,
               num_chunks=8000,
               randomize_seed=True,
-              api_name="/generation_all",
+              api_name="/shape_generation",
           )
-          print("GENERATION_RESULT_TYPE=" + type(result).__name__)
-          print("GENERATION_RESULT=" + json.dumps(result, default=str)[:4000])
-          if not isinstance(result, (tuple, list)) or len(result) < 2:
-              raise SystemExit("Generation API did not return the expected model files.")
-          mesh_a, mesh_b = result[0], result[1]
-          if not mesh_a or not mesh_b:
-              raise SystemExit("Generation API returned empty model file paths.")
-
-          exported = client.predict(
-              file_out=mesh_a,
-              file_out2=mesh_b,
-              file_type="glb",
-              reduce_face=True,
-              export_texture=True,
-              target_face_num=50000,
-              api_name="/on_export_click",
-          )
-          print("EXPORT_RESULT=" + json.dumps(exported, default=str)[:3000])
-          candidates = list(exported) if isinstance(exported, (tuple, list)) else [exported]
-          copied = False
-          for item in candidates:
-              if isinstance(item, str) and os.path.isfile(item) and item.lower().endswith((".glb", ".gltf")):
-                  shutil.copy2(item, "lam-avatar-candidate.glb")
-                  copied = True
-                  break
-              if isinstance(item, dict):
-                  for key in ("path", "name"):
-                      p = item.get(key)
-                      if isinstance(p, str) and os.path.isfile(p) and p.lower().endswith((".glb", ".gltf")):
-                          shutil.copy2(p, "lam-avatar-candidate.glb")
-                          copied = True
-                          break
-          if not copied:
-              raise SystemExit("Hunyuan3D returned no identifiable local GLB export. Existing lam-default.glb remains unchanged.")
+          print("SHAPE_RESULT_TYPE=" + type(result).__name__)
+          print("SHAPE_RESULT=" + json.dumps(result, default=str)[:5000])
+          item = result[0] if isinstance(result, (tuple, list)) and result else result
+          path = None
+          if isinstance(item, str):
+              path = item
+          elif isinstance(item, dict):
+              for key in ("path", "name"):
+                  if isinstance(item.get(key), str):
+                      path = item[key]
+                      break
+          if not path or not os.path.isfile(path):
+              raise SystemExit("Shape endpoint did not return a local file. Existing lam-default.glb remains unchanged.")
+          if path.lower().endswith(".glb"):
+              shutil.copy2(path, "lam-avatar-candidate.glb")
+          else:
+              import trimesh
+              mesh = trimesh.load(path, force="scene", process=False)
+              mesh.export("lam-avatar-candidate.glb", file_type="glb")
           size = os.path.getsize("lam-avatar-candidate.glb")
-          if size < 1024:
-              raise SystemExit("Exported GLB is unexpectedly small; refusing to publish candidate.")
+          with open("lam-avatar-candidate.glb", "rb") as f:
+              header = f.read(4)
+          if size < 1024 or header != b"glTF":
+              raise SystemExit("Converted candidate did not pass GLB header/size checks; production avatar remains unchanged.")
           print("GLB_CANDIDATE_CREATED=PASS")
           print("GLB_BYTES=" + str(size))
+          print("SOURCE_MESH=" + os.path.basename(path))
           PY
 
       - name: Upload candidate as artifact (never replace production avatar)
