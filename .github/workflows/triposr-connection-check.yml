@@ -1,0 +1,55 @@
+name: TripoSR Online Connection Check
+
+on:
+  push:
+    branches:
+      - experiment/triposr-connection-check
+    paths:
+      - ".github/workflows/triposr-connection-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-space:
+    name: Check official TripoSR hosted demo
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Check Hugging Face Space status
+        run: |
+          python - <<'PY'
+          import json
+          import urllib.request
+
+          url = "https://huggingface.co/api/spaces/stabilityai/TripoSR"
+          req = urllib.request.Request(url, headers={"User-Agent": "Ly-Lam-Lam-TripoSR-connection-check"})
+          with urllib.request.urlopen(req, timeout=30) as response:
+              data = json.load(response)
+          print("SPACE_ID=stabilityai/TripoSR")
+          print("SPACE_STATUS=" + str(data.get("runtime", {}).get("stage", "unknown")))
+          print("SPACE_SDK=" + str(data.get("sdk", "unknown")))
+          print("SPACE_URL=https://huggingface.co/spaces/stabilityai/TripoSR")
+          PY
+
+      - name: Install lightweight Gradio API client
+        run: python -m pip install --upgrade gradio_client
+
+      - name: Connect to hosted TripoSR and inspect its API
+        run: |
+          python - <<'PY'
+          from gradio_client import Client
+
+          print("Connecting to official hosted TripoSR demo...")
+          client = Client("stabilityai/TripoSR", verbose=True)
+          print("CONNECTION_CREATED=PASS")
+          print("Reading available API endpoints; this step does not upload an image or change the Lam avatar.")
+          client.view_api()
+          print("API_DISCOVERY=PASS")
+          PY
