@@ -24,3 +24,7 @@ Rebuild the experimental character from the user's two selected reference sheets
 
 ## Known limitation
 The current procedural candidate is still a blockout. V1 is an incremental reconstruction pass, not a claim of exact likeness. If the procedural surface cannot reproduce the reference face closely enough, use a dedicated sculpt/retopology workflow rather than endlessly tweaking primitive sizes.
+
+
+## Mandatory visual acceptance gate (added 2026-10-18)
+The current procedural blockout is explicitly **NOT APPROVED**. CI must fail the release gate until all of the following are true: the face matches the selected reference in front, three-quarter and profile; the hair silhouette and layers look natural; anatomy and proportions are credible; skin/eyes and expressions are reviewed; the exported GLB is checked in the web viewer and on iPhone; and the user explicitly approves the candidate. Passing geometry, rig, export or render tests is not visual approval. The production `lam-default.glb` must remain unchanged until all criteria pass.
