@@ -187,9 +187,9 @@ def main():
     ],skin,40)
 
     # Tapered jaw and low-relief cheek contours sculpted into the head surface.
-    head=uv("LAM_HEAD_BASE",(0,-.005,5.025),(.272,.235,.348),skin,96,64)
+    head=uv("LAM_HEAD_BASE",(0,-.005,5.025),(.278,.232,.342),skin,96,64)
     for vert in head.data.vertices:
-        zn=vert.co.z/.348
+        zn=vert.co.z/.342
         if zn < -.03:
             t=min(1.0,max(0.0,(-zn-.03)/.97))
             vert.co.x *= (1.0-.16*t)
@@ -215,15 +215,15 @@ def main():
 
     # Ears are fused into the head/neck shell so they no longer look like buttons attached
     # to the side of the face. Keep the outer lobes shallow and close to the head silhouette.
-    ear_l=uv("EAR_L",(-.257,-.002,5.015),(.031,.040,.064),skin,40,28)
-    ear_r=uv("EAR_R",(.257,-.002,5.015),(.031,.040,.064),skin,40,28)
+    ear_l=uv("EAR_L",(-.257,-.002,5.015),(.028,.034,.056),skin,40,28)
+    ear_r=uv("EAR_R",(.257,-.002,5.015),(.028,.034,.056),skin,40,28)
     fused_head_neck=fuse([neck,fused_head,ear_l,ear_r],"LAM_CONTINUOUS_HEAD_NECK",.007,.22,1)
 
     # Inset eyes, brown irises, dark pupils and small highlights.
     for x,side in [(-.104,"L"),(.104,"R")]:
-        uv("EYE_WHITE_"+side,(x,-.219,5.080),(.040,.009,.023),white,40,28)
-        uv("IRIS_"+side,(x,-.226,5.079),(.0155,.004,.0155),iris,32,24)
-        uv("PUPIL_"+side,(x,-.230,5.079),(.007,.0025,.0085),pupil,24,18)
+        uv("EYE_WHITE_"+side,(x,-.219,5.080),(.036,.008,.020),white,40,28)
+        uv("IRIS_"+side,(x,-.226,5.079),(.0135,.0035,.0135),iris,32,24)
+        uv("PUPIL_"+side,(x,-.230,5.079),(.006,.0022,.0075),pupil,24,18)
         uv("EYE_GLINT_"+side,(x-.004,-.233,5.085),(.0025,.0013,.0028),white,20,12)
         # Curved eyelid rims integrate the eyeballs into the head and soften the stylized gaze.
         curve_stroke("EYELID_UPPER_"+side,[
@@ -235,11 +235,11 @@ def main():
         curve_stroke("BROW_"+side,[
             (x-.050,-.211,5.128),(x,-.218,5.140),(x+.050,-.211,5.128)
         ],.0055,hair)
-    lips_obj=uv("LAM_LIPS",(0,-.214,4.905),(.060,.0045,.011),lipmat,40,24)
+    lips_obj=uv("LAM_LIPS",(0,-.214,4.905),(.054,.0045,.009),lipmat,40,24)
     mouth_dark=material("Mouth cavity deep rose",(.075,.018,.022),.62)
     tongue_mat=material("Tongue muted rose",(.48,.12,.15),.52)
-    mouth_cavity=uv("LAM_MOUTH_CAVITY",(0,-.209,4.904),(.042,.0025,.007),mouth_dark,40,24)
-    tongue_obj=uv("LAM_TONGUE",(0,-.212,4.898),(.014,.002,.0028),tongue_mat,32,20)
+    mouth_cavity=uv("LAM_MOUTH_CAVITY",(0,-.209,4.904),(.038,.0035,.009),mouth_dark,40,24)
+    tongue_obj=uv("LAM_TONGUE",(0,-.212,4.898),(.012,.0025,.0025),tongue_mat,32,20)
 
     # Hair cap and back/side locks are fused into one continuous black hair mass.
     hair_cap=loft_rings("HAIR_CAP_SURFACE",[
@@ -517,7 +517,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","V398 refinement: raised hairline, less protruding eyes/nose, more readable smile/mouth opening, and higher shirt collar to reduce visible neck length","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","V399 face pass: subtly narrowed eye/iris/pupil scale, softened ear silhouette, adjusted head proportions and reduced lip/cavity blockout size; candidate remains unapproved pending fresh render review","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
