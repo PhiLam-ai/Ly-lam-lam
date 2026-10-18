@@ -1,0 +1,55 @@
+name: Alternative 3D Demo Connection Check
+
+on:
+  push:
+    branches:
+      - experiment/triposr-connection-check
+    paths:
+      - ".github/workflows/hunyuan3d-connection-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check-hunyuan:
+    name: Check hosted Hunyuan3D-2 demo
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check official Space status
+        run: |
+          python - <<'PY'
+          import json, urllib.request
+          url = "https://huggingface.co/api/spaces/tencent/Hunyuan3D-2"
+          req = urllib.request.Request(url, headers={"User-Agent": "Ly-Lam-Lam-3D-connection-check"})
+          with urllib.request.urlopen(req, timeout=30) as response:
+              data = json.load(response)
+          stage = data.get("runtime", {}).get("stage", "unknown")
+          print("SPACE_ID=tencent/Hunyuan3D-2")
+          print("SPACE_STATUS=" + str(stage))
+          print("SPACE_SDK=" + str(data.get("sdk", "unknown")))
+          print("SPACE_URL=https://huggingface.co/spaces/tencent/Hunyuan3D-2")
+          if stage in ("RUNTIME_ERROR", "BUILD_ERROR", "NO_APP_FILE"):
+              raise SystemExit("Hosted demo is not healthy: " + str(stage))
+          PY
+
+      - name: Install Gradio client
+        run: python -m pip install --upgrade gradio_client
+
+      - name: Connect and inspect API only
+        run: |
+          python - <<'PY'
+          from gradio_client import Client
+          print("Connecting to hosted Hunyuan3D-2...")
+          client = Client("tencent/Hunyuan3D-2", verbose=True)
+          print("CONNECTION_CREATED=PASS")
+          print("Inspecting API endpoints only; no image is uploaded and the Lam avatar is untouched.")
+          client.view_api()
+          print("API_DISCOVERY=PASS")
+          PY
