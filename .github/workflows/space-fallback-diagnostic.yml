@@ -1,0 +1,68 @@
+name: Diagnose free hosted 3D generation spaces
+
+on:
+  push:
+    branches:
+      - experiment/github-auto-avatar
+    paths:
+      - ".github/workflows/space-fallback-diagnostic.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-spaces:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Inspect public Spaces and their APIs
+        run: |
+          python -m pip install --upgrade gradio_client requests
+          python - <<'PY'
+          import json, urllib.request, urllib.error
+          from gradio_client import Client
+
+          spaces = [
+              "TencentARC/InstantMesh",
+              "hysts/TripoSR",
+              "camenduru/TripoSR",
+              "tencent/Hunyuan3D-2",
+              "stabilityai/TripoSR",
+              "Tencent-Hunyuan/Hunyuan3D-2",
+          ]
+
+          for space_id in spaces:
+              print("\n=== SPACE:", space_id, "===")
+              url = "https://huggingface.co/api/spaces/" + space_id
+              req = urllib.request.Request(url, headers={"User-Agent":"LyLamLam-space-diagnostic/1.0"})
+              try:
+                  with urllib.request.urlopen(req, timeout=25) as response:
+                      meta = json.load(response)
+                  stage = (meta.get("runtime") or {}).get("stage", "unknown")
+                  print("STATUS=AVAILABLE")
+                  print("RUNTIME_STAGE=" + str(stage))
+                  print("SDK=" + str(meta.get("sdk", "unknown")))
+                  if stage not in ("RUNNING", "SLEEPING", "PAUSED", "RUNNING_BUILDING"):
+                      print("API_CHECK=SKIPPED_NOT_RUNNING")
+                      continue
+                  try:
+                      client = Client(space_id, verbose=False)
+                      try:
+                          info = client.view_api(return_format="dict")
+                          print("API_INFO=" + json.dumps(info, default=str)[:10000])
+                      except Exception as exc:
+                          print("API_DISCOVERY_ERROR=" + repr(exc))
+                  except Exception as exc:
+                      print("CLIENT_ERROR=" + repr(exc))
+              except urllib.error.HTTPError as exc:
+                  print("STATUS=HTTP_ERROR")
+                  print("HTTP_CODE=" + str(exc.code))
+              except Exception as exc:
+                  print("STATUS=ERROR")
+                  print("ERROR=" + repr(exc))
+          PY
