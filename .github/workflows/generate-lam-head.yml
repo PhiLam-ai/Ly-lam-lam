@@ -26,6 +26,7 @@ jobs:
 
       - name: Confirm face reference
         run: |
+          python -m pip install --upgrade pillow
           python - <<'PY'
           from PIL import Image
           p = "references/lam-face-reference.jpg"
@@ -36,7 +37,6 @@ jobs:
           print("FORMAT=" + str(im.format))
           print("SIZE=" + str(im.size))
           PY
-          python -m pip install --upgrade pillow
 
       - name: Install InstantMesh client
         run: python -m pip install --upgrade gradio_client
