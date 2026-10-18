@@ -54,7 +54,13 @@ jobs:
                       client = Client(space_id, verbose=False)
                       try:
                           info = client.view_api(return_format="dict")
-                          print("API_INFO=" + json.dumps(info, default=str)[:10000])
+                          summary = {"named_endpoints": {}}
+                          for endpoint, definition in (info.get("named_endpoints") or {}).items():
+                              summary["named_endpoints"][endpoint] = {
+                                  "inputs": [{"name": p.get("parameter_name"), "label": p.get("label"), "component": p.get("component"), "type": (p.get("python_type") or {}).get("type"), "default": p.get("parameter_default")} for p in definition.get("parameters", [])],
+                                  "outputs": [{"label": p.get("label"), "component": p.get("component"), "type": (p.get("python_type") or {}).get("type")} for p in definition.get("returns", [])],
+                              }
+                          print("API_SUMMARY=" + json.dumps(summary, default=str)[:18000])
                       except Exception as exc:
                           print("API_DISCOVERY_ERROR=" + repr(exc))
                   except Exception as exc:
