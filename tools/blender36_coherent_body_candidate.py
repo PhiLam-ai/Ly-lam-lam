@@ -319,14 +319,14 @@ def main():
     curve_stroke("UPPER_LIP_CONTOUR",[
         (-.066,-.235,4.905),(-.040,-.238,4.914),(-.018,-.240,4.918),
         (0,-.239,4.913),(.018,-.240,4.918),(.040,-.238,4.914),(.066,-.235,4.905)
-    ],.0028,lipmat)
+    ],.0018,lipmat)
     curve_stroke("LOWER_LIP_CONTOUR",[
         (-.052,-.236,4.900),(0,-.241,4.894),(.052,-.236,4.900)
-    ],.0025,lipmat)
+    ],.0016,lipmat)
 
     # Hair cap and back/side locks are fused into one continuous black hair mass.
     hair_cap=loft_rings("HAIR_CAP_SURFACE",[
-        (5.235,.266,.232,.018),(5.270,.286,.248,.018),
+        (5.235,.260,.210,.040),(5.270,.286,.232,.030),
         (5.320,.274,.240,.018),(5.370,.240,.214,.016),
         (5.425,.183,.172,.012),(5.468,.112,.108,.008),
         (5.492,.018,.018,.005)
@@ -366,14 +366,6 @@ def main():
     # The V406 oversized version produced holes; current V407-sized locks passed remesh inspection.
     fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.010,.24,1)
 
-    # V413: fine, tapered center-part locks sit on the forehead surface rather than drawing
-    # two straight cords from the crown down the face.
-    for sign,side in [(-1,"L"),(1,"R")]:
-        hair_ribbon("HAIR_PARTED_FORELOCK_"+side,[
-            (sign*.018,-.140,5.435),(sign*.050,-.205,5.385),
-            (sign*.088,-.229,5.330),(sign*.128,-.238,5.275),
-            (sign*.163,-.232,5.225)
-        ],[.004,.014,.021,.019,.005],.008,hair)
 
     # Reference-led hair flow: layered curved locks add directional silhouette beyond the cap.
     hair_sheen=material("Lam hair soft charcoal sheen",(.018,.014,.017),.42)
@@ -381,11 +373,11 @@ def main():
     for sign,side in [(-1,"L"),(1,"R")]:
         # Face-framing locks taper from the part, pass beside the cheek, then fall over the chest.
         for idx,offset in enumerate((0.0,.075)):
-            x0=sign*(.075+offset*.18)
-            x1=sign*(.130+offset*.22)
-            x2=sign*(.200+offset*.28)
-            x3=sign*(.255+offset*.25)
-            x4=sign*(.285+offset*.25)
+            x0=sign*(.125+offset*.12)
+            x1=sign*(.170+offset*.16)
+            x2=sign*(.220+offset*.20)
+            x3=sign*(.260+offset*.20)
+            x4=sign*(.290+offset*.18)
             pts=[
                 (x0,-.155-offset*.08,5.435-offset*.06),
                 (x1,-.206-offset*.035,5.315-offset*.035),
