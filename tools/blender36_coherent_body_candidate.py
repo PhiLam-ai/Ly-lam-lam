@@ -282,14 +282,14 @@ def main():
             y=cy-ry*math.sin(a)
             # Shallow sculpting is integrated into the continuous face surface.
             if front>0:
-                eye_socket=.010*(math.exp(-(((x-.098)/.057)**2)-(((z-5.085)/.030)**2))+
-                                 math.exp(-(((x+.098)/.057)**2)-(((z-5.085)/.030)**2)))
-                brow_ridge=.006*(math.exp(-(((x-.100)/.068)**2)-(((z-5.135)/.024)**2))+
-                                 math.exp(-(((x+.100)/.068)**2)-(((z-5.135)/.024)**2)))
+                eye_socket=.010*(math.exp(-(((x-.108)/.057)**2)-(((z-5.115)/.030)**2))+
+                                 math.exp(-(((x+.108)/.057)**2)-(((z-5.115)/.030)**2)))
+                brow_ridge=.006*(math.exp(-(((x-.108)/.068)**2)-(((z-5.165)/.024)**2))+
+                                 math.exp(-(((x+.108)/.068)**2)-(((z-5.165)/.024)**2)))
                 cheekbone=.008*(math.exp(-(((abs(x)-.145)/.055)**2)-(((z-4.965)/.048)**2)))
                 muzzle=.004*math.exp(-((x/.073)**2)-(((z-4.865)/.038)**2))
-                nose_bridge=.010*math.exp(-((x/.034)**2)-(((z-5.035)/.105)**2))
-                nose_tip=.014*math.exp(-((x/.036)**2)-(((z-4.965)/.032)**2))
+                nose_bridge=.010*math.exp(-((x/.034)**2)-(((z-5.045)/.105)**2))
+                nose_tip=.014*math.exp(-((x/.036)**2)-(((z-4.980)/.032)**2))
                 y += front*(eye_socket+brow_ridge)
                 y -= front*(cheekbone+muzzle+nose_bridge+nose_tip)
             face_verts.append((x,y,z))
@@ -321,11 +321,11 @@ def main():
 
     # Fuse a tapered nose bridge and tip directly into the head skin; no separate nose sphere.
     nose=loft_rings("NOSE_RELIEF_TO_FUSE",[
-        (4.958,.012,.009,-.236),(4.972,.018,.015,-.244),
-        (4.985,.019,.018,-.248),(4.999,.017,.019,-.248),
-        (5.018,.013,.016,-.244),(5.050,.009,.011,-.238),
-        (5.078,.005,.007,-.231)
-    ],skin,40)  # V421: narrow bridge/tip for a softer, more natural nose
+        (4.968,.012,.009,-.236),(4.982,.018,.015,-.244),
+        (4.995,.019,.018,-.248),(5.009,.017,.019,-.248),
+        (5.028,.013,.016,-.244),(5.060,.009,.011,-.238),
+        (5.088,.005,.007,-.231)
+    ],skin,40)  # V422: raise nose relief slightly to match the reference eye-to-nose spacing
     fused_head=fuse([head,nose],"LAM_HEAD_INTEGRATED_NOSE",.006,.30,1)
 
     # Ears are fused into the head/neck shell so they no longer look like buttons attached
@@ -348,34 +348,34 @@ def main():
     # V413: larger warm-brown eyes with visible inset iris, shaped lids and softer arched brows.
     for x,side in [(-.108,"L"),(.108,"R")]:
         # V421: flatter almond-like eyes with a smaller warm iris and less protruding eyeball volume.
-        uv("EYE_WHITE_"+side,(x,-.229,5.080),(.047,.008,.014),white,48,32)
-        uv("IRIS_"+side,(x,-.237,5.079),(.014,.0032,.0115),iris,40,28)
-        uv("PUPIL_"+side,(x,-.241,5.079),(.006,.0020,.008),pupil,32,24)
-        uv("EYE_GLINT_"+side,(x-.0045,-.245,5.084),(.0028,.0014,.0028),white,24,16)
+        uv("EYE_WHITE_"+side,(x,-.229,5.110),(.047,.008,.014),white,48,32)
+        uv("IRIS_"+side,(x,-.237,5.109),(.014,.0032,.0115),iris,40,28)
+        uv("PUPIL_"+side,(x,-.241,5.109),(.006,.0020,.008),pupil,32,24)
+        uv("EYE_GLINT_"+side,(x-.0045,-.245,5.114),(.0028,.0014,.0028),white,24,16)
         curve_stroke("EYELID_UPPER_"+side,[
-            (x-.052,-.226,5.077),(x-.024,-.235,5.097),(x+.006,-.239,5.101),(x+.031,-.233,5.093),(x+.052,-.226,5.077)
+            (x-.052,-.226,5.107),(x-.024,-.235,5.127),(x+.006,-.239,5.131),(x+.031,-.233,5.123),(x+.052,-.226,5.107)
         ],.0034,skin)
         curve_stroke("EYELINER_UPPER_"+side,[
-            (x-.053,-.229,5.078),(x-.023,-.239,5.097),(x+.007,-.243,5.100),(x+.032,-.237,5.092),(x+.054,-.228,5.078)
+            (x-.053,-.229,5.108),(x-.023,-.239,5.127),(x+.007,-.243,5.130),(x+.032,-.237,5.122),(x+.054,-.228,5.108)
         ],.0018,hair)
         curve_stroke("EYELID_LOWER_"+side,[
-            (x-.048,-.226,5.078),(x,-.235,5.056),(x+.048,-.226,5.078)
+            (x-.048,-.226,5.108),(x,-.235,5.086),(x+.048,-.226,5.108)
         ],.0030,skin)
         curve_stroke("BROW_"+side,[
-            (x-.058,-.219,5.129),(x,-.229,5.151),(x+.058,-.219,5.129)
+            (x-.058,-.219,5.159),(x,-.229,5.181),(x+.058,-.219,5.159)
         ],.0048,hair)
-    lips_obj=uv("LAM_LIPS",(0,-.229,4.907),(.064,.010,.014),lipmat,48,28)  # V421: smaller, softer smile instead of a flat wide oval
+    lips_obj=uv("LAM_LIPS",(0,-.229,4.862),(.064,.010,.014),lipmat,48,28)  # V422: lower the mouth to match the reference's longer nose-to-lip spacing
     mouth_dark=material("Mouth cavity deep rose",(.075,.018,.022),.62)
     tongue_mat=material("Tongue muted rose",(.48,.12,.15),.52)
-    mouth_cavity=uv("LAM_MOUTH_CAVITY",(0,-.222,4.904),(.038,.0045,.008),mouth_dark,40,24)
-    tongue_obj=uv("LAM_TONGUE",(0,-.230,4.898),(.012,.003,.003),tongue_mat,32,20)
+    mouth_cavity=uv("LAM_MOUTH_CAVITY",(0,-.222,4.859),(.038,.0045,.008),mouth_dark,40,24)
+    tongue_obj=uv("LAM_TONGUE",(0,-.230,4.853),(.012,.003,.003),tongue_mat,32,20)
     # Cupid's-bow and lower-lip contours turn the mouth from a flat oval into a soft lip shape.
     curve_stroke("UPPER_LIP_CONTOUR",[
-        (-.066,-.235,4.905),(-.040,-.238,4.914),(-.018,-.240,4.918),
-        (0,-.239,4.913),(.018,-.240,4.918),(.040,-.238,4.914),(.066,-.235,4.905)
+        (-.066,-.235,4.860),(-.040,-.238,4.869),(-.018,-.240,4.873),
+        (0,-.239,4.868),(.018,-.240,4.873),(.040,-.238,4.869),(.066,-.235,4.860)
     ],.0018,lipmat)
     curve_stroke("LOWER_LIP_CONTOUR",[
-        (-.052,-.236,4.900),(0,-.241,4.894),(.052,-.236,4.900)
+        (-.052,-.236,4.855),(0,-.241,4.849),(.052,-.236,4.855)
     ],.0016,lipmat)
 
     # Hair cap and back/side locks are fused into one continuous black hair mass.
@@ -537,16 +537,16 @@ def main():
             front=clamp01((-y-.08)/.16)
             ax=abs(x)
             if name=="smile":
-                w=front*gauss(ax,.072,.042)*gauss(z,4.905,.060)
+                w=front*gauss(ax,.072,.042)*gauss(z,4.860,.060)
                 co.y-=.005*w; co.z+=.020*w
             elif name=="cheek_raise":
                 w=front*gauss(ax,.145,.064)*gauss(z,4.975,.060)
                 co.y-=.007*w; co.z+=.014*w
             elif name=="brow_raise":
-                w=front*gauss(ax,.105,.075)*gauss(z,5.145,.060)
+                w=front*gauss(ax,.108,.075)*gauss(z,5.175,.060)
                 co.z+=.016*w
             elif name=="mouth_open":
-                w=front*gauss(z,4.902,.065)*clamp01(1.0-(ax/.14)**2)
+                w=front*gauss(z,4.857,.065)*clamp01(1.0-(ax/.14)**2)
                 co.z-=.010*w
             elif name=="jaw_open":
                 jaw=clamp01((4.985-z)/.30)*clamp01(1.0-(ax/.245)**2)*front
