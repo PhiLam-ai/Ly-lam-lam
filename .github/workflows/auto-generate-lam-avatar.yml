@@ -6,6 +6,8 @@ on:
       - experiment/github-auto-avatar
     paths:
       - "references/lam-reference.png"
+      - "references/lam-reference.png.png"
+      - ".github/workflows/auto-generate-lam-avatar.yml"
   workflow_dispatch:
 
 permissions:
@@ -23,13 +25,18 @@ jobs:
       - name: Check out experiment branch
         uses: actions/checkout@v4
 
-      - name: Check reference image exists
+      - name: Locate reference image
+        id: reference
         run: |
-          if [ ! -f "references/lam-reference.png" ]; then
-            echo "::error::Missing references/lam-reference.png. Add the chosen reference image to this path on the experiment/github-auto-avatar branch; this workflow will then run automatically."
+          if [ -f "references/lam-reference.png" ]; then
+            echo "image_path=references/lam-reference.png" >> "$GITHUB_OUTPUT"
+          elif [ -f "references/lam-reference.png.png" ]; then
+            echo "image_path=references/lam-reference.png.png" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Reference image not found. Expected references/lam-reference.png or references/lam-reference.png.png."
             exit 1
           fi
-          file references/lam-reference.png
+          file "${{ steps.reference.outputs.image_path }}"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -40,19 +47,21 @@ jobs:
         run: python -m pip install --upgrade gradio_client
 
       - name: Generate candidate and export GLB through Hunyuan3D-2
+        env:
+          IMAGE_PATH: ${{ steps.reference.outputs.image_path }}
         run: |
           python - <<'PY'
           import os, json, shutil
           from gradio_client import Client, handle_file
 
-          image_path = "references/lam-reference.png"
+          image_path = os.environ["IMAGE_PATH"]
           print("Reference image found:", image_path)
-          print("Connecting to hosted Hunyuan3D-2. This uses the hosted demo; availability and free quota are not guaranteed.")
+          print("Connecting to hosted Hunyuan3D-2. Hosted availability and free quota are not guaranteed.")
           client = Client("tencent/Hunyuan3D-2", verbose=True)
           client.view_api()
 
           result = client.predict(
-              caption="Lam, consistent realistic female avatar; preserve the reference face, hairstyle and body proportions",
+              caption="Lam, realistic female avatar; preserve the reference face, hairstyle and body proportions",
               image=handle_file(image_path),
               steps=30,
               guidance_scale=5.0,
