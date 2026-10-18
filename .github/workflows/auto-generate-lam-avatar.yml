@@ -62,6 +62,10 @@ jobs:
           result = client.predict(
               caption="Lam, realistic female avatar; preserve the reference face, hairstyle and body proportions",
               image=handle_file(image_path),
+              mv_image_front=None,
+              mv_image_back=None,
+              mv_image_left=None,
+              mv_image_right=None,
               steps=30,
               guidance_scale=5.0,
               seed=1234,
