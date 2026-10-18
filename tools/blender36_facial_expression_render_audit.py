@@ -53,17 +53,25 @@ def main():
         for k in o.data.shape_keys.key_blocks: k.value=0.0
     scene.render.filepath=os.path.join(out,"face-neutral.png"); bpy.ops.render.render(write_still=True)
     records=[]
+    # Render each unique expression once, enabling that key on every mesh that owns it.
+    # This produces one coherent face expression per key rather than 12 duplicates per mesh.
+    key_names=[]
     for o in shape_objs:
         for k in list(o.data.shape_keys.key_blocks)[1:]:
-            for other in shape_objs:
-                for ok in other.data.shape_keys.key_blocks: ok.value=0.0
-            k.value=1.0
-            # Stable filenames and one isolated key per render.
-            safe="".join(c.lower() if c.isalnum() else "-" for c in k.name).strip("-")
-            filename=f"{o.name}__{safe}.png"
-            scene.render.filepath=os.path.join(out,filename); bpy.ops.render.render(write_still=True)
-            records.append({"mesh":o.name,"key":k.name,"value":1.0,"image":filename,"status":"RENDERED_ISOLATED"})
-            k.value=0.0
+            if k.name not in key_names: key_names.append(k.name)
+    for key_name in key_names:
+        for other in shape_objs:
+            for ok in other.data.shape_keys.key_blocks: ok.value=0.0
+        enabled=[]
+        for o in shape_objs:
+            key=o.data.shape_keys.key_blocks.get(key_name)
+            if key is not None:
+                key.value=1.0
+                enabled.append(o.name)
+        safe="".join(c.lower() if c.isalnum() else "-" for c in key_name).strip("-")
+        filename=f"face-expression__{safe}.png"
+        scene.render.filepath=os.path.join(out,filename); bpy.ops.render.render(write_still=True)
+        records.append({"key":key_name,"value":1.0,"meshes_enabled":enabled,"image":filename,"status":"RENDERED_ISOLATED"})
     report={"status":"RENDERED_VISUAL_REVIEW_REQUIRED","source":os.path.basename(src),
             "head_meshes_used_for_framing":[o.name for o in head_objs],
             "shape_key_mesh_count":len(shape_objs),"render_count":1+len(records),
