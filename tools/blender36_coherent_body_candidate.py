@@ -11,26 +11,50 @@ def main():
     os.makedirs(out,exist_ok=True)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene=bpy.context.scene
-    scene.render.engine="BLENDER_WORKBENCH"
-    scene.display.shading.light="STUDIO"
-    scene.display.shading.color_type="MATERIAL"
-    scene.display.shading.show_shadows=True
-    scene.display.shading.show_cavity=True
-    scene.display.shading.cavity_type="WORLD"
+    # V410: use physically based Eevee preview instead of the flat Workbench clay render.
+    scene.render.engine="BLENDER_EEVEE"
+    scene.eevee.use_gtao=True
+    scene.eevee.gtao_distance=.22
+    scene.eevee.gtao_factor=1.25
+    scene.view_settings.view_transform="Filmic"
+    scene.view_settings.look="Medium High Contrast"
+    scene.view_settings.exposure=-0.5
+    scene.view_settings.gamma=1.0
     scene.render.resolution_x=900; scene.render.resolution_y=1100; scene.render.resolution_percentage=100
     scene.render.image_settings.file_format="PNG"
     scene.render.film_transparent=False
     if scene.world is None: scene.world=bpy.data.worlds.new("LamCandidateWorld")
     scene.world.color=(0.045,0.045,0.045)
+    scene.world.use_nodes=True
+    world_bg=scene.world.node_tree.nodes.get("Background")
+    if world_bg:
+        world_bg.inputs["Color"].default_value=(.055,.060,.070,1)
+        world_bg.inputs["Strength"].default_value=.22
 
     def material(name,color,rough=.6):
-        m=bpy.data.materials.new(name); m.diffuse_color=(*color,1); m.roughness=rough; return m
-    skin=material("Candidate warm skin",(0.62,.34,.23))
-    dress=material("Candidate deep teal dress",(.025,.12,.15))
-    hair=material("Candidate black hair",(.025,.018,.022),.32)
-    shoes=material("Candidate dark shoes",(.035,.035,.04))
-    white=material("Candidate eye whites",(.86,.8,.7),.35)
-    iris=material("Candidate brown eyes",(.18,.075,.025),.28)
+        m=bpy.data.materials.new(name)
+        m.diffuse_color=(*color,1); m.roughness=rough
+        # V408: export PBR principled materials for web/mobile GLB viewers.
+        m.use_nodes=True
+        bsdf=m.node_tree.nodes.get("Principled BSDF")
+        if bsdf:
+            if "Base Color" in bsdf.inputs: bsdf.inputs["Base Color"].default_value=(*color,1)
+            if "Roughness" in bsdf.inputs: bsdf.inputs["Roughness"].default_value=rough
+            if "Metallic" in bsdf.inputs: bsdf.inputs["Metallic"].default_value=.58 if "jewel" in name.lower() else 0.0
+            if "Specular" in bsdf.inputs: bsdf.inputs["Specular"].default_value=.24
+            if "Subsurface" in bsdf.inputs: bsdf.inputs["Subsurface"].default_value=.04 if "skin" in name.lower() else 0.0
+        return m
+    skin=material("Lam warm natural skin",(0.62,.40,.34),.50)  # V412: moderated warm skin tone
+    shirt=material("Lam deep teal fitted crop top",(.025,.095,.105),.48)
+    pants=material("Lam charcoal cargo pants",(.075,.076,.083),.66)  # V421: lift dark fabric to reveal cargo silhouette and folds
+    hair=material("Lam deep black hair",(.012,.010,.013),.50)
+    shoes=material("Lam white sneakers",(.88,.88,.86),.45)
+    sole=material("Sneaker dark sole",(.04,.04,.045),.62)
+    white=material("Natural warm eye whites",(.88,.83,.76),.4)
+    iris=material("Warm brown irises",(.20,.085,.035),.3)
+    pupil=material("Dark pupils",(.012,.009,.008),.22)
+    lipmat=material("Soft natural rose lips",(.37,.105,.11),.45)
+    jewelry=material("Lam silver jewelry",(.58,.62,.68),.28)
     def uv(name,loc,scale,mat,segments=32,rings=20):
         bpy.ops.mesh.primitive_uv_sphere_add(segments=segments,ring_count=rings,location=loc)
         o=bpy.context.object; o.name=name; o.scale=scale; bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
@@ -42,80 +66,641 @@ def main():
         o=uv(name,mid,(radius,radius if depth is None else depth,vec.length/2+radius),mat)
         o.rotation_mode="QUATERNION"; o.rotation_quaternion=vec.to_track_quat("Z","Y")
         return o
-    # Units: approximate 1.60m total height, Z up. Build a stylized female figure.
-    # Dress and trunk are fused via voxel remesh, creating a continuous torso/hip silhouette.
-    trunk=[]
-    trunk.append(uv("trunk_waist",(0,0,3.38),(.37,.245,.53),dress))
-    trunk.append(uv("trunk_hips",(0,0,2.99),(.415,.27,.34),dress))
-    trunk.append(uv("trunk_torso",(0,0,3.89),(.40,.235,.57),dress))
-    trunk.append(uv("trunk_shoulders",(0,0,4.29),(.43,.225,.15),dress))
-    # Neck and head are intentionally separate to preserve future facial rigging.
-    uv("neck",(0,0,4.625),(.135,.135,.27),skin)
-    uv("head",(0,-.015,5.035),(.275,.255,.365),skin,48,32)
-    # ears
-    uv("ear.L",(-.29,0,5.02),(.065,.075,.105),skin)
-    uv("ear.R",(.29,0,5.02),(.065,.075,.105),skin)
-    # Hair cap and back hair
-    uv("hair_cap",(0,.025,5.20),(.31,.285,.29),hair,40,24)
-    uv("hair_back",(0,.16,4.98),(.30,.16,.48),hair,36,24)
-    uv("hair_side.L",(-.265,.015,4.99),(.075,.10,.37),hair)
-    uv("hair_side.R",(.265,.015,4.99),(.075,.10,.37),hair)
-    # eyes face toward -Y
-    for x,side in [(-.115,"L"),(.115,"R")]:
-        uv("eye_white."+side,(x,-.257,5.075),(.057,.030,.040),white)
-        uv("iris."+side,(x,-.288,5.074),(.023,.014,.025),iris)
-        uv("brow."+side,(x,-.258,5.145),(.075,.025,.018),hair)
-    uv("nose",(0,-.294,4.995),(.032,.048,.052),skin)
-    uv("mouth",(0,-.275,4.91),(.075,.018,.022),material("Muted rose lips",(.34,.075,.08),.4))
-    # Arms are grouped and voxel-fused per side to reduce toy-like elbow/wrist seams.
-    arms=[]
-    for sign,side in [(-1,"L"),(1,"R")]:
-        shoulder=(sign*.47,0,4.28); elbow=(sign*.62,-.005,3.78); wrist=(sign*.64,-.035,3.32); hand=(sign*.64,-.055,3.15)
-        arms.append(capsule_piece("upper_arm."+side,shoulder,elbow,.125,skin,.13))
-        arms.append(uv("elbow."+side,elbow,(.11,.115,.11),skin))
-        arms.append(capsule_piece("forearm."+side,elbow,wrist,.095,skin,.10))
-        arms.append(uv("hand."+side,hand,(.09,.07,.125),skin))
-        for j in range(4):
-            x=sign*(.585+j*.028)
-            arms.append(capsule_piece("finger."+side+str(j),(x,-.065,3.10),(x,-.07,3.015-(.02 if j in (0,3) else 0)),.018,skin,.018))
-        arms.append(capsule_piece("thumb."+side,(sign*.57,-.08,3.16),(sign*.52,-.09,3.08),.024,skin,.024))
-    # legs are fused separately into one lower-body surface; dress hem overlaps the upper legs.
-    legs=[]
-    for sign,side in [(-1,"L"),(1,"R")]:
-        hip=(sign*.205,0,2.72); knee=(sign*.205,-.005,1.72); ankle=(sign*.20,0,.30)
-        legs.append(capsule_piece("thigh."+side,hip,knee,.205,skin,.20))
-        legs.append(uv("knee."+side,knee,(.125,.13,.125),skin))
-        legs.append(capsule_piece("shin."+side,knee,ankle,.125,skin,.13))
-        uv("foot."+side,(sign*.22,-.115,.14),(.11,.19,.075),shoes)
-    # fuse body parts that should visually read continuous. Voxel remesh joins overlapping surfaces.
-    def fuse(objects,name,voxel):
+
+    def curve_stroke(name, points, radius, mat):
+        """Smooth beveled facial stroke, converted to mesh for GLB export."""
+        curve=bpy.data.curves.new(name+"Curve","CURVE")
+        curve.dimensions="3D"; curve.resolution_u=16
+        curve.bevel_depth=radius; curve.bevel_resolution=4; curve.resolution_u=16
+        spline=curve.splines.new("BEZIER")
+        spline.bezier_points.add(len(points)-1)
+        for i,point in enumerate(points):
+            bp=spline.bezier_points[i]; bp.co=point
+            bp.handle_left_type="AUTO"; bp.handle_right_type="AUTO"
+        obj=bpy.data.objects.new(name,curve); scene.collection.objects.link(obj)
+        obj.data.materials.append(mat)
         bpy.ops.object.select_all(action="DESELECT")
-        for o in objects:o.select_set(True)
+        obj.select_set(True); bpy.context.view_layer.objects.active=obj
+        bpy.ops.object.convert(target="MESH")
+        obj=bpy.context.object
+        for poly in obj.data.polygons: poly.use_smooth=True
+        return obj
+    # Integrated character candidate: use lofted garment/limb surfaces and fuse the key
+    # transition areas. This replaces the old stacked torso, capsule arms and skirt blockout.
+
+    def loft_rings(name, levels, mat, segments=48, cap_top=True):
+        """Elliptical loft; optionally leave the final ring open for a garment neckline."""
+        verts=[]; faces=[]
+        for z,rx,ry,cy in levels:
+            for j in range(segments):
+                a=2*math.pi*j/segments
+                verts.append((rx*math.cos(a),cy+ry*math.sin(a),z))
+        verts.append((0.0,levels[0][3],levels[0][0])); bottom=len(verts)-1
+        top=None
+        if cap_top:
+            verts.append((0.0,levels[-1][3],levels[-1][0])); top=len(verts)-1
+        for i in range(len(levels)-1):
+            for j in range(segments):
+                a=i*segments+j; b=i*segments+(j+1)%segments
+                c=(i+1)*segments+(j+1)%segments; d=(i+1)*segments+j
+                faces.append((a,b,c,d))
+        for j in range(segments):
+            faces.append((bottom,(j+1)%segments,j))
+            a=(len(levels)-1)*segments+j; b=(len(levels)-1)*segments+(j+1)%segments
+            if cap_top:
+                faces.append((top,a,b))
+        mesh=bpy.data.meshes.new(name+"Mesh"); mesh.from_pydata(verts,[],faces); mesh.update()
+        obj=bpy.data.objects.new(name,mesh); scene.collection.objects.link(obj); obj.data.materials.append(mat)
+        for p in obj.data.polygons:p.use_smooth=True
+        return obj
+
+    def tube_path(name, levels, mat, segments=28):
+        """Closed limb loft; levels are (x, y, z, radius_x, radius_y)."""
+        verts=[]; faces=[]
+        for x,y,z,rx,ry in levels:
+            for j in range(segments):
+                a=2*math.pi*j/segments
+                verts.append((x+rx*math.cos(a),y+ry*math.sin(a),z))
+        verts.append((levels[0][0],levels[0][1],levels[0][2])); bottom=len(verts)-1
+        verts.append((levels[-1][0],levels[-1][1],levels[-1][2])); top=len(verts)-1
+        for i in range(len(levels)-1):
+            for j in range(segments):
+                a=i*segments+j; b=i*segments+(j+1)%segments
+                c=(i+1)*segments+(j+1)%segments; d=(i+1)*segments+j
+                faces.append((a,b,c,d))
+        for j in range(segments):
+            faces.append((bottom,(j+1)%segments,j))
+            a=(len(levels)-1)*segments+j; b=(len(levels)-1)*segments+(j+1)%segments
+            faces.append((top,a,b))
+        mesh=bpy.data.meshes.new(name+"Mesh"); mesh.from_pydata(verts,[],faces); mesh.update()
+        obj=bpy.data.objects.new(name,mesh); scene.collection.objects.link(obj); obj.data.materials.append(mat)
+        for p in obj.data.polygons:p.use_smooth=True
+        return obj
+
+    def fuse(objects,name,voxel,smooth_factor=.55,smooth_iterations=2):
+        bpy.ops.object.select_all(action="DESELECT")
+        for obj in objects: obj.select_set(True)
         bpy.context.view_layer.objects.active=objects[0]
         bpy.ops.object.join()
-        o=bpy.context.object; o.name=name
-        mod=o.modifiers.new("VoxelFuse","REMESH"); mod.mode="VOXEL"; mod.voxel_size=voxel
-        bpy.ops.object.modifier_apply(modifier=mod.name)
-        sm=o.modifiers.new("GentleSmooth","SMOOTH"); sm.factor=1.15; sm.iterations=3
-        bpy.ops.object.modifier_apply(modifier=sm.name)
-        for p in o.data.polygons:p.use_smooth=True
-        return o
-    fused_trunk=fuse(trunk,"BODY_DRESS_CONTINUOUS",.024)
-    fused_legs=fuse(legs,"BODY_LEGS_CONTINUOUS",.022)
-    fused_arms=fuse(arms,"BODY_ARMS_CONTINUOUS",.018)
-    # Add a modest flared skirt overlay so the prototype reads as a dressed adult figure,
-    # rather than a single tight torso/hip capsule. Kept isolated to this experimental candidate.
-    bpy.ops.mesh.primitive_cone_add(vertices=64, radius1=.51, radius2=.385, depth=.56, location=(0,-.012,2.82))
-    skirt=bpy.context.object; skirt.name="EXPERIMENTAL_FLARED_SKIRT"; skirt.data.materials.append(dress)
-    bevel=skirt.modifiers.new("Soft skirt edges","BEVEL"); bevel.width=.045; bevel.segments=3
-    bpy.ops.object.modifier_apply(modifier=bevel.name)
-    for p in skirt.data.polygons: p.use_smooth=True
+        obj=bpy.context.object; obj.name=name
+        remesh=obj.modifiers.new("IntegratedSurface","REMESH")
+        remesh.mode="VOXEL"; remesh.voxel_size=voxel
+        bpy.ops.object.modifier_apply(modifier=remesh.name)
+        smooth=obj.modifiers.new("SurfacePolish","SMOOTH")
+        smooth.factor=smooth_factor; smooth.iterations=smooth_iterations
+        bpy.ops.object.modifier_apply(modifier=smooth.name)
+        for poly in obj.data.polygons:poly.use_smooth=True
+        return obj
+
+    def hair_ribbon(name, points, widths, thickness, mat, segments=16):
+        """Create a broad, softly rounded tapered hair lock swept along a curved centerline."""
+        centers=[Vector(p) for p in points]
+        if len(centers)<3 or len(widths)!=len(centers):
+            raise ValueError("hair_ribbon requires >=3 points and one width per point")
+        verts=[]; faces=[]
+        for i,center in enumerate(centers):
+            tangent=(centers[min(i+1,len(centers)-1)]-centers[max(i-1,0)]).normalized()
+            lateral=Vector((tangent.z,0.0,-tangent.x))
+            if lateral.length<1e-6:
+                lateral=Vector((1.0,0.0,0.0))
+            lateral.normalize()
+            depth=tangent.cross(lateral)
+            if depth.length<1e-6:
+                depth=Vector((0.0,1.0,0.0))
+            depth.normalize()
+            for j in range(segments):
+                a=2.0*math.pi*j/segments
+                p=center+lateral*(widths[i]*math.cos(a))+depth*(thickness*math.sin(a))
+                verts.append(tuple(p))
+        for i in range(len(centers)-1):
+            for j in range(segments):
+                a=i*segments+j; b=i*segments+(j+1)%segments
+                c=(i+1)*segments+(j+1)%segments; d=(i+1)*segments+j
+                faces.append((a,b,d,c))
+        faces.append(tuple(reversed(tuple(range(segments)))))
+        faces.append(tuple((len(centers)-1)*segments+j for j in range(segments)))
+        mesh=bpy.data.meshes.new(name+"Mesh")
+        mesh.from_pydata(verts,[],faces); mesh.update()
+        obj=bpy.data.objects.new(name,mesh); scene.collection.objects.link(obj)
+        obj.data.materials.append(mat)
+        for poly in obj.data.polygons: poly.use_smooth=True
+        return obj
+
+    # Reference-led fitted dark-teal crop top with subtle garment volume at the chest.
+    shirt_obj=loft_rings("LAM_DARK_TEAL_CROP_TOP",[
+        (3.46,.300,.176,0),(3.51,.330,.190,0),(3.60,.350,.198,0),
+        (3.72,.365,.202,0),(3.84,.370,.204,0),(3.95,.365,.198,0),
+        (4.05,.350,.186,0),(4.16,.323,.166,0),(4.27,.275,.137,0),
+        (4.36,.215,.116,0)
+    ],shirt,64,False)
+    # V415: add a restrained, symmetric bust contour to the fabric surface rather than attaching spheres.
+    for vert in shirt_obj.data.vertices:
+        x,y,z=vert.co
+        if y < -.015:
+            frontness=max(0.0,min(1.0,(-y-.015)/.18))
+            left_bust=math.exp(-(((x+.125)/.105)**2)-(((z-3.80)/.145)**2))
+            right_bust=math.exp(-(((x-.125)/.105)**2)-(((z-3.80)/.145)**2))
+            vert.co.y -= frontness*.034*(left_bust+right_bust)
+    shirt_obj.data.update()
+    # Narrow shoulder straps follow the reference outfit and connect the neckline toward the shoulders.
+    for sign,side in [(-1,"L"),(1,"R")]:
+        curve_stroke("CROP_TOP_STRAP_"+side,[
+            (sign*.225,-.105,4.105),(sign*.205,-.137,4.19),
+            (sign*.167,-.123,4.310),(sign*.142,-.096,4.380)
+        ],.014,shirt)
+
+    # A narrow dark rib around the open collar helps define a finished neckline.
+    bpy.ops.mesh.primitive_torus_add(major_segments=48,minor_segments=10,
+        location=(0,0,4.315),major_radius=.108,minor_radius=.006)
+    collar=bpy.context.object; collar.name="TEE_BLACK_RIB_COLLAR"; collar.scale.y=.90
+    bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
+    collar.data.materials.append(pants)
+    for poly in collar.data.polygons:poly.use_smooth=True
+
+    # Build the pelvis and two tapered pant legs, then voxel-fuse them into one garment.
+    pelvis=loft_rings("PANTS_PELVIS",[
+        (2.48,.335,.192,0),(2.60,.375,.215,0),(2.74,.405,.226,0),
+        (2.88,.420,.230,0),(3.00,.420,.230,0),(3.12,.410,.226,0),
+        (3.20,.390,.214,0),(3.30,.390,.214,0),(3.38,.370,.205,0)
+    ],pants,56)
+    pant_parts=[pelvis]
+    for sign,side in [(-1,"L"),(1,"R")]:
+        pant_parts.append(tube_path("PANTS_LEG_"+side,[
+            (sign*.200,-.018,.10,.118,.124),(sign*.200,-.012,.22,.120,.128),
+            (sign*.198,0,.36,.128,.136),
+            (sign*.200,0,.48,.138,.148),(sign*.205,0,.68,.151,.159),
+            (sign*.205,0,.92,.164,.174),(sign*.207,0,1.18,.177,.187),
+            (sign*.207,0,1.43,.188,.198),(sign*.205,0,1.64,.198,.208),
+            (sign*.203,0,1.78,.203,.213),(sign*.200,0,1.96,.209,.218),
+            (sign*.198,0,2.18,.218,.223),(sign*.195,0,2.39,.220,.226),
+            (sign*.192,0,2.58,.222,.230),(sign*.190,0,2.73,.224,.232)
+        ],pants,32))
+    fused_pants=fuse(pant_parts,"LAM_CONTINUOUS_BLACK_PANTS",.012,.55,2)
+
+    # V411: fitted cargo pockets give the charcoal trousers the established utility silhouette.
+    pocketmat=material("Charcoal cargo pocket fabric",(.070,.072,.080),.70)
+    pocketflap=material("Cargo pocket flap fabric",(.095,.098,.108),.66)
+    def garment_box(name,loc,half_extents,mat,bevel=.012):
+        bpy.ops.mesh.primitive_cube_add(size=1,location=loc)
+        obj=bpy.context.object; obj.name=name; obj.scale=half_extents
+        bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
+        obj.data.materials.append(mat)
+        b=obj.modifiers.new("Soft garment edges","BEVEL"); b.width=bevel; b.segments=3
+        obj.modifiers.new("Weighted garment normals","WEIGHTED_NORMAL")
+        return obj
+    for sign,side in [(-1,"L"),(1,"R")]:
+        garment_box("CARGO_THIGH_POCKET_"+side,(sign*.305,-.204,2.13),(.095,.024,.158),pocketmat,.015)
+        garment_box("CARGO_THIGH_FLAP_"+side,(sign*.305,-.233,2.274),(.087,.014,.032),pocketflap,.009)
+
+    # Shorter/slimmer neck, partly hidden by the collar and lower head.
+    neck=tube_path("LAM_NECK",[
+        (0,0,4.18,.118,.112),(0,0,4.27,.122,.116),(0,0,4.36,.125,.118),
+        (0,0,4.46,.122,.116),(0,0,4.56,.120,.115),(0,0,4.66,.122,.116),
+        (0,0,4.75,.126,.120)
+    ],skin,40)
+
+    # V419: build a custom ring-sculpted face surface instead of starting from a UV sphere.
+    # The profile explicitly controls chin, jaw taper, cheek width, temples and forehead.
+    face_levels=[
+        (4.690,.028,.052,-.002),(4.704,.052,.092,-.002),
+        (4.730,.082,.128,-.002),(4.770,.122,.158,-.002),
+        (4.815,.158,.181,-.002),(4.865,.184,.198,-.003),
+        (4.920,.207,.211,-.004),(4.975,.229,.220,-.005),
+        (5.030,.245,.226,-.005),(5.085,.252,.224,-.005),
+        (5.140,.254,.218,-.005),(5.195,.250,.207,-.005),
+        (5.245,.239,.190,-.005),(5.290,.218,.164,-.005),
+        (5.325,.184,.132,-.005),(5.348,.137,.094,-.005),
+        (5.360,.078,.052,-.005),(5.364,.018,.012,-.005)
+    ]
+    face_segments=96
+    face_verts=[]; face_faces=[]
+    for z,rx,ry,cy in face_levels:
+        for j in range(face_segments):
+            a=2*math.pi*j/face_segments
+            x=rx*math.cos(a)
+            front=max(0.0,math.sin(a))
+            y=cy-ry*math.sin(a)
+            # Shallow sculpting is integrated into the continuous face surface.
+            if front>0:
+                eye_socket=.010*(math.exp(-(((x-.108)/.057)**2)-(((z-5.115)/.030)**2))+
+                                 math.exp(-(((x+.108)/.057)**2)-(((z-5.115)/.030)**2)))
+                brow_ridge=.006*(math.exp(-(((x-.108)/.068)**2)-(((z-5.165)/.024)**2))+
+                                 math.exp(-(((x+.108)/.068)**2)-(((z-5.165)/.024)**2)))
+                cheekbone=.008*(math.exp(-(((abs(x)-.145)/.055)**2)-(((z-4.965)/.048)**2)))
+                muzzle=.004*math.exp(-((x/.073)**2)-(((z-4.865)/.038)**2))
+                nose_bridge=.010*math.exp(-((x/.034)**2)-(((z-5.045)/.105)**2))
+                nose_tip=.014*math.exp(-((x/.036)**2)-(((z-4.980)/.032)**2))
+                y += front*(eye_socket+brow_ridge)
+                y -= front*(cheekbone+muzzle+nose_bridge+nose_tip)
+            face_verts.append((x,y,z))
+    for i in range(len(face_levels)-1):
+        for j in range(face_segments):
+            a=i*face_segments+j; b=i*face_segments+(j+1)%face_segments
+            c=(i+1)*face_segments+(j+1)%face_segments; d=(i+1)*face_segments+j
+            # V420: face rings use y = center_y - ry*sin(angle), opposite the
+            # winding used by the generic loft. Reverse this quad winding so normals
+            # point outward toward the camera/light rather than into the head.
+            face_faces.append((a,d,c,b))
+    face_verts.extend([(0,-.002,face_levels[0][0]),(0,-.002,face_levels[-1][0])])
+    bottom=len(face_verts)-2; top=len(face_verts)-1
+    for j in range(face_segments):
+        # V420: orient the lower and upper caps outward as well.
+        face_faces.append((bottom,j,(j+1)%face_segments))
+        a=(len(face_levels)-1)*face_segments+j
+        b=(len(face_levels)-1)*face_segments+(j+1)%face_segments
+        face_faces.append((top,b,a))
+    face_mesh=bpy.data.meshes.new("LAM_SCULPTED_FACE_SURFACE_MESH")
+    face_mesh.from_pydata(face_verts,[],face_faces); face_mesh.update()
+    head=bpy.data.objects.new("LAM_SCULPTED_FACE_SURFACE",face_mesh)
+    scene.collection.objects.link(head); head.data.materials.append(skin)
+    for poly in head.data.polygons: poly.use_smooth=True
+    polish=head.modifiers.new("FaceSurfacePolish","SUBSURF"); polish.levels=2; polish.render_levels=2
+    bpy.context.view_layer.objects.active=head; head.select_set(True)
+    bpy.ops.object.modifier_apply(modifier=polish.name)
+    head.data.update()
+
+    # Fuse a tapered nose bridge and tip directly into the head skin; no separate nose sphere.
+    nose=loft_rings("NOSE_RELIEF_TO_FUSE",[
+        (4.968,.012,.009,-.236),(4.982,.018,.015,-.244),
+        (4.995,.019,.018,-.248),(5.009,.017,.019,-.248),
+        (5.028,.013,.016,-.244),(5.060,.009,.011,-.238),
+        (5.088,.005,.007,-.231)
+    ],skin,40)  # V422: raise nose relief slightly to match the reference eye-to-nose spacing
+    fused_head=fuse([head,nose],"LAM_HEAD_INTEGRATED_NOSE",.006,.30,1)
+
+    # Ears are fused into the head/neck shell so they no longer look like buttons attached
+    # to the side of the face. Keep the outer lobes shallow and close to the head silhouette.
+    ear_l=uv("EAR_L",(-.257,.003,5.015),(.010,.018,.028),skin,40,28)  # V418: keep ears tucked beneath the side hair
+    ear_r=uv("EAR_R",(.257,.003,5.015),(.010,.018,.028),skin,40,28)
+    fused_head_neck=fuse([neck,fused_head,ear_l,ear_r],"LAM_CONTINUOUS_HEAD_NECK",.007,.22,1)
+
+    # V408 jewelry cues from the canonical face/outfit references: discreet silver drops and pendant.
+    for x,side in [(-.263,"L"),(.263,"R")]:
+        uv("EARRING_STUD_"+side,(x,-.030,5.000),(.007,.004,.007),jewelry,24,16)
+        curve_stroke("EARRING_LINK_"+side,[(x,-.033,4.998),(x,-.034,4.982)],.0022,jewelry)
+        uv("EARRING_DROP_"+side,(x,-.035,4.970),(.005,.0035,.009),jewelry,24,16)
+    curve_stroke("NECKLACE_CHAIN",[
+        (-.105,-.035,4.510),(-.090,-.067,4.460),(-.055,-.093,4.415),
+        (0,-.104,4.390),(.055,-.093,4.415),(.090,-.067,4.460),(.105,-.035,4.510)
+    ],.0045,jewelry)
+    uv("NECKLACE_PENDANT",(0,-.111,4.372),(.014,.006,.021),jewelry,32,24)
+
+    # V413: larger warm-brown eyes with visible inset iris, shaped lids and softer arched brows.
+    for x,side in [(-.108,"L"),(.108,"R")]:
+        # V421: flatter almond-like eyes with a smaller warm iris and less protruding eyeball volume.
+        uv("EYE_WHITE_"+side,(x,-.229,5.110),(.047,.008,.014),white,48,32)
+        uv("IRIS_"+side,(x,-.237,5.109),(.014,.0032,.0115),iris,40,28)
+        uv("PUPIL_"+side,(x,-.241,5.109),(.006,.0020,.008),pupil,32,24)
+        uv("EYE_GLINT_"+side,(x-.0045,-.245,5.114),(.0028,.0014,.0028),white,24,16)
+        curve_stroke("EYELID_UPPER_"+side,[
+            (x-.052,-.226,5.107),(x-.024,-.235,5.127),(x+.006,-.239,5.131),(x+.031,-.233,5.123),(x+.052,-.226,5.107)
+        ],.0034,skin)
+        curve_stroke("EYELINER_UPPER_"+side,[
+            (x-.053,-.229,5.108),(x-.023,-.239,5.127),(x+.007,-.243,5.130),(x+.032,-.237,5.122),(x+.054,-.228,5.108)
+        ],.0018,hair)
+        curve_stroke("EYELID_LOWER_"+side,[
+            (x-.048,-.226,5.108),(x,-.235,5.086),(x+.048,-.226,5.108)
+        ],.0030,skin)
+        curve_stroke("BROW_"+side,[
+            (x-.058,-.219,5.159),(x,-.229,5.181),(x+.058,-.219,5.159)
+        ],.0048,hair)
+    lips_obj=uv("LAM_LIPS",(0,-.229,4.862),(.064,.010,.014),lipmat,48,28)  # V422: lower the mouth to match the reference's longer nose-to-lip spacing
+    mouth_dark=material("Mouth cavity deep rose",(.075,.018,.022),.62)
+    tongue_mat=material("Tongue muted rose",(.48,.12,.15),.52)
+    mouth_cavity=uv("LAM_MOUTH_CAVITY",(0,-.222,4.859),(.038,.0045,.008),mouth_dark,40,24)
+    tongue_obj=uv("LAM_TONGUE",(0,-.230,4.853),(.012,.003,.003),tongue_mat,32,20)
+    # Cupid's-bow and lower-lip contours turn the mouth from a flat oval into a soft lip shape.
+    curve_stroke("UPPER_LIP_CONTOUR",[
+        (-.066,-.235,4.860),(-.040,-.238,4.869),(-.018,-.240,4.873),
+        (0,-.239,4.868),(.018,-.240,4.873),(.040,-.238,4.869),(.066,-.235,4.860)
+    ],.0018,lipmat)
+    curve_stroke("LOWER_LIP_CONTOUR",[
+        (-.052,-.236,4.855),(0,-.241,4.849),(.052,-.236,4.855)
+    ],.0016,lipmat)
+
+    # Hair cap and back/side locks are fused into one continuous black hair mass.
+    hair_cap=loft_rings("HAIR_CAP_SURFACE",[
+        (5.235,.260,.210,.040),(5.270,.286,.232,.030),
+        (5.320,.274,.240,.018),(5.370,.240,.214,.016),
+        (5.425,.183,.172,.012),(5.468,.112,.108,.008),
+        (5.492,.018,.018,.005)
+    ],hair,64)
+    # V402: lift one side of the frontal hairline into a swept curve instead of a flat helmet rim.
+    for vert in hair_cap.data.vertices:
+        x,y,z=vert.co
+        if y < 0.0 and z < 5.37:
+            front_weight=max(0.0,min(1.0,(-y-.025)/.20))
+            edge_weight=max(0.0,min(1.0,(5.38-z)/.15))
+            sweep_weight=max(0.0,min(1.0,.5-x/.52))
+            # V415: lift the center part and soften the temple transition into a natural curved hairline.
+            center_peak=.050*math.exp(-((x/.080)**2))
+            temple_dip=.012*math.exp(-((abs(x)-.215)/.055)**2)
+            vert.co.z += front_weight*edge_weight*(.025+center_peak-temple_dip)
+    hair_cap.data.update()
+    hair_parts=[hair_cap]
+    # V415: a single elongated rear mass makes long hair continuous down the back.
+    hair_parts.append(tube_path("HAIR_BACK_MASS",[
+        (0,.15,2.72,.020,.045),(0,.15,2.82,.100,.080),
+        (0,.15,3.02,.180,.105),(0,.16,3.35,.225,.120),
+        (0,.16,3.70,.248,.135),(0,.16,4.05,.260,.140),
+        (0,.16,4.40,.265,.145),(0,.16,4.75,.270,.150),
+        (0,.15,5.00,.270,.150),(0,.14,5.20,.255,.135),
+        (0,.12,5.30,.200,.110),(0,.08,5.36,.100,.070),
+        (0,.05,5.38,.015,.030)
+    ],hair,48))  # V417: broad profile-aware rear hair silhouette
+    # V416: broad side curtains connect the scalp to the long locks and cover the side gaps
+    # around the temples/ears. They taper into the back hair mass rather than ending as ovals.
+    for sign,side in [(-1,"L"),(1,"R")]:
+        hair_parts.append(tube_path("HAIR_LONG_SIDE_MASS_"+side,[
+            (sign*.215,-.020,5.285,.065,.105),
+            (sign*.232,-.010,5.120,.085,.130),
+            (sign*.240,-.005,4.900,.090,.135),
+            (sign*.250,.000,4.650,.088,.135),
+            (sign*.260,.005,4.350,.082,.130),
+            (sign*.270,.015,4.020,.075,.120),
+            (sign*.278,.025,3.680,.068,.108),
+            (sign*.283,.035,3.340,.055,.092),
+            (sign*.280,.045,3.050,.038,.070),
+            (sign*.275,.055,2.860,.012,.038)
+        ],hair,40))
+    # V403: broad layered curtains create the main long-hair silhouette; thin sheen strokes
+    # are only accents, never the primary hair mass. Panels are behind the facial surface.
+    for sign,side in [(-1,"L"),(1,"R")]:
+        hair_parts.append(hair_ribbon("HAIR_LONG_FACE_PANEL_"+side,[
+            (sign*.205,-.155,5.315),(sign*.238,-.180,5.170),
+            (sign*.265,-.190,4.980),(sign*.280,-.180,4.735),
+            (sign*.304,-.165,4.470),(sign*.298,-.150,4.180),
+            (sign*.327,-.125,3.890),(sign*.315,-.100,3.590),
+            (sign*.345,-.075,3.280),(sign*.328,-.045,2.960),
+            (sign*.335,-.025,2.800)
+        ],[.022,.038,.050,.056,.060,.059,.056,.052,.044,.030,.008],.015,hair))
+        hair_parts.append(hair_ribbon("HAIR_LONG_REAR_PANEL_"+side,[
+            (sign*.145,.085,5.330),(sign*.195,.125,5.100),
+            (sign*.230,.155,4.820),(sign*.250,.170,4.510),
+            (sign*.270,.170,4.180),(sign*.285,.150,3.830),
+            (sign*.295,.120,3.490),(sign*.300,.095,3.150),
+            (sign*.295,.085,2.860),(sign*.290,.080,2.720)
+        ],[.032,.050,.062,.068,.070,.066,.060,.052,.032,.007],.018,hair))
+    # V409: fuse the moderate-width panels back into one coherent scalp/hair volume.
+    # The V406 oversized version produced holes; current V407-sized locks passed remesh inspection.
+    fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.010,.24,1)
+
+
+    # Reference-led hair flow: layered curved locks add directional silhouette beyond the cap.
+    hair_sheen=material("Lam hair soft charcoal sheen",(.036,.026,.029),.46)  # V421: readable hair highlights without a plastic-black finish
+    hair_glint=material("Lam hair subtle warm strand",(.052,.032,.034),.48)  # V421: low-contrast warm highlights for dark brown-black hair
+    for sign,side in [(-1,"L"),(1,"R")]:
+        # Face-framing locks taper from the part, pass beside the cheek, then fall over the chest.
+        for idx,offset in enumerate((0.0,.075)):
+            x0=sign*(.125+offset*.12)
+            x1=sign*(.170+offset*.16)
+            x2=sign*(.220+offset*.20)
+            x3=sign*(.260+offset*.20)
+            x4=sign*(.290+offset*.18)
+            pts=[
+                (x0,-.155-offset*.08,5.435-offset*.06),
+                (x1,-.206-offset*.035,5.315-offset*.035),
+                (x2,-.222-offset*.020,5.145),
+                (x3,-.205-offset*.012,4.945),
+                (x4,-.178-offset*.010,4.725),
+                (sign*(.285+offset*.52),-.145-offset*.008,4.485),
+                (sign*(.300+offset*.45),-.115-offset*.006,4.315)
+            ]
+            curve_stroke("HAIR_FACE_FRAME_"+side+str(idx),pts,.0025 if idx%2 else .0033,hair_sheen if idx%2 else hair_glint)
+        # Longer side/back locks follow the shoulder line rather than ending as a single lump.
+        for idx,offset in enumerate((0.0,.080)):
+            pts=[
+                (sign*(.075+offset*.20),.025+offset*.15,5.420-offset*.025),
+                (sign*(.150+offset*.24),.095+offset*.12,5.245),
+                (sign*(.215+offset*.20),.135+offset*.10,5.030),
+                (sign*(.245+offset*.18),.155+offset*.08,4.790),
+                (sign*(.255+offset*.15),.135+offset*.08,4.560),
+                (sign*(.260+offset*.12),.105+offset*.06,4.345)
+            ]
+            curve_stroke("HAIR_BACK_FLOW_"+side+str(idx),pts,.0025,hair_sheen)
+
+    # Slim, tapered arm lofts; elbow transitions are built into each surface.
+    arm_parts=[]
+    for sign,side in [(-1,"L"),(1,"R")]:
+        arm_parts.append(tube_path("ARM_SKIN_"+side,[
+            (sign*.385,0,4.19,.085,.095),(sign*.425,-.002,4.10,.103,.108),
+            (sign*.465,-.006,3.99,.105,.108),(sign*.492,-.010,3.84,.094,.099),
+            (sign*.510,-.015,3.69,.085,.090),(sign*.525,-.020,3.55,.075,.080),
+            (sign*.530,-.025,3.40,.070,.076),(sign*.528,-.030,3.26,.065,.070),
+            (sign*.525,-.035,3.17,.061,.065)
+        ],skin,32))
+        arm_parts.append(uv("PALM_"+side,(sign*.525,-.040,3.105),(.061,.052,.090),skin,32,24))
+        for finger in range(4):
+            x=sign*(.488+finger*.025)
+            z0=3.085-(.010 if finger in (0,3) else 0)
+            arm_parts.append(capsule_piece("FINGER_"+side+str(finger),
+                (x,-.047,z0),(x+sign*.002,-.049,z0-.075),.013,skin,.013))
+        arm_parts.append(capsule_piece("THUMB_"+side,
+            (sign*.478,-.043,3.12),(sign*.455,-.051,3.065),.018,skin,.018))
+    fused_arms=fuse(arm_parts,"LAM_CONTINUOUS_ARM_AND_HAND_FORMS",.010,.48,2)
+
+    # White sneakers with a subtle dark sole and a fuller upper.
+    for sign,side in [(-1,"L"),(1,"R")]:
+        uv("SNEAKER_SOLE_"+side,(sign*.205,-.235,.078),(.128,.335,.036),sole,40,24)
+        uv("SNEAKER_UPPER_"+side,(sign*.205,-.235,.130),(.124,.320,.062),shoes,40,28)
+        uv("SNEAKER_TONGUE_"+side,(sign*.205,-.300,.158),(.060,.120,.029),white,32,20)
+
+    # Subtle waistband visible below the tee; the chosen styling stays black and white.
+    waistband=loft_rings("PANTS_WAISTBAND",[
+        (3.27,.364,.208,0),(3.32,.355,.204,0),(3.37,.330,.195,0)
+    ],pants,56)
+
     # Normalize the generated figure to the requested 1.60 m scale (Z extent about 5.5 units before normalization).
     scale_factor=1.60/5.5
     for obj in list(scene.objects):
         if obj.type=="MESH":
             obj.location *= scale_factor
             obj.scale *= scale_factor
+    # Add semantic facial morph targets on the new meshes. These names match the viewer API.
+    def add_shape_key(obj, name, transform):
+        if obj is None or obj.type!="MESH":
+            raise RuntimeError("Cannot add shape key "+name+": target mesh is missing")
+        if obj.data.shape_keys is None:
+            obj.shape_key_add(name="Basis",from_mix=False)
+        key=obj.shape_key_add(name=name,from_mix=False)
+        basis=obj.data.shape_keys.key_blocks.get("Basis")
+        for i,vertex in enumerate(obj.data.vertices):
+            key.data[i].co=transform(vertex.co.copy())
+        return key
+
+    def clamp01(x): return max(0.0,min(1.0,x))
+    def gauss(x,center,width): return math.exp(-((x-center)/width)**2)
+
+    def head_key(name):
+        def transform(co):
+            x,y,z=co.x,co.y,co.z
+            front=clamp01((-y-.08)/.16)
+            ax=abs(x)
+            if name=="smile":
+                w=front*gauss(ax,.072,.042)*gauss(z,4.860,.060)
+                co.y-=.005*w; co.z+=.020*w
+            elif name=="cheek_raise":
+                w=front*gauss(ax,.145,.064)*gauss(z,4.975,.060)
+                co.y-=.007*w; co.z+=.014*w
+            elif name=="brow_raise":
+                w=front*gauss(ax,.108,.075)*gauss(z,5.175,.060)
+                co.z+=.016*w
+            elif name=="mouth_open":
+                w=front*gauss(z,4.857,.065)*clamp01(1.0-(ax/.14)**2)
+                co.z-=.010*w
+            elif name=="jaw_open":
+                jaw=clamp01((4.985-z)/.30)*clamp01(1.0-(ax/.245)**2)*front
+                co.z-=.055*jaw; co.y+=.010*jaw
+            elif name=="jaw_hinge":
+                jaw=clamp01((4.985-z)/.30)*clamp01(1.0-(ax/.245)**2)*front
+                co.z-=.032*jaw; co.y+=.018*jaw
+            return co
+        return transform
+
+    for name in ("smile","cheek_raise","brow_raise","mouth_open","jaw_open","jaw_hinge"):
+        add_shape_key(fused_head_neck,name,head_key(name))
+
+    # Blink targets flatten the visible eyeballs and their iris/pupil highlights together.
+    for side,morph in (("L","blink_left"),("R","blink_right")):
+        for prefix in ("EYE_WHITE_","IRIS_","PUPIL_","EYE_GLINT_"):
+            obj=scene.objects.get(prefix+side)
+            if obj:
+                add_shape_key(obj,morph,lambda co: Vector((co.x,co.y,co.z*.06)))
+
+    # Brows lift with the same semantic target as the forehead skin.
+    for side in ("L","R"):
+        brow_obj=scene.objects.get("BROW_"+side)
+        if brow_obj:
+            add_shape_key(brow_obj,"brow_raise",lambda co: Vector((co.x,co.y,co.z+.020)))
+
+    def mouth_transform(kind):
+        def transform(co):
+            x,y,z=co.x,co.y,co.z
+            if kind=="smile":
+                co.x*=1.22; co.z+=.017*(abs(x)/.060)**2
+            elif kind=="mouth_open":
+                co.z=(z+.012) if z>=0 else (z-.015)
+            elif kind=="lip_press":
+                co.z*=.22
+            elif kind=="lip_fv":
+                co.z+=(.004 if z>=0 else -.004); co.x*=1.04
+            elif kind=="lip_round":
+                co.x*=.58; co.z*=1.45
+            elif kind=="jaw_open":
+                co.z*=2.2
+            elif kind=="jaw_hinge":
+                co.z*=1.8
+            return co
+        return transform
+
+    for key_name in ("smile","mouth_open","lip_press","lip_fv","lip_round","jaw_open","jaw_hinge"):
+        add_shape_key(lips_obj,key_name,mouth_transform(key_name))
+
+    def cavity_transform(kind):
+        def transform(co):
+            if kind=="mouth_open":
+                co.z*=3.5
+            elif kind=="jaw_open":
+                co.z*=3.2
+            elif kind=="jaw_hinge":
+                co.z*=2.8; co.y-=.002
+            elif kind=="smile":
+                co.x*=1.5; co.z*=1.6
+            elif kind=="lip_press":
+                co.z*=.12
+            elif kind=="lip_round":
+                co.x*=.58; co.z*=1.8
+            elif kind=="lip_fv":
+                co.z+=(.002 if co.z>=0 else -.002)
+            return co
+        return transform
+
+    for key_name in ("smile","mouth_open","lip_press","lip_fv","lip_round","jaw_open","jaw_hinge"):
+        add_shape_key(mouth_cavity,key_name,cavity_transform(key_name))
+    add_shape_key(tongue_obj,"tongue_tip",lambda co: Vector((co.x,co.y-.010,co.z+.022)))
+    add_shape_key(tongue_obj,"mouth_open",lambda co: Vector((co.x,co.y,co.z*2.0)))
+
+    required_morphs=[
+        "smile","blink_left","blink_right","mouth_open","brow_raise","jaw_open",
+        "jaw_hinge","cheek_raise","lip_press","lip_fv","lip_round","tongue_tip"
+    ]
+    morph_effects={name:0.0 for name in required_morphs}
+    for obj in [o for o in scene.objects if o.type=="MESH"]:
+        shapes=obj.data.shape_keys
+        if not shapes: continue
+        basis=shapes.key_blocks.get("Basis")
+        if not basis: continue
+        for key in shapes.key_blocks:
+            if key.name=="Basis" or key.name not in morph_effects: continue
+            maximum=0.0
+            for i,bv in enumerate(basis.data):
+                delta=(key.data[i].co-bv.co).length
+                maximum=max(maximum,delta)
+            morph_effects[key.name]=max(morph_effects[key.name],maximum)
+    missing=[name for name,value in morph_effects.items() if value<=1e-6]
+    if missing: raise RuntimeError("Required facial morphs missing or ineffective: "+", ".join(missing))
+
+    # Create the 17-bone Lam humanoid skeleton in the candidate's normalized coordinate space.
+    rig_data=bpy.data.armatures.new("Lam_Humanoid_Skeleton")
+    rig=bpy.data.objects.new("Lam_Humanoid_Root",rig_data)
+    scene.collection.objects.link(rig)
+    bpy.context.view_layer.objects.active=rig
+    bpy.ops.object.select_all(action="DESELECT"); rig.select_set(True)
+    bpy.ops.object.mode_set(mode="EDIT")
+    for eb in list(rig.data.edit_bones): rig.data.edit_bones.remove(eb)
+    bone_specs=[
+        ("Lam_Joint_Hips",(0,0,2.78),(0,0,3.12),None),
+        ("Lam_Joint_Spine",(0,0,3.00),(0,0,3.72),"Lam_Joint_Hips"),
+        ("Lam_Joint_Chest",(0,0,3.68),(0,0,4.15),"Lam_Joint_Spine"),
+        ("Lam_Joint_Neck",(0,0,4.17),(0,0,4.69),"Lam_Joint_Chest"),
+        ("Lam_Joint_Head",(0,0,4.62),(0,0,5.35),"Lam_Joint_Neck"),
+        ("Lam_Joint_LeftShoulder",(0,0,4.13),(-.425,0,4.05),"Lam_Joint_Chest"),
+        ("Lam_Joint_LeftElbow",(-.425,0,4.05),(-.500,-.012,3.72),"Lam_Joint_LeftShoulder"),
+        ("Lam_Joint_LeftWrist",(-.500,-.012,3.72),(-.525,-.035,3.17),"Lam_Joint_LeftElbow"),
+        ("Lam_Joint_RightShoulder",(0,0,4.13),(.425,0,4.05),"Lam_Joint_Chest"),
+        ("Lam_Joint_RightElbow",(.425,0,4.05),(.500,-.012,3.72),"Lam_Joint_RightShoulder"),
+        ("Lam_Joint_RightWrist",(.500,-.012,3.72),(.525,-.035,3.17),"Lam_Joint_RightElbow"),
+        ("Lam_Joint_LeftHip",(0,0,2.88),(-.195,0,2.58),"Lam_Joint_Hips"),
+        ("Lam_Joint_LeftKnee",(-.195,0,2.58),(-.205,0,1.65),"Lam_Joint_LeftHip"),
+        ("Lam_Joint_LeftAnkle",(-.205,0,1.65),(-.205,-.03,.13),"Lam_Joint_LeftKnee"),
+        ("Lam_Joint_RightHip",(0,0,2.88),(.195,0,2.58),"Lam_Joint_Hips"),
+        ("Lam_Joint_RightKnee",(.195,0,2.58),(.205,0,1.65),"Lam_Joint_RightHip"),
+        ("Lam_Joint_RightAnkle",(.205,0,1.65),(.205,-.03,.13),"Lam_Joint_RightKnee")
+    ]
+    bone_map={}; bone_segments=[]
+    for name,head_xyz,tail_xyz,parent_name in bone_specs:
+        eb=rig.data.edit_bones.new(name)
+        eb.head=Vector(head_xyz)*scale_factor; eb.tail=Vector(tail_xyz)*scale_factor
+        if parent_name: eb.parent=bone_map[parent_name]
+        bone_map[name]=eb
+        bone_segments.append((name,Vector(head_xyz)*scale_factor,Vector(tail_xyz)*scale_factor))
+    bpy.ops.object.mode_set(mode="OBJECT")
+    rig.show_in_front=False
+
+    # Distance-based smooth weights across the custom bone segments. This is an initial rig
+    # pass and is validated with pose probes and render review below, not assumed to be final.
+    character_meshes=[o for o in scene.objects if o.type=="MESH" and o.name!="StudioFloor"]
+    for obj in character_meshes:
+        groups={bone_name:obj.vertex_groups.new(name=bone_name) for bone_name,_,_ in bone_segments}
+        world_vertices=[obj.matrix_world @ v.co for v in obj.data.vertices]
+        for index,point in enumerate(world_vertices):
+            scores=[]
+            for bone_name,a,b in bone_segments:
+                ab=b-a; denom=max(ab.length_squared,1e-10)
+                t=clamp01((point-a).dot(ab)/denom)
+                closest=a+ab*t
+                distance=(point-closest).length
+                score=1.0/((distance+.025)**3)
+                scores.append((score,bone_name))
+            best=sorted(scores,reverse=True)[:3]
+            total=sum(score for score,_ in best)
+            for score,bone_name in best:
+                groups[bone_name].add([index],score/total,"REPLACE")
+        obj.parent=rig
+        obj.matrix_parent_inverse=rig.matrix_world.inverted()
+        mod=obj.modifiers.new("LamHumanoidSkin","ARMATURE")
+        mod.object=rig; mod.use_deform_preserve_volume=True
+
     # Measure the actual scaled character mesh bounds (exclude floor/cameras/lights).
     bpy.context.view_layer.update()
     figure_meshes=[obj for obj in scene.objects if obj.type=="MESH" and obj.name!="StudioFloor"]
@@ -128,6 +713,17 @@ def main():
     # camera, ground, and render
     bpy.ops.mesh.primitive_plane_add(size=200, location=(0,0,-.015))
     floor=bpy.context.object; floor.name="StudioFloor"; floor.data.materials.append(material("Studio floor",(.055,.06,.065)))
+    # Soft key/fill/rim lighting for inspecting facial volume, skin and glossy hair in Eevee.
+    def area_light(name,loc,energy,size,color,target=(0,0,.80)):
+        data=bpy.data.lights.new(name,"AREA")
+        data.energy=energy; data.shape="DISK"; data.size=size; data.color=color
+        obj=bpy.data.objects.new(name,data); scene.collection.objects.link(obj)
+        obj.location=loc
+        obj.rotation_euler=(Vector(target)-obj.location).to_track_quat("-Z","Y").to_euler()
+        return obj
+    area_light("Lam_Key_Softbox",(-2.2,-3.0,2.5),140,2.3,(1.0,.90,.84),(0,0,.88))
+    area_light("Lam_Fill_Softbox",(2.4,-2.3,1.7),50,2.8,(.84,.90,1.0),(0,0,.85))
+    area_light("Lam_Hair_Rim",(0,1.6,2.25),90,1.8,(.78,.84,1.0),(0,0,1.02))
     target=(0,0,.77); dist=4.1
     def camera(name,loc):
         d=bpy.data.cameras.new(name); c=bpy.data.objects.new(name,d); scene.collection.objects.link(c); c.location=loc
@@ -136,17 +732,34 @@ def main():
     scene.render.filepath=os.path.join(out,"coherent-body-front.png"); bpy.ops.render.render(write_still=True)
     cam2=camera("ThreeQuarterCamera",(dist*.7,-dist*.7,.77)); scene.camera=cam2
     scene.render.filepath=os.path.join(out,"coherent-body-three-quarter.png"); bpy.ops.render.render(write_still=True)
+    # V388 diagnostic views: face close-up from front and profile, to reveal feature placement.
+    face_target=(0,0,1.455)
+    def face_camera(name,loc,ortho):
+        d=bpy.data.cameras.new(name); cc=bpy.data.objects.new(name,d); scene.collection.objects.link(cc); cc.location=loc
+        cc.rotation_euler=(Vector(face_target)-cc.location).to_track_quat("-Z","Y").to_euler()
+        d.type="ORTHO"; d.ortho_scale=ortho; return cc
+    face_front=face_camera("FaceCloseupFront",(0,-2.5,1.455),.58); scene.camera=face_front
+    scene.render.resolution_x=900; scene.render.resolution_y=900
+    scene.render.filepath=os.path.join(out,"coherent-body-face-front.png"); bpy.ops.render.render(write_still=True)
+    face_profile=face_camera("FaceCloseupProfile",(2.5,0,1.455),.58); scene.camera=face_profile
+    scene.render.filepath=os.path.join(out,"coherent-body-face-profile.png"); bpy.ops.render.render(write_still=True)
+    # V421: add a readable near-profile angle to inspect eye, nose, lip and cheek continuity
+    face_threeq=face_camera("FaceCloseupThreeQuarter",(1.95,-1.55,1.455),.62); scene.camera=face_threeq
+    scene.render.filepath=os.path.join(out,"coherent-body-face-three-quarter.png"); bpy.ops.render.render(write_still=True)
+    scene.render.resolution_x=900; scene.render.resolution_y=1100
     glb=os.path.join(out,"lam-coherent-body-candidate.glb")
     bpy.ops.object.select_all(action="DESELECT")
     for o in scene.objects:
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
-    bpy.context.view_layer.objects.active=fused_trunk
+    bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-three-quarter.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V421: refined eye shape, softened nose/lip geometry, fuller cargo trousers, more readable hair highlights, and added face three-quarter render; visual likeness remains unapproved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
     assert abs(bounds["size"][2]-1.60)<0.03, "Candidate height is outside 1.60m tolerance"
+    assert len(rig.data.bones)==17, "Candidate rig must have all 17 humanoid bones"
+    assert all(v>1e-6 for v in morph_effects.values()), "Candidate facial morphs must be geometrically effective"
 if __name__=="__main__":
     try:main()
     except Exception:traceback.print_exc();raise
