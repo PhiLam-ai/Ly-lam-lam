@@ -192,7 +192,7 @@ def main():
         zn=vert.co.z/.342
         if zn < -.03:
             t=min(1.0,max(0.0,(-zn-.03)/.97))
-            vert.co.x *= (1.0-.20*t)
+            vert.co.x *= (1.0-.24*t)
             vert.co.y *= (1.0-.05*t)
         if vert.co.y < 0:
             vert.co.y *= .96
@@ -248,8 +248,17 @@ def main():
         (5.425,.183,.172,.012),(5.468,.112,.108,.008),
         (5.492,.018,.018,.005)
     ],hair,64)
+    # V402: lift one side of the frontal hairline into a swept curve instead of a flat helmet rim.
+    for vert in hair_cap.data.vertices:
+        x,y,z=vert.co
+        if y < 0.0 and z < 5.37:
+            front_weight=max(0.0,min(1.0,(-y-.025)/.20))
+            edge_weight=max(0.0,min(1.0,(5.38-z)/.15))
+            sweep_weight=max(0.0,min(1.0,.5-x/.52))
+            vert.co.z += front_weight*edge_weight*.065*sweep_weight
+    hair_cap.data.update()
     hair_parts=[hair_cap]
-    hair_parts.append(uv("HAIR_BACK_MASS",(0,.105,4.985),(.278,.135,.275),hair,48,32))
+    hair_parts.append(uv("HAIR_BACK_MASS",(0,.105,5.005),(.270,.115,.238),hair,48,32))
     hair_parts.append(uv("HAIR_LOCK_L",(-.242,.006,4.995),(.041,.052,.174),hair,36,24))
     hair_parts.append(uv("HAIR_LOCK_R",(.242,.006,4.995),(.041,.052,.174),hair,36,24))
     # A short diagonal fringe follows the cap surface instead of floating in front like a tube.
@@ -517,7 +526,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","V401 visual-review pass: increased chin taper, raised hairline edge, shortened/slimmed side locks, broadened swept fringe to reduce helmet-like silhouette; candidate remains unapproved pending fresh render review","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","V402 visual-review pass: sculpted asymmetrical swept hairline to remove flat helmet rim, reduced rear hair bulk, and slightly strengthened chin taper; candidate remains unapproved pending fresh render review","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
