@@ -300,14 +300,14 @@ def main():
             (sign*.327,-.125,3.890),(sign*.315,-.100,3.590),
             (sign*.345,-.075,3.280),(sign*.328,-.045,2.960),
             (sign*.335,-.025,2.800)
-        ],[.025,.050,.072,.090,.105,.102,.095,.088,.072,.050,.008],.012,hair))
+        ],[.022,.038,.050,.056,.060,.059,.056,.052,.044,.030,.008],.015,hair))
         hair_parts.append(hair_ribbon("HAIR_LONG_REAR_PANEL_"+side,[
             (sign*.145,.085,5.330),(sign*.195,.125,5.100),
             (sign*.230,.155,4.820),(sign*.250,.170,4.510),
             (sign*.270,.170,4.180),(sign*.285,.150,3.830),
             (sign*.295,.120,3.490),(sign*.300,.095,3.150),
             (sign*.295,.085,2.860),(sign*.290,.080,2.720)
-        ],[.050,.075,.095,.105,.110,.102,.090,.075,.050,.008],.014,hair))
+        ],[.032,.050,.062,.068,.070,.066,.060,.052,.032,.007],.018,hair))
     # V406: remove the single thick diagonal capsule fringe; let the center-parted cap and broad tapered locks define the hairline.
     fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.010,.26,1)
 
