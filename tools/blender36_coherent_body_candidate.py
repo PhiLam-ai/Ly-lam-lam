@@ -50,7 +50,7 @@ def main():
     # transition areas. This replaces the old stacked torso, capsule arms and skirt blockout.
 
     def loft_rings(name, levels, mat, segments=48, cap_top=True):
-        """Elliptical loft; optionally leave the final ring open for a garment neckline.""""
+        """Elliptical loft; optionally leave the final ring open for a garment neckline."""
         verts=[]; faces=[]
         for z,rx,ry,cy in levels:
             for j in range(segments):
