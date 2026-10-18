@@ -1,0 +1,132 @@
+name: Generate Lam textured 3D candidate with InstantMesh
+
+on:
+  push:
+    branches:
+      - experiment/github-auto-avatar
+    paths:
+      - "references/lam-reference.png"
+      - "references/lam-reference.png.png"
+      - ".github/workflows/generate-lam-instantmesh.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lam-instantmesh-candidate
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out experiment branch
+        uses: actions/checkout@v4
+
+      - name: Prepare single front-view crop
+        id: reference
+        run: |
+          python -m pip install --upgrade pillow
+          python - <<'PY'
+          import os
+          from PIL import Image
+          candidates = ["references/lam-reference.png", "references/lam-reference.png.png"]
+          source = next((p for p in candidates if os.path.isfile(p)), None)
+          if not source:
+              raise SystemExit("Lam reference image not found in expected references directory.")
+          im = Image.open(source).convert("RGB")
+          w, h = im.size
+          # Reference is a multi-panel sheet. Keep the left front full-body panel and remove the detail panels.
+          crop = im.crop((0, 0, max(1, int(w * 0.50)), h))
+          crop.save("lam-reference-front.png", quality=95)
+          print("REFERENCE_SOURCE=" + source)
+          print("REFERENCE_SIZE=" + str(im.size))
+          print("FRONT_CROP_SIZE=" + str(crop.size))
+          print("FRONT_CROP_CREATED=PASS")
+          PY
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Gradio client
+        run: python -m pip install --upgrade gradio_client pillow
+
+      - name: Generate and export using InstantMesh
+        run: |
+          python - <<'PY'
+          import os, json, shutil
+          from gradio_client import Client, handle_file
+
+          def local_path(value):
+              if isinstance(value, str):
+                  return value
+              if isinstance(value, dict):
+                  for key in ("path", "value", "name"):
+                      p = value.get(key)
+                      if isinstance(p, str):
+                          return p
+              return None
+
+          print("Connecting to TencentARC/InstantMesh public demo.")
+          client = Client("TencentARC/InstantMesh", verbose=True)
+
+          print("STEP=preprocess")
+          pre = client.predict(
+              input_image=handle_file("lam-reference-front.png"),
+              do_remove_background=True,
+              api_name="/preprocess",
+          )
+          print("PREPROCESS_RESULT=" + json.dumps(pre, default=str)[:2000])
+          p0 = pre[0] if isinstance(pre, (tuple, list)) else pre
+          processed_path = local_path(p0)
+          if not processed_path or not os.path.isfile(processed_path):
+              raise SystemExit("InstantMesh preprocess did not return a local image file.")
+
+          print("STEP=generate_mvs")
+          mvs = client.predict(
+              input_image=handle_file(processed_path),
+              sample_steps=75,
+              sample_seed=42,
+              api_name="/generate_mvs",
+          )
+          print("MVS_RESULT=" + json.dumps(mvs, default=str)[:2000])
+          m0 = mvs[0] if isinstance(mvs, (tuple, list)) else mvs
+          mvs_path = local_path(m0)
+          if not mvs_path or not os.path.isfile(mvs_path):
+              raise SystemExit("InstantMesh multi-view generation did not return a local file.")
+
+          print("STEP=make3d")
+          result = client.predict(api_name="/make3d")
+          print("MAKE3D_RESULT=" + json.dumps(result, default=str)[:4000])
+          candidates = list(result) if isinstance(result, (tuple, list)) else [result]
+          glb_path = None
+          for item in candidates:
+              p = local_path(item)
+              if p and os.path.isfile(p) and p.lower().endswith(".glb"):
+                  glb_path = p
+                  break
+          if not glb_path:
+              raise SystemExit("InstantMesh did not return a local GLB file.")
+          shutil.copy2(glb_path, "lam-avatar-instantmesh-candidate.glb")
+          size = os.path.getsize("lam-avatar-instantmesh-candidate.glb")
+          with open("lam-avatar-instantmesh-candidate.glb", "rb") as f:
+              header = f.read(4)
+          if size < 1024 or header != b"glTF":
+              raise SystemExit("InstantMesh GLB candidate failed file-integrity checks.")
+          print("INSTANTMESH_GLB_CREATED=PASS")
+          print("GLB_BYTES=" + str(size))
+          print("SOURCE_GLB=" + os.path.basename(glb_path))
+          PY
+
+      - name: Upload InstantMesh candidate (do not replace production avatar)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lam-avatar-instantmesh-candidate
+          path: lam-avatar-instantmesh-candidate.glb
+          if-no-files-found: error
+          retention-days: 7
