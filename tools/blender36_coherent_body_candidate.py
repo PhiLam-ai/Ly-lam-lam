@@ -137,7 +137,7 @@ def main():
         (3.36,.345,.190,0),(3.40,.370,.202,0),(3.48,.385,.210,0),
         (3.58,.392,.214,0),(3.72,.400,.218,0),(3.86,.415,.222,0),
         (3.98,.435,.225,0),(4.08,.448,.224,0),(4.16,.438,.215,0),
-        (4.22,.402,.202,0),(4.30,.315,.170,0),(4.35,.245,.145,0),(4.39,.132,.106,0)
+        (4.22,.402,.202,0),(4.33,.315,.170,0),(4.39,.245,.145,0),(4.43,.132,.106,0)
     ],shirt,64,False)
 
     # Real short sleeves extend the white tee over the upper arms; fuse them into its body.
@@ -163,7 +163,7 @@ def main():
     pelvis=loft_rings("PANTS_PELVIS",[
         (2.48,.315,.185,0),(2.60,.350,.205,0),(2.74,.375,.216,0),
         (2.88,.382,.220,0),(3.00,.380,.220,0),(3.12,.372,.216,0),
-        (3.20,.350,.204,0),(3.25,.315,.190,0)
+        (3.20,.350,.204,0),(3.30,.350,.204,0),(3.38,.325,.195,0)
     ],pants,56)
     pant_parts=[pelvis]
     for sign,side in [(-1,"L"),(1,"R")]:
@@ -212,34 +212,34 @@ def main():
         (5.045,.012,.014,-.238)
     ],skin,32)
     fused_head=fuse([head,nose],"LAM_HEAD_INTEGRATED_NOSE",.006,.30,1)
-    # Unite head and neck into one skin surface, removing the visible jaw/neck seam.
-    fused_head_neck=fuse([neck,fused_head],"LAM_CONTINUOUS_HEAD_NECK",.008,.25,1)
 
-    # Ears are small and partly embedded in the head silhouette.
-    uv("EAR_L",(-.266,-.002,5.015),(.036,.047,.073),skin,32,24)
-    uv("EAR_R",(.266,-.002,5.015),(.036,.047,.073),skin,32,24)
+    # Ears are fused into the head/neck shell so they no longer look like buttons attached
+    # to the side of the face. Keep the outer lobes shallow and close to the head silhouette.
+    ear_l=uv("EAR_L",(-.257,-.002,5.015),(.031,.040,.064),skin,40,28)
+    ear_r=uv("EAR_R",(.257,-.002,5.015),(.031,.040,.064),skin,40,28)
+    fused_head_neck=fuse([neck,fused_head,ear_l,ear_r],"LAM_CONTINUOUS_HEAD_NECK",.007,.22,1)
 
     # Inset eyes, brown irises, dark pupils and small highlights.
     for x,side in [(-.104,"L"),(.104,"R")]:
-        uv("EYE_WHITE_"+side,(x,-.217,5.080),(.046,.017,.029),white,40,28)
-        uv("IRIS_"+side,(x,-.235,5.079),(.020,.007,.020),iris,32,24)
-        uv("PUPIL_"+side,(x,-.241,5.079),(.009,.0035,.011),pupil,24,18)
-        uv("EYE_GLINT_"+side,(x-.005,-.244,5.086),(.0038,.002,.0042),white,20,12)
+        uv("EYE_WHITE_"+side,(x,-.222,5.080),(.043,.011,.026),white,40,28)
+        uv("IRIS_"+side,(x,-.233,5.079),(.018,.005,.018),iris,32,24)
+        uv("PUPIL_"+side,(x,-.237,5.079),(.008,.003,.010),pupil,24,18)
+        uv("EYE_GLINT_"+side,(x-.004,-.239,5.085),(.0032,.0015,.0035),white,20,12)
         # Curved eyelid rims integrate the eyeballs into the head and soften the stylized gaze.
         curve_stroke("EYELID_UPPER_"+side,[
-            (x-.047,-.228,5.079),(x,-.239,5.106),(x+.047,-.228,5.079)
-        ],.0045,skin)
-        curve_stroke("EYELID_LOWER_"+side,[
-            (x-.044,-.226,5.077),(x,-.234,5.054),(x+.044,-.226,5.077)
+            (x-.043,-.220,5.079),(x,-.229,5.102),(x+.043,-.220,5.079)
         ],.0035,skin)
+        curve_stroke("EYELID_LOWER_"+side,[
+            (x-.040,-.219,5.077),(x,-.226,5.058),(x+.040,-.219,5.077)
+        ],.0028,skin)
         curve_stroke("BROW_"+side,[
-            (x-.052,-.222,5.145),(x,-.233,5.157),(x+.052,-.222,5.145)
-        ],.006,hair)
-    lips_obj=uv("LAM_LIPS",(0,-.232,4.905),(.047,.006,.010),lipmat,40,24)
+            (x-.050,-.222,5.145),(x,-.229,5.155),(x+.050,-.222,5.145)
+        ],.0045,hair)
+    lips_obj=uv("LAM_LIPS",(0,-.214,4.905),(.046,.0045,.009),lipmat,40,24)
     mouth_dark=material("Mouth cavity deep rose",(.075,.018,.022),.62)
     tongue_mat=material("Tongue muted rose",(.48,.12,.15),.52)
-    mouth_cavity=uv("LAM_MOUTH_CAVITY",(0,-.224,4.904),(.034,.0035,.007),mouth_dark,40,24)
-    tongue_obj=uv("LAM_TONGUE",(0,-.228,4.897),(.016,.0025,.0035),tongue_mat,32,20)
+    mouth_cavity=uv("LAM_MOUTH_CAVITY",(0,-.209,4.904),(.030,.0025,.0055),mouth_dark,40,24)
+    tongue_obj=uv("LAM_TONGUE",(0,-.212,4.898),(.014,.002,.0028),tongue_mat,32,20)
 
     # Hair cap and back/side locks are fused into one continuous black hair mass.
     hair_cap=loft_rings("HAIR_CAP_SURFACE",[
@@ -249,14 +249,13 @@ def main():
         (5.495,.020,.020,.012)
     ],hair,64)
     hair_parts=[hair_cap]
-    hair_parts.append(uv("HAIR_BACK_MASS",(0,.105,4.925),(.285,.142,.365),hair,48,32))
-    hair_parts.append(uv("HAIR_LOCK_L",(-.245,.015,4.955),(.052,.083,.245),hair,36,24))
-    hair_parts.append(uv("HAIR_LOCK_R",(.245,.015,4.955),(.052,.083,.245),hair,36,24))
-    # One side-swept, low-relief fringe replaces the two spike-like locks from the prior render.
-    fringe=uv("HAIR_SIDE_SWEPT_FRINGE",(-.030,-.240,5.302),(.170,.018,.034),hair,48,32)
-    fringe.rotation_euler[1]=.20
+    hair_parts.append(uv("HAIR_BACK_MASS",(0,.105,4.985),(.278,.135,.275),hair,48,32))
+    hair_parts.append(uv("HAIR_LOCK_L",(-.245,.015,4.975),(.046,.072,.205),hair,36,24))
+    hair_parts.append(uv("HAIR_LOCK_R",(.245,.015,4.975),(.046,.072,.205),hair,36,24))
+    # A short diagonal fringe follows the cap surface instead of floating in front like a tube.
+    fringe=capsule_piece("HAIR_SIDE_SWEPT_FRINGE",(-.13,-.196,5.375),(.105,-.247,5.255),.020,hair,.014)
     hair_parts.append(fringe)
-    fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.010,.30,1)
+    fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.010,.26,1)
 
     # Slim, tapered arm lofts; elbow transitions are built into each surface.
     arm_parts=[]
@@ -280,13 +279,13 @@ def main():
 
     # White sneakers with a subtle dark sole and a fuller upper.
     for sign,side in [(-1,"L"),(1,"R")]:
-        uv("SNEAKER_SOLE_"+side,(sign*.205,-.075,.078),(.128,.194,.036),sole,40,24)
-        uv("SNEAKER_UPPER_"+side,(sign*.205,-.080,.130),(.124,.190,.062),shoes,40,28)
-        uv("SNEAKER_TONGUE_"+side,(sign*.205,-.145,.158),(.060,.085,.029),white,32,20)
+        uv("SNEAKER_SOLE_"+side,(sign*.205,-.235,.078),(.128,.335,.036),sole,40,24)
+        uv("SNEAKER_UPPER_"+side,(sign*.205,-.235,.130),(.124,.320,.062),shoes,40,28)
+        uv("SNEAKER_TONGUE_"+side,(sign*.205,-.300,.158),(.060,.120,.029),white,32,20)
 
     # Subtle waistband visible below the tee; the chosen styling stays black and white.
     waistband=loft_rings("PANTS_WAISTBAND",[
-        (3.14,.369,.215,0),(3.19,.359,.208,0),(3.225,.337,.198,0)
+        (3.27,.364,.208,0),(3.32,.355,.204,0),(3.37,.330,.195,0)
     ],pants,56)
 
     # Normalize the generated figure to the requested 1.60 m scale (Z extent about 5.5 units before normalization).
@@ -518,7 +517,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","V395 facial detail pass adds upper/lower eyelid contours and a layered mouth cavity/tongue for later expressive morph testing; still requires visual approval","Experimental candidate only; no production rig or facial morph transfer; must pass front/profile/three-quarter, pose/deformation and web/mobile acceptance gates before production consideration"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","V397 refined short-hair silhouette, inlaid ears/eyes/lids, reduced mouth protrusion, longer sneakers, and overlapping waistband/shirt hem","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
