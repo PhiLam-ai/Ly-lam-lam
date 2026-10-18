@@ -54,6 +54,16 @@ def main():
     cam_data.type="ORTHO"; cam_data.ortho_scale=head_h*1.38; scene.camera=cam
     for o in shape_objs:
         for k in o.data.shape_keys.key_blocks: k.value=0.0
+    # Render four cardinal directions first; the GLB's front axis must be verified from pixels,
+    # not guessed. Keep these probes as artifacts for diagnosing orientation.
+    orientation_probes=[]
+    for label,dx,dy in (("x_plus",1,0),("x_minus",-1,0),("y_plus",0,1),("y_minus",0,-1)):
+        cam.location=(center[0]+dx*head_h*4,center[1]+dy*head_h*4,center[2])
+        aim(cam,center)
+        filename=f"orientation-probe__{label}.png"
+        scene.render.filepath=os.path.join(out,filename); bpy.ops.render.render(write_still=True)
+        orientation_probes.append({"view":label,"image":filename})
+    cam.location=(center[0],center[1]+head_h*4,center[2]); aim(cam,center)
     scene.render.filepath=os.path.join(out,"face-neutral.png"); bpy.ops.render.render(write_still=True)
     records=[]
     # Render each unique expression once, enabling that key on every mesh that owns it.
@@ -77,7 +87,7 @@ def main():
         records.append({"key":key_name,"value":1.0,"meshes_enabled":enabled,"image":filename,"status":"RENDERED_ISOLATED"})
     report={"status":"RENDERED_VISUAL_REVIEW_REQUIRED","source":os.path.basename(src),
             "face_meshes_used_for_framing":[o.name for o in face_objs],
-            "shape_key_mesh_count":len(shape_objs),"render_count":1+len(records),
+            "shape_key_mesh_count":len(shape_objs),"render_count":1+len(records),"orientation_probes":orientation_probes,
             "note":"Renders are isolated diagnostic images, not automatic expression-quality approval.",
             "expressions":records}
     with open(os.path.join(out,"facial-expression-render-report.json"),"w",encoding="utf-8") as f:
