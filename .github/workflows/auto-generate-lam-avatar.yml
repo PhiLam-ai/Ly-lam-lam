@@ -136,7 +136,7 @@ jobs:
           if isinstance(item, str):
               path = item
           elif isinstance(item, dict):
-              for key in ("path", "name"):
+              for key in ("path", "name", "value"):
                   if isinstance(item.get(key), str):
                       path = item[key]
                       break
