@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: lam-head-candidate
+  group: lam-head-candidate-preview-v2
   cancel-in-progress: false
 
 jobs:
@@ -292,7 +292,12 @@ jobs:
           remaining=[i for i in range(3) if i!=up]
           front_axis=min(remaining,key=lambda i:size[i])
           side_axis=next(i for i in remaining if i!=front_axis)
-          scene.render.engine="BLENDER_EEVEE"
+          scene.render.engine="BLENDER_WORKBENCH"
+          scene.display.shading.light="STUDIO"
+          scene.display.shading.color_type="TEXTURE"
+          scene.display.shading.show_shadows=True
+          scene.display.shading.show_cavity=True
+          scene.display.shading.cavity_type="WORLD"
           scene.render.resolution_x=700
           scene.render.resolution_y=700
           scene.render.resolution_percentage=100
@@ -330,7 +335,7 @@ jobs:
           test -s lam-head-previews/lam-head-back.png
 
       - name: Upload isolated head candidate, textures and previews
-        if: success()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: lam-head-3d-candidate
@@ -342,5 +347,5 @@ jobs:
             lam-face-preprocessed.webp
             lam-face-generated-multiview.webp
             lam-head-previews/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
