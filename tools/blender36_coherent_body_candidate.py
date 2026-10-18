@@ -129,7 +129,8 @@ def main():
             (sign*.448,-.006,4.05,.127,.130),(sign*.476,-.010,3.94,.119,.123),
             (sign*.488,-.012,3.875,.115,.118)
         ],shirt,40))
-    shirt_obj=fuse([shirt_obj]+tee_sleeves,"LAM_CONTINUOUS_WHITE_TEE",.010,.32,1)
+    # Keep the garment pieces as intersecting closed shells: voxel-remeshing the open-neck
+    # tee surface can erase its torso. Their overlap is intentional and will be inspected in renders.
 
     # A narrow dark rib around the open collar helps define a finished neckline.
     bpy.ops.mesh.primitive_torus_add(major_segments=48,minor_segments=10,
@@ -300,7 +301,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","V393 garment/hair refinement: fitted open collar with short sleeves, ribbed collar accent, low-relief side-swept fringe, and reduced hair shine; visual review required","Experimental candidate only; no production rig or facial morph transfer; must pass front/profile/three-quarter, pose/deformation and web/mobile acceptance gates before production consideration"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","V394 fixes V393 torso loss by retaining the open-neck tee shell and overlapping sleeves without destructive remesh; review shirt/shoulder junction and collar before approval","Experimental candidate only; no production rig or facial morph transfer; must pass front/profile/three-quarter, pose/deformation and web/mobile acceptance gates before production consideration"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
