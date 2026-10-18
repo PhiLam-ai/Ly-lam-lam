@@ -73,7 +73,7 @@ jobs:
           print("STEP=preprocess_face")
           pre = client.predict(
               input_image=handle_file("lam-face-square.png"),
-              do_remove_background=False,
+              do_remove_background=True,
               api_name="/preprocess",
           )
           print("PREPROCESS_RESULT=" + json.dumps(pre, default=str)[:1200])
