@@ -30,7 +30,9 @@ def main():
     face_objs=list(shape_objs)
     face_names=("head","hair","ear","nose","face","eye","brow","mouth","chin","teeth","tongue")
     for o in meshes:
-        if o not in face_objs and any(token in o.name.lower() for token in face_names):
+        name=o.name.lower()
+        is_forearm="forearm" in name or "arm" in name
+        if o not in face_objs and not is_forearm and any(token in name for token in face_names):
             face_objs.append(o)
     if not face_objs: raise RuntimeError("No face meshes available for close-up framing")
     pts=[o.matrix_world @ Vector(c) for o in face_objs for c in o.bound_box]
