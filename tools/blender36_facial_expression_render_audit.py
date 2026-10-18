@@ -44,10 +44,16 @@ def main():
     front_sign=1 if cfg["front-axis"]=="+Y" else -1
     pts=[o.matrix_world @ Vector(corner) for o in face_objs for corner in o.bound_box]
     mins=[min(p[i] for p in pts) for i in range(3)]; maxs=[max(p[i] for p in pts) for i in range(3)]
-    # LAM_CONTINUOUS_HEAD_NECK includes the long neck in a single mesh. Clip the
-    # vertical camera bounds to the top 0.82 scene units so the face, not torso,
-    # determines the framing even when a head/neck mesh is fused.
-    face_min_z=max(mins[2],maxs[2]-0.82)
+    # GLBs are normalized to real-world meters; use the model's measured height,
+    # not a fixed scene-unit cut-off, so a fused head/neck mesh cannot pull the
+    # face camera down to the shoulders. The top 15% of total avatar height gives
+    # a stable head-focused region across differently scaled source models.
+    body_pts=[o.matrix_world @ Vector(corner) for o in meshes for corner in o.bound_box]
+    body_min_z=min(p.z for p in body_pts); body_max_z=max(p.z for p in body_pts)
+    body_height=body_max_z-body_min_z
+    if body_height<=0: raise RuntimeError("Invalid total avatar bounds")
+    face_frame_height=min(maxs[2]-mins[2],body_height*0.15)
+    face_min_z=max(mins[2],maxs[2]-face_frame_height)
     center=[(mins[0]+maxs[0])/2,(mins[1]+maxs[1])/2,(face_min_z+maxs[2])/2]
     head_h=maxs[2]-face_min_z
     if head_h<=0: raise RuntimeError("Invalid head bounds")
@@ -63,7 +69,7 @@ def main():
     cam=bpy.data.objects.new("FacialExpressionAuditCamera",cam_data); scene.collection.objects.link(cam)
     # Keep production's known +Y direction as the default; candidates can opt into -Y explicitly.
     cam.location=(center[0],center[1]+front_sign*head_h*4,center[2]); aim(cam,center)
-    cam_data.type="ORTHO"; cam_data.ortho_scale=head_h*1.38; scene.camera=cam
+    cam_data.type="ORTHO"; cam_data.ortho_scale=head_h*1.28; scene.camera=cam
     for o in shape_objs:
         for k in o.data.shape_keys.key_blocks: k.value=0.0
     # Render four cardinal directions first; the GLB's front axis must be verified from pixels,
@@ -101,7 +107,8 @@ def main():
             "face_meshes_used_for_framing":[o.name for o in face_objs],
             "non_facial_shape_key_meshes_excluded":[o.name for o in shape_objs if not is_face_mesh(o)],
             "shape_key_mesh_count":len(face_shape_objs),"render_count":1+len(records),
-            "frontal_camera_direction":cfg["front-axis"],"orientation_probes":orientation_probes,
+            "frontal_camera_direction":cfg["front-axis"],"model_height":body_height,
+            "face_frame_height":head_h,"orientation_probes":orientation_probes,
             "note":"Renders are isolated diagnostic images, not automatic expression-quality approval.",
             "expressions":records}
     with open(os.path.join(out,"facial-expression-render-report.json"),"w",encoding="utf-8") as f:
