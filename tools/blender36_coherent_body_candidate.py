@@ -46,7 +46,7 @@ def main():
         return m
     skin=material("Lam warm natural skin",(0.62,.40,.34),.50)  # V412: moderated warm skin tone
     shirt=material("Lam deep teal fitted crop top",(.025,.095,.105),.48)
-    pants=material("Lam charcoal cargo pants",(.045,.046,.052),.62)  # V415: reveal fabric shape in the dark studio render
+    pants=material("Lam charcoal cargo pants",(.075,.076,.083),.66)  # V421: lift dark fabric to reveal cargo silhouette and folds
     hair=material("Lam deep black hair",(.012,.010,.013),.50)
     shoes=material("Lam white sneakers",(.88,.88,.86),.45)
     sole=material("Sneaker dark sole",(.04,.04,.045),.62)
@@ -226,14 +226,14 @@ def main():
     pant_parts=[pelvis]
     for sign,side in [(-1,"L"),(1,"R")]:
         pant_parts.append(tube_path("PANTS_LEG_"+side,[
-            (sign*.200,-.018,.10,.105,.112),(sign*.200,-.012,.22,.108,.115),
-            (sign*.198,0,.36,.116,.122),
-            (sign*.200,0,.48,.125,.132),(sign*.205,0,.68,.137,.144),
-            (sign*.205,0,.92,.148,.154),(sign*.207,0,1.18,.160,.166),
-            (sign*.207,0,1.43,.170,.176),(sign*.205,0,1.64,.180,.185),
-            (sign*.203,0,1.78,.185,.190),(sign*.200,0,1.96,.190,.195),
-            (sign*.198,0,2.18,.198,.200),(sign*.195,0,2.39,.200,.205),
-            (sign*.192,0,2.58,.205,.210),(sign*.190,0,2.73,.210,.215)
+            (sign*.200,-.018,.10,.118,.124),(sign*.200,-.012,.22,.120,.128),
+            (sign*.198,0,.36,.128,.136),
+            (sign*.200,0,.48,.138,.148),(sign*.205,0,.68,.151,.159),
+            (sign*.205,0,.92,.164,.174),(sign*.207,0,1.18,.177,.187),
+            (sign*.207,0,1.43,.188,.198),(sign*.205,0,1.64,.198,.208),
+            (sign*.203,0,1.78,.203,.213),(sign*.200,0,1.96,.209,.218),
+            (sign*.198,0,2.18,.218,.223),(sign*.195,0,2.39,.220,.226),
+            (sign*.192,0,2.58,.222,.230),(sign*.190,0,2.73,.224,.232)
         ],pants,32))
     fused_pants=fuse(pant_parts,"LAM_CONTINUOUS_BLACK_PANTS",.012,.55,2)
 
@@ -249,8 +249,8 @@ def main():
         obj.modifiers.new("Weighted garment normals","WEIGHTED_NORMAL")
         return obj
     for sign,side in [(-1,"L"),(1,"R")]:
-        garment_box("CARGO_THIGH_POCKET_"+side,(sign*.292,-.184,2.16),(.086,.022,.145),pocketmat,.015)
-        garment_box("CARGO_THIGH_FLAP_"+side,(sign*.292,-.211,2.292),(.078,.012,.028),pocketflap,.009)
+        garment_box("CARGO_THIGH_POCKET_"+side,(sign*.305,-.204,2.13),(.095,.024,.158),pocketmat,.015)
+        garment_box("CARGO_THIGH_FLAP_"+side,(sign*.305,-.233,2.274),(.087,.014,.032),pocketflap,.009)
 
     # Shorter/slimmer neck, partly hidden by the collar and lower head.
     neck=tube_path("LAM_NECK",[
@@ -321,11 +321,11 @@ def main():
 
     # Fuse a tapered nose bridge and tip directly into the head skin; no separate nose sphere.
     nose=loft_rings("NOSE_RELIEF_TO_FUSE",[
-        (4.958,.014,.010,-.238),(4.972,.021,.018,-.249),
-        (4.985,.022,.022,-.255),(4.999,.019,.023,-.255),
-        (5.018,.014,.019,-.250),(5.050,.010,.013,-.242),
-        (5.078,.006,.008,-.232)
-    ],skin,40)  # V408: longer bridge with a softer tapered tip
+        (4.958,.012,.009,-.236),(4.972,.018,.015,-.244),
+        (4.985,.019,.018,-.248),(4.999,.017,.019,-.248),
+        (5.018,.013,.016,-.244),(5.050,.009,.011,-.238),
+        (5.078,.005,.007,-.231)
+    ],skin,40)  # V421: narrow bridge/tip for a softer, more natural nose
     fused_head=fuse([head,nose],"LAM_HEAD_INTEGRATED_NOSE",.006,.30,1)
 
     # Ears are fused into the head/neck shell so they no longer look like buttons attached
@@ -346,21 +346,25 @@ def main():
     uv("NECKLACE_PENDANT",(0,-.111,4.372),(.014,.006,.021),jewelry,32,24)
 
     # V413: larger warm-brown eyes with visible inset iris, shaped lids and softer arched brows.
-    for x,side in [(-.100,"L"),(.100,"R")]:
-        uv("EYE_WHITE_"+side,(x,-.229,5.080),(.045,.010,.018),white,48,32)
-        uv("IRIS_"+side,(x,-.239,5.079),(.016,.004,.014),iris,40,28)
-        uv("PUPIL_"+side,(x,-.244,5.079),(.007,.0025,.009),pupil,32,24)
-        uv("EYE_GLINT_"+side,(x-.005,-.250,5.085),(.0032,.0018,.0035),white,24,16)
+    for x,side in [(-.108,"L"),(.108,"R")]:
+        # V421: flatter almond-like eyes with a smaller warm iris and less protruding eyeball volume.
+        uv("EYE_WHITE_"+side,(x,-.229,5.080),(.047,.008,.014),white,48,32)
+        uv("IRIS_"+side,(x,-.237,5.079),(.014,.0032,.0115),iris,40,28)
+        uv("PUPIL_"+side,(x,-.241,5.079),(.006,.0020,.008),pupil,32,24)
+        uv("EYE_GLINT_"+side,(x-.0045,-.245,5.084),(.0028,.0014,.0028),white,24,16)
         curve_stroke("EYELID_UPPER_"+side,[
-            (x-.052,-.227,5.078),(x,-.239,5.105),(x+.052,-.227,5.078)
-        ],.0040,skin)
+            (x-.052,-.226,5.077),(x-.024,-.235,5.097),(x+.006,-.239,5.101),(x+.031,-.233,5.093),(x+.052,-.226,5.077)
+        ],.0034,skin)
+        curve_stroke("EYELINER_UPPER_"+side,[
+            (x-.053,-.229,5.078),(x-.023,-.239,5.097),(x+.007,-.243,5.100),(x+.032,-.237,5.092),(x+.054,-.228,5.078)
+        ],.0018,hair)
         curve_stroke("EYELID_LOWER_"+side,[
             (x-.048,-.226,5.078),(x,-.235,5.056),(x+.048,-.226,5.078)
         ],.0030,skin)
         curve_stroke("BROW_"+side,[
             (x-.058,-.219,5.129),(x,-.229,5.151),(x+.058,-.219,5.129)
         ],.0048,hair)
-    lips_obj=uv("LAM_LIPS",(0,-.228,4.905),(.070,.010,.016),lipmat,48,28)
+    lips_obj=uv("LAM_LIPS",(0,-.229,4.907),(.064,.010,.014),lipmat,48,28)  # V421: smaller, softer smile instead of a flat wide oval
     mouth_dark=material("Mouth cavity deep rose",(.075,.018,.022),.62)
     tongue_mat=material("Tongue muted rose",(.48,.12,.15),.52)
     mouth_cavity=uv("LAM_MOUTH_CAVITY",(0,-.222,4.904),(.038,.0045,.008),mouth_dark,40,24)
@@ -443,8 +447,8 @@ def main():
 
 
     # Reference-led hair flow: layered curved locks add directional silhouette beyond the cap.
-    hair_sheen=material("Lam hair soft charcoal sheen",(.018,.014,.017),.42)
-    hair_glint=material("Lam hair subtle warm strand",(.028,.019,.022),.46)
+    hair_sheen=material("Lam hair soft charcoal sheen",(.036,.026,.029),.46)  # V421: readable hair highlights without a plastic-black finish
+    hair_glint=material("Lam hair subtle warm strand",(.052,.032,.034),.48)  # V421: low-contrast warm highlights for dark brown-black hair
     for sign,side in [(-1,"L"),(1,"R")]:
         # Face-framing locks taper from the part, pass beside the cheek, then fall over the chest.
         for idx,offset in enumerate((0.0,.075)):
@@ -739,6 +743,9 @@ def main():
     scene.render.filepath=os.path.join(out,"coherent-body-face-front.png"); bpy.ops.render.render(write_still=True)
     face_profile=face_camera("FaceCloseupProfile",(2.5,0,1.455),.58); scene.camera=face_profile
     scene.render.filepath=os.path.join(out,"coherent-body-face-profile.png"); bpy.ops.render.render(write_still=True)
+    # V421: add a readable near-profile angle to inspect eye, nose, lip and cheek continuity
+    face_threeq=face_camera("FaceCloseupThreeQuarter",(1.95,-1.55,1.455),.62); scene.camera=face_threeq
+    scene.render.filepath=os.path.join(out,"coherent-body-face-three-quarter.png"); bpy.ops.render.render(write_still=True)
     scene.render.resolution_x=900; scene.render.resolution_y=1100
     glb=os.path.join(out,"lam-coherent-body-candidate.glb")
     bpy.ops.object.select_all(action="DESELECT")
@@ -746,7 +753,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V420: corrected outward face-surface winding and cap normals; experimental render must be visually reviewed and is not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-three-quarter.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V421: refined eye shape, softened nose/lip geometry, fuller cargo trousers, more readable hair highlights, and added face three-quarter render; visual likeness remains unapproved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
