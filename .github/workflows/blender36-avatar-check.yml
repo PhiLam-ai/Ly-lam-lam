@@ -17,6 +17,7 @@ on:
       - "tools/blender36_geometry_gap_audit.py"
       - "tools/blender36_rig_skinning_audit.py"
       - "tools/blender36_pose_deformation_audit.py"
+      - "tools/blender36_facial_shape_key_audit.py"
       - "tools/blender36_coherent_body_candidate.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
@@ -187,6 +188,25 @@ jobs:
           assert report["status"] == "POSE_TEST_RECORDED", report
           print("POSE_DEFORMATION_PROBE=RECORDED")
           print(json.dumps(report["tests"], ensure_ascii=False))
+          PY
+
+      - name: Audit facial shape-key geometry changes
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/facial-shape-key-audit
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_facial_shape_key_audit.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
+            --output "$GITHUB_WORKSPACE/artifacts/facial-shape-key-audit/facial-shape-key-audit.json"
+          test -s artifacts/facial-shape-key-audit/facial-shape-key-audit.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/facial-shape-key-audit/facial-shape-key-audit.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["status"] == "RECORDED", report
+          print("FACIAL_SHAPE_KEY_AUDIT=RECORDED")
+          print(json.dumps(report["key_results"], ensure_ascii=False))
           PY
 
       - name: Optionally run another committed avatar builder
