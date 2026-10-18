@@ -16,6 +16,7 @@ on:
       - "tools/blender36_arm_alignment_candidate.py"
       - "tools/blender36_geometry_gap_audit.py"
       - "tools/blender36_rig_skinning_audit.py"
+      - "tools/blender36_pose_deformation_audit.py"
       - "tools/blender36_coherent_body_candidate.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
@@ -167,6 +168,25 @@ jobs:
           print("RIG_SKINNING_STRUCTURAL_AUDIT=RECORDED")
           print("RIG_SKINNING_STATUS=" + report["status"])
           print("RIG_SKINNING_FINDINGS=" + json.dumps(report["findings"], ensure_ascii=False))
+          PY
+
+      - name: Probe skeletal deformation with isolated shoulder and elbow poses
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/pose-deformation-audit
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_pose_deformation_audit.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/pose-deformation-audit"
+          test -s artifacts/pose-deformation-audit/pose-deformation-audit.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/pose-deformation-audit/pose-deformation-audit.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["status"] == "POSE_TEST_RECORDED", report
+          print("POSE_DEFORMATION_PROBE=RECORDED")
+          print(json.dumps(report["tests"], ensure_ascii=False))
           PY
 
       - name: Optionally run another committed avatar builder
