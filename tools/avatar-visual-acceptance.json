@@ -1,0 +1,13 @@
+{
+  "status": "BLOCKED_NOT_VISUALLY_APPROVED",
+  "reference_match_front": false,
+  "reference_match_three_quarter": false,
+  "reference_match_profile": false,
+  "natural_hair_silhouette": false,
+  "natural_anatomy_and_proportions": false,
+  "skin_and_eye_materials_reviewed": false,
+  "expression_deformation_reviewed": false,
+  "web_and_iphone_reviewed": false,
+  "user_approval": false,
+  "reason": "Current procedural candidate is a blockout and has not met the photorealistic reference-likeness standard. Do not release or replace lam-default.glb."
+}
