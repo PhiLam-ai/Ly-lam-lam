@@ -45,7 +45,19 @@ jobs:
         run: |
           python - <<'PY'
           import os, json, shutil
+          from PIL import Image, ImageOps
           from gradio_client import Client, handle_file
+
+          # Trim leftover character-sheet lettering at the edge, then make a square input.
+          source_image = Image.open("references/lam-face-reference.jpg").convert("RGB")
+          sw, sh = source_image.size
+          source_image = source_image.crop((int(sw * 0.10), 0, sw, sh))
+          face_square = Image.new("RGB", (512, 512), (238, 238, 238))
+          face_fit = ImageOps.contain(source_image, (430, 512), method=Image.Resampling.LANCZOS)
+          face_square.paste(face_fit, ((512-face_fit.width)//2, (512-face_fit.height)//2))
+          face_square.save("lam-face-square.png")
+          print("FACE_INPUT_SIZE=" + str(face_square.size))
+          print("FACE_INPUT_PREPARED=PASS")
 
           def local_path(value):
               if isinstance(value, str):
@@ -60,8 +72,8 @@ jobs:
           client = Client("TencentARC/InstantMesh", verbose=True)
           print("STEP=preprocess_face")
           pre = client.predict(
-              input_image=handle_file("references/lam-face-reference.jpg"),
-              do_remove_background=True,
+              input_image=handle_file("lam-face-square.png"),
+              do_remove_background=False,
               api_name="/preprocess",
           )
           print("PREPROCESS_RESULT=" + json.dumps(pre, default=str)[:1200])
