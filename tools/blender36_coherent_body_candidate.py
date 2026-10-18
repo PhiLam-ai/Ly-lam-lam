@@ -49,15 +49,17 @@ def main():
     # Integrated character candidate: use lofted garment/limb surfaces and fuse the key
     # transition areas. This replaces the old stacked torso, capsule arms and skirt blockout.
 
-    def loft_rings(name, levels, mat, segments=48):
-        """Closed elliptical loft; levels are (z, radius_x, radius_y, center_y)."""
+    def loft_rings(name, levels, mat, segments=48, cap_top=True):
+        """Elliptical loft; optionally leave the final ring open for a garment neckline.""""
         verts=[]; faces=[]
         for z,rx,ry,cy in levels:
             for j in range(segments):
                 a=2*math.pi*j/segments
                 verts.append((rx*math.cos(a),cy+ry*math.sin(a),z))
         verts.append((0.0,levels[0][3],levels[0][0])); bottom=len(verts)-1
-        verts.append((0.0,levels[-1][3],levels[-1][0])); top=len(verts)-1
+        top=None
+        if cap_top:
+            verts.append((0.0,levels[-1][3],levels[-1][0])); top=len(verts)-1
         for i in range(len(levels)-1):
             for j in range(segments):
                 a=i*segments+j; b=i*segments+(j+1)%segments
@@ -66,7 +68,8 @@ def main():
         for j in range(segments):
             faces.append((bottom,(j+1)%segments,j))
             a=(len(levels)-1)*segments+j; b=(len(levels)-1)*segments+(j+1)%segments
-            faces.append((top,a,b))
+            if cap_top:
+                faces.append((top,a,b))
         mesh=bpy.data.meshes.new(name+"Mesh"); mesh.from_pydata(verts,[],faces); mesh.update()
         obj=bpy.data.objects.new(name,mesh); scene.collection.objects.link(obj); obj.data.materials.append(mat)
         for p in obj.data.polygons:p.use_smooth=True
@@ -115,8 +118,8 @@ def main():
         (3.36,.345,.190,0),(3.40,.370,.202,0),(3.48,.385,.210,0),
         (3.58,.392,.214,0),(3.72,.400,.218,0),(3.86,.415,.222,0),
         (3.98,.435,.225,0),(4.08,.448,.224,0),(4.16,.438,.215,0),
-        (4.22,.402,.202,0),(4.27,.315,.170,0),(4.30,.185,.132,0)
-    ],shirt,64)
+        (4.22,.402,.202,0),(4.27,.315,.170,0),(4.30,.132,.106,0)
+    ],shirt,64,False)
 
     # Build the pelvis and two tapered pant legs, then voxel-fuse them into one garment.
     pelvis=loft_rings("PANTS_PELVIS",[
@@ -127,7 +130,8 @@ def main():
     pant_parts=[pelvis]
     for sign,side in [(-1,"L"),(1,"R")]:
         pant_parts.append(tube_path("PANTS_LEG_"+side,[
-            (sign*.195,0,.28,.078,.085),(sign*.198,0,.36,.082,.092),
+            (sign*.200,-.018,.10,.076,.085),(sign*.200,-.012,.22,.079,.089),
+            (sign*.198,0,.36,.082,.092),
             (sign*.200,0,.48,.088,.100),(sign*.205,0,.68,.098,.108),
             (sign*.205,0,.92,.108,.118),(sign*.207,0,1.18,.119,.128),
             (sign*.207,0,1.43,.132,.138),(sign*.205,0,1.64,.142,.148),
@@ -139,8 +143,9 @@ def main():
 
     # Shorter/slimmer neck, partly hidden by the collar and lower head.
     neck=tube_path("LAM_NECK",[
-        (0,0,4.36,.112,.105),(0,0,4.43,.108,.103),(0,0,4.53,.103,.100),
-        (0,0,4.64,.104,.101),(0,0,4.75,.112,.108)
+        (0,0,4.18,.102,.098),(0,0,4.27,.105,.100),(0,0,4.36,.108,.102),
+        (0,0,4.46,.105,.100),(0,0,4.56,.104,.100),(0,0,4.66,.106,.102),
+        (0,0,4.75,.112,.108)
     ],skin,40)
 
     # Tapered jaw and low-relief cheek contours sculpted into the head surface.
@@ -169,6 +174,8 @@ def main():
         (5.045,.012,.014,-.238)
     ],skin,32)
     fused_head=fuse([head,nose],"LAM_HEAD_INTEGRATED_NOSE",.006,.30,1)
+    # Unite head and neck into one skin surface, removing the visible jaw/neck seam.
+    fused_head_neck=fuse([neck,fused_head],"LAM_CONTINUOUS_HEAD_NECK",.008,.25,1)
 
     # Ears are small and partly embedded in the head silhouette.
     uv("EAR_L",(-.266,-.002,5.015),(.036,.047,.073),skin,32,24)
@@ -194,7 +201,10 @@ def main():
     hair_parts.append(uv("HAIR_BACK_MASS",(0,.105,4.925),(.285,.142,.365),hair,48,32))
     hair_parts.append(uv("HAIR_LOCK_L",(-.245,.015,4.955),(.052,.083,.245),hair,36,24))
     hair_parts.append(uv("HAIR_LOCK_R",(.245,.015,4.955),(.052,.083,.245),hair,36,24))
-    fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.012,.48,2)
+    # Two swept fringe locks break the helmet-like straight hairline while staying fused.
+    hair_parts.append(capsule_piece("FRINGE_SWEEP_L",(-.025,-.232,5.425),(-.145,-.247,5.245),.033,hair,.021))
+    hair_parts.append(capsule_piece("FRINGE_SWEEP_R",(.055,-.232,5.430),(.185,-.244,5.255),.030,hair,.020))
+    fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.009,.38,1)
 
     # Slim, tapered arm lofts; elbow transitions are built into each surface.
     arm_parts=[]
@@ -218,9 +228,9 @@ def main():
 
     # White sneakers with a subtle dark sole and a fuller upper.
     for sign,side in [(-1,"L"),(1,"R")]:
-        uv("SNEAKER_SOLE_"+side,(sign*.205,-.075,.085),(.116,.184,.042),sole,40,24)
-        uv("SNEAKER_UPPER_"+side,(sign*.205,-.080,.135),(.112,.180,.065),shoes,40,28)
-        uv("SNEAKER_TONGUE_"+side,(sign*.205,-.145,.167),(.055,.085,.030),white,32,20)
+        uv("SNEAKER_SOLE_"+side,(sign*.205,-.075,.078),(.128,.194,.036),sole,40,24)
+        uv("SNEAKER_UPPER_"+side,(sign*.205,-.080,.130),(.124,.190,.062),shoes,40,28)
+        uv("SNEAKER_TONGUE_"+side,(sign*.205,-.145,.158),(.060,.085,.029),white,32,20)
 
     # Subtle waistband visible below the tee; the chosen styling stays black and white.
     waistband=loft_rings("PANTS_WAISTBAND",[
@@ -271,7 +281,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","Integrated full-form pass: shaped white tee, continuous black pants, tapered limbs, head-integrated nose and cheek relief, inset eyes, fused hair and white sneakers; visual review required","Experimental candidate only; no production rig or facial morph transfer; must pass front/profile/three-quarter, pose/deformation and web/mobile acceptance gates before production consideration"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","V392 seam-integration pass: open shirt neckline, fused continuous head/neck, swept fringe locks, longer pant cuffs overlapping white sneakers; visual review required","Experimental candidate only; no production rig or facial morph transfer; must pass front/profile/three-quarter, pose/deformation and web/mobile acceptance gates before production consideration"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
