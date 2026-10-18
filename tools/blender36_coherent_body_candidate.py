@@ -259,34 +259,61 @@ def main():
         (0,0,4.75,.126,.120)
     ],skin,40)
 
-    # Tapered jaw and low-relief cheek contours sculpted into the head surface.
-    head=uv("LAM_HEAD_BASE",(0,-.005,5.025),(.278,.232,.342),skin,96,64)
-    for vert in head.data.vertices:
-        zn=vert.co.z/.342
-        if zn < -.03:
-            t=min(1.0,max(0.0,(-zn-.03)/.97))
-            vert.co.x *= (1.0-.31*t)  # V403: more reference-like cheek-to-chin taper
-            vert.co.y *= (1.0-.05*t)
-        if vert.co.y < 0:
-            vert.co.y *= .96
-            frontness=min(1.0,max(0.0,(-vert.co.y-.095)/.105))
-            zlocal=vert.co.z
-            bridge=.014*math.exp(-((vert.co.x/.043)**2)-(((zlocal+.006)/.112)**2))
-            tip=.022*math.exp(-((vert.co.x/.040)**2)-(((zlocal+.044)/.036)**2))
-            cheek=.009*math.exp(-(((abs(vert.co.x)-.142)/.068)**2)-(((zlocal+.060)/.058)**2))
-            # V415: soft eye sockets, brow ridge and cheekbone planes are sculpted into the base face.
-            eye_socket=.012*(math.exp(-(((vert.co.x-.100)/.060)**2)-(((zlocal-.055)/.034)**2)) +
-                             math.exp(-(((vert.co.x+.100)/.060)**2)-(((zlocal-.055)/.034)**2)))
-            brow_ridge=.006*(math.exp(-(((vert.co.x-.100)/.073)**2)-(((zlocal-.112)/.026)**2)) +
-                             math.exp(-(((vert.co.x+.100)/.073)**2)-(((zlocal-.112)/.026)**2)))
-            cheekbone=.010*(math.exp(-(((vert.co.x-.145)/.065)**2)-(((zlocal+.045)/.050)**2)) +
-                            math.exp(-(((vert.co.x+.145)/.065)**2)-(((zlocal+.045)/.050)**2)))
-            muzzle=.004*math.exp(-((vert.co.x/.075)**2)-(((zlocal+.115)/.040)**2))
-            vert.co.y += frontness*eye_socket
-            vert.co.y -= frontness*(bridge+tip+cheek+0.0)
-            vert.co.y -= frontness*(brow_ridge+cheekbone+muzzle)
+    # V419: build a custom ring-sculpted face surface instead of starting from a UV sphere.
+    # The profile explicitly controls chin, jaw taper, cheek width, temples and forehead.
+    face_levels=[
+        (4.690,.028,.052,-.002),(4.704,.052,.092,-.002),
+        (4.730,.082,.128,-.002),(4.770,.122,.158,-.002),
+        (4.815,.158,.181,-.002),(4.865,.184,.198,-.003),
+        (4.920,.207,.211,-.004),(4.975,.229,.220,-.005),
+        (5.030,.245,.226,-.005),(5.085,.252,.224,-.005),
+        (5.140,.254,.218,-.005),(5.195,.250,.207,-.005),
+        (5.245,.239,.190,-.005),(5.290,.218,.164,-.005),
+        (5.325,.184,.132,-.005),(5.348,.137,.094,-.005),
+        (5.360,.078,.052,-.005),(5.364,.018,.012,-.005)
+    ]
+    face_segments=96
+    face_verts=[]; face_faces=[]
+    for z,rx,ry,cy in face_levels:
+        for j in range(face_segments):
+            a=2*math.pi*j/face_segments
+            x=rx*math.cos(a)
+            front=max(0.0,math.sin(a))
+            y=cy-ry*math.sin(a)
+            # Shallow sculpting is integrated into the continuous face surface.
+            if front>0:
+                eye_socket=.010*(math.exp(-(((x-.098)/.057)**2)-(((z-5.085)/.030)**2))+
+                                 math.exp(-(((x+.098)/.057)**2)-(((z-5.085)/.030)**2)))
+                brow_ridge=.006*(math.exp(-(((x-.100)/.068)**2)-(((z-5.135)/.024)**2))+
+                                 math.exp(-(((x+.100)/.068)**2)-(((z-5.135)/.024)**2)))
+                cheekbone=.008*(math.exp(-(((abs(x)-.145)/.055)**2)-(((z-4.965)/.048)**2)))
+                muzzle=.004*math.exp(-((x/.073)**2)-(((z-4.865)/.038)**2))
+                nose_bridge=.010*math.exp(-((x/.034)**2)-(((z-5.035)/.105)**2))
+                nose_tip=.014*math.exp(-((x/.036)**2)-(((z-4.965)/.032)**2))
+                y += front*(eye_socket+brow_ridge)
+                y -= front*(cheekbone+muzzle+nose_bridge+nose_tip)
+            face_verts.append((x,y,z))
+    for i in range(len(face_levels)-1):
+        for j in range(face_segments):
+            a=i*face_segments+j; b=i*face_segments+(j+1)%face_segments
+            c=(i+1)*face_segments+(j+1)%face_segments; d=(i+1)*face_segments+j
+            face_faces.append((a,b,d,c))
+    face_verts.extend([(0,-.002,face_levels[0][0]),(0,-.002,face_levels[-1][0])])
+    bottom=len(face_verts)-2; top=len(face_verts)-1
+    for j in range(face_segments):
+        face_faces.append((bottom,(j+1)%face_segments,j))
+        a=(len(face_levels)-1)*face_segments+j
+        b=(len(face_levels)-1)*face_segments+(j+1)%face_segments
+        face_faces.append((top,a,b))
+    face_mesh=bpy.data.meshes.new("LAM_SCULPTED_FACE_SURFACE_MESH")
+    face_mesh.from_pydata(face_verts,[],face_faces); face_mesh.update()
+    head=bpy.data.objects.new("LAM_SCULPTED_FACE_SURFACE",face_mesh)
+    scene.collection.objects.link(head); head.data.materials.append(skin)
+    for poly in head.data.polygons: poly.use_smooth=True
+    polish=head.modifiers.new("FaceSurfacePolish","SUBSURF"); polish.levels=2; polish.render_levels=2
+    bpy.context.view_layer.objects.active=head; head.select_set(True)
+    bpy.ops.object.modifier_apply(modifier=polish.name)
     head.data.update()
-    for poly in head.data.polygons:poly.use_smooth=True
 
     # Fuse a tapered nose bridge and tip directly into the head skin; no separate nose sphere.
     nose=loft_rings("NOSE_RELIEF_TO_FUSE",[
