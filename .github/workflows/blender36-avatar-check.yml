@@ -18,6 +18,7 @@ on:
       - "tools/blender36_rig_skinning_audit.py"
       - "tools/blender36_pose_deformation_audit.py"
       - "tools/blender36_facial_shape_key_audit.py"
+      - "tools/blender36_facial_expression_render_audit.py"
       - "tools/blender36_coherent_body_candidate.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
@@ -218,6 +219,28 @@ jobs:
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
             --python "${{ inputs.builder_script }}" -- \
             --output-dir "$GITHUB_WORKSPACE/artifacts/builder"
+
+      - name: Render isolated facial expressions for visual review
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/facial-expression-renders
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_facial_expression_render_audit.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/facial-expression-renders"
+          test -s artifacts/facial-expression-renders/face-neutral.png
+          test -s artifacts/facial-expression-renders/facial-expression-render-report.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/facial-expression-renders/facial-expression-render-report.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["status"] == "RENDERED_VISUAL_REVIEW_REQUIRED", report
+          assert report["render_count"] == 13, report
+          assert len(report["expressions"]) == 12, report
+          print("FACIAL_EXPRESSION_RENDER_AUDIT=PASS_DIAGNOSTIC_ONLY")
+          print("FACIAL_EXPRESSION_RENDER_COUNT=" + str(report["render_count"]))
+          PY
 
       - name: Upload real-model renders, candidate GLB and reports
         if: always()
