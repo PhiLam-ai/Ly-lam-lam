@@ -29,7 +29,7 @@ def main():
     world_bg=scene.world.node_tree.nodes.get("Background")
     if world_bg:
         world_bg.inputs["Color"].default_value=(.055,.060,.070,1)
-        world_bg.inputs["Strength"].default_value=.45
+        world_bg.inputs["Strength"].default_value=.32
 
     def material(name,color,rough=.6):
         m=bpy.data.materials.new(name)
@@ -44,7 +44,7 @@ def main():
             if "Specular" in bsdf.inputs: bsdf.inputs["Specular"].default_value=.32
             if "Subsurface" in bsdf.inputs: bsdf.inputs["Subsurface"].default_value=.075 if "skin" in name.lower() else 0.0
         return m
-    skin=material("Lam warm natural skin",(0.73,.52,.44),.44)  # V410: lighter warm skin tone guided by the portrait
+    skin=material("Lam warm natural skin",(0.66,.43,.36),.48)  # V411: warm light skin without blowing out under key light
     shirt=material("Lam deep teal fitted crop top",(.025,.095,.105),.48)
     pants=material("Lam matte black biker pants",(.018,.018,.022),.5)
     hair=material("Lam deep black hair",(.012,.010,.013),.50)
@@ -190,14 +190,14 @@ def main():
     shirt_obj=loft_rings("LAM_DARK_TEAL_CROP_TOP",[
         (3.46,.300,.176,0),(3.51,.330,.190,0),(3.60,.350,.198,0),
         (3.72,.365,.202,0),(3.84,.370,.204,0),(3.95,.365,.198,0),
-        (4.05,.350,.186,0),(4.13,.323,.166,0),(4.20,.275,.137,0),
-        (4.25,.215,.116,0)
+        (4.05,.350,.186,0),(4.16,.323,.166,0),(4.27,.275,.137,0),
+        (4.36,.215,.116,0)
     ],shirt,64,False)
     # Narrow shoulder straps follow the reference outfit and connect the neckline toward the shoulders.
     for sign,side in [(-1,"L"),(1,"R")]:
         curve_stroke("CROP_TOP_STRAP_"+side,[
             (sign*.225,-.105,4.105),(sign*.205,-.137,4.19),
-            (sign*.167,-.123,4.285),(sign*.142,-.096,4.345)
+            (sign*.167,-.123,4.310),(sign*.142,-.096,4.380)
         ],.014,shirt)
 
     # A narrow dark rib around the open collar helps define a finished neckline.
@@ -227,6 +227,21 @@ def main():
             (sign*.192,0,2.58,.178,.178),(sign*.190,0,2.73,.183,.181)
         ],pants,32))
     fused_pants=fuse(pant_parts,"LAM_CONTINUOUS_BLACK_PANTS",.012,.55,2)
+
+    # V411: fitted cargo pockets give the charcoal trousers the established utility silhouette.
+    pocketmat=material("Charcoal cargo pocket fabric",(.038,.040,.045),.72)
+    pocketflap=material("Cargo pocket flap fabric",(.055,.057,.062),.68)
+    def garment_box(name,loc,half_extents,mat,bevel=.012):
+        bpy.ops.mesh.primitive_cube_add(size=1,location=loc)
+        obj=bpy.context.object; obj.name=name; obj.scale=half_extents
+        bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
+        obj.data.materials.append(mat)
+        b=obj.modifiers.new("Soft garment edges","BEVEL"); b.width=bevel; b.segments=3
+        obj.modifiers.new("Weighted garment normals","WEIGHTED_NORMAL")
+        return obj
+    for sign,side in [(-1,"L"),(1,"R")]:
+        garment_box("CARGO_THIGH_POCKET_"+side,(sign*.292,-.166,2.16),(.078,.020,.125),pocketmat,.015)
+        garment_box("CARGO_THIGH_FLAP_"+side,(sign*.292,-.190,2.272),(.070,.010,.024),pocketflap,.009)
 
     # Shorter/slimmer neck, partly hidden by the collar and lower head.
     neck=tube_path("LAM_NECK",[
@@ -282,9 +297,9 @@ def main():
 
     # Inset eyes, brown irises, dark pupils and small highlights.
     for x,side in [(-.104,"L"),(.104,"R")]:
-        uv("EYE_WHITE_"+side,(x,-.219,5.080),(.030,.0048,.0115),white,40,28)  # V403: flatter almond-like eye opening
-        uv("IRIS_"+side,(x,-.225,5.079),(.0105,.0022,.0095),iris,32,24)
-        uv("PUPIL_"+side,(x,-.228,5.079),(.0046,.0016,.0060),pupil,24,18)
+        uv("EYE_WHITE_"+side,(x,-.219,5.080),(.034,.006,.014),white,40,28)  # V411: enlarge eye surface for reference-like eyes
+        uv("IRIS_"+side,(x,-.226,5.079),(.0125,.0031,.0115),iris,32,24)
+        uv("PUPIL_"+side,(x,-.230,5.079),(.0054,.0020,.0070),pupil,24,18)
         uv("EYE_GLINT_"+side,(x-.004,-.233,5.085),(.0025,.0013,.0028),white,20,12)
         # Curved eyelid rims integrate the eyeballs into the head and soften the stylized gaze.
         curve_stroke("EYELID_UPPER_"+side,[
@@ -619,9 +634,9 @@ def main():
         obj.location=loc
         obj.rotation_euler=(Vector(target)-obj.location).to_track_quat("-Z","Y").to_euler()
         return obj
-    area_light("Lam_Key_Softbox",(-2.2,-3.0,2.5),800,2.3,(1.0,.86,.76),(0,0,.88))
-    area_light("Lam_Fill_Softbox",(2.4,-2.3,1.7),420,2.8,(.78,.86,1.0),(0,0,.85))
-    area_light("Lam_Hair_Rim",(0,1.6,2.25),700,1.8,(.72,.82,1.0),(0,0,1.02))
+    area_light("Lam_Key_Softbox",(-2.2,-3.0,2.5),320,2.3,(1.0,.88,.80),(0,0,.88))
+    area_light("Lam_Fill_Softbox",(2.4,-2.3,1.7),140,2.8,(.82,.88,1.0),(0,0,.85))
+    area_light("Lam_Hair_Rim",(0,1.6,2.25),240,1.8,(.78,.84,1.0),(0,0,1.02))
     target=(0,0,.77); dist=4.1
     def camera(name,loc):
         d=bpy.data.cameras.new(name); c=bpy.data.objects.new(name,d); scene.collection.objects.link(c); c.location=loc
@@ -648,7 +663,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V408: PBR materials, separate overlapping hair layers, softened/extended nose bridge and discreet jewelry; face remains a procedural approximation and candidate is not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V411: balanced Eevee lighting, warm skin, taller crop-top neckline and cargo pockets; face remains a procedural approximation and candidate is not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
