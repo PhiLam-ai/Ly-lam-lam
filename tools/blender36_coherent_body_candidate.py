@@ -300,17 +300,15 @@ def main():
             (sign*.327,-.125,3.890),(sign*.315,-.100,3.590),
             (sign*.345,-.075,3.280),(sign*.328,-.045,2.960),
             (sign*.335,-.025,2.800)
-        ],[.020,.040,.052,.060,.068,.067,.062,.056,.047,.032,.008],.024,hair))
+        ],[.025,.050,.072,.090,.105,.102,.095,.088,.072,.050,.008],.012,hair))
         hair_parts.append(hair_ribbon("HAIR_LONG_REAR_PANEL_"+side,[
             (sign*.145,.085,5.330),(sign*.195,.125,5.100),
             (sign*.230,.155,4.820),(sign*.250,.170,4.510),
             (sign*.270,.170,4.180),(sign*.285,.150,3.830),
             (sign*.295,.120,3.490),(sign*.300,.095,3.150),
             (sign*.295,.085,2.860),(sign*.290,.080,2.720)
-        ],[.040,.065,.082,.090,.092,.087,.078,.065,.040,.008],.026,hair))
-    # A short diagonal fringe follows the cap surface instead of floating in front like a tube.
-    fringe=capsule_piece("HAIR_SIDE_SWEPT_FRINGE",(-.155,-.197,5.365),(.125,-.245,5.270),.045,hair,.018)
-    hair_parts.append(fringe)
+        ],[.050,.075,.095,.105,.110,.102,.090,.075,.050,.008],.014,hair))
+    # V406: remove the single thick diagonal capsule fringe; let the center-parted cap and broad tapered locks define the hairline.
     fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.010,.26,1)
 
     # Reference-led hair flow: layered curved locks add directional silhouette beyond the cap.
