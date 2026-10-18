@@ -137,7 +137,7 @@ def main():
         (3.36,.345,.190,0),(3.40,.370,.202,0),(3.48,.385,.210,0),
         (3.58,.392,.214,0),(3.72,.400,.218,0),(3.86,.415,.222,0),
         (3.98,.435,.225,0),(4.08,.448,.224,0),(4.16,.438,.215,0),
-        (4.22,.402,.202,0),(4.33,.315,.170,0),(4.39,.245,.145,0),(4.43,.132,.106,0)
+        (4.22,.402,.202,0),(4.33,.315,.170,0),(4.43,.245,.145,0),(4.49,.132,.106,0)
     ],shirt,64,False)
 
     # Real short sleeves extend the white tee over the upper arms; fuse them into its body.
@@ -153,7 +153,7 @@ def main():
 
     # A narrow dark rib around the open collar helps define a finished neckline.
     bpy.ops.mesh.primitive_torus_add(major_segments=48,minor_segments=10,
-        location=(0,0,4.382),major_radius=.116,minor_radius=.008)
+        location=(0,0,4.445),major_radius=.116,minor_radius=.008)
     collar=bpy.context.object; collar.name="TEE_BLACK_RIB_COLLAR"; collar.scale.y=.90
     bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
     collar.data.materials.append(pants)
@@ -192,14 +192,14 @@ def main():
         zn=vert.co.z/.348
         if zn < -.03:
             t=min(1.0,max(0.0,(-zn-.03)/.97))
-            vert.co.x *= (1.0-.24*t)
+            vert.co.x *= (1.0-.16*t)
             vert.co.y *= (1.0-.05*t)
         if vert.co.y < 0:
             vert.co.y *= .94
             frontness=min(1.0,max(0.0,(-vert.co.y-.095)/.105))
             zlocal=vert.co.z
-            bridge=.012*math.exp(-((vert.co.x/.040)**2)-(((zlocal+.012)/.105)**2))
-            tip=.025*math.exp(-((vert.co.x/.043)**2)-(((zlocal+.044)/.034)**2))
+            bridge=.010*math.exp(-((vert.co.x/.040)**2)-(((zlocal+.012)/.105)**2))
+            tip=.018*math.exp(-((vert.co.x/.038)**2)-(((zlocal+.044)/.034)**2))
             cheek=.007*math.exp(-(((abs(vert.co.x)-.142)/.068)**2)-(((zlocal+.060)/.058)**2))
             vert.co.y -= frontness*(bridge+tip+cheek)
     head.data.update()
@@ -207,9 +207,9 @@ def main():
 
     # Fuse a tapered nose bridge and tip directly into the head skin; no separate nose sphere.
     nose=loft_rings("NOSE_RELIEF_TO_FUSE",[
-        (4.965,.014,.014,-.244),(4.978,.022,.021,-.253),
-        (4.995,.024,.026,-.258),(5.012,.018,.021,-.250),
-        (5.045,.012,.014,-.238)
+        (4.966,.012,.012,-.241),(4.979,.018,.017,-.247),
+        (4.994,.020,.021,-.252),(5.010,.016,.017,-.247),
+        (5.040,.010,.012,-.239)
     ],skin,32)
     fused_head=fuse([head,nose],"LAM_HEAD_INTEGRATED_NOSE",.006,.30,1)
 
@@ -221,10 +221,10 @@ def main():
 
     # Inset eyes, brown irises, dark pupils and small highlights.
     for x,side in [(-.104,"L"),(.104,"R")]:
-        uv("EYE_WHITE_"+side,(x,-.222,5.080),(.043,.011,.026),white,40,28)
-        uv("IRIS_"+side,(x,-.233,5.079),(.018,.005,.018),iris,32,24)
-        uv("PUPIL_"+side,(x,-.237,5.079),(.008,.003,.010),pupil,24,18)
-        uv("EYE_GLINT_"+side,(x-.004,-.239,5.085),(.0032,.0015,.0035),white,20,12)
+        uv("EYE_WHITE_"+side,(x,-.219,5.080),(.040,.009,.023),white,40,28)
+        uv("IRIS_"+side,(x,-.226,5.079),(.0155,.004,.0155),iris,32,24)
+        uv("PUPIL_"+side,(x,-.230,5.079),(.007,.0025,.0085),pupil,24,18)
+        uv("EYE_GLINT_"+side,(x-.004,-.233,5.085),(.0025,.0013,.0028),white,20,12)
         # Curved eyelid rims integrate the eyeballs into the head and soften the stylized gaze.
         curve_stroke("EYELID_UPPER_"+side,[
             (x-.043,-.220,5.079),(x,-.229,5.102),(x+.043,-.220,5.079)
@@ -233,18 +233,18 @@ def main():
             (x-.040,-.219,5.077),(x,-.226,5.058),(x+.040,-.219,5.077)
         ],.0028,skin)
         curve_stroke("BROW_"+side,[
-            (x-.050,-.222,5.145),(x,-.229,5.155),(x+.050,-.222,5.145)
-        ],.0045,hair)
-    lips_obj=uv("LAM_LIPS",(0,-.214,4.905),(.046,.0045,.009),lipmat,40,24)
+            (x-.050,-.211,5.128),(x,-.218,5.140),(x+.050,-.211,5.128)
+        ],.0055,hair)
+    lips_obj=uv("LAM_LIPS",(0,-.214,4.905),(.060,.0045,.011),lipmat,40,24)
     mouth_dark=material("Mouth cavity deep rose",(.075,.018,.022),.62)
     tongue_mat=material("Tongue muted rose",(.48,.12,.15),.52)
-    mouth_cavity=uv("LAM_MOUTH_CAVITY",(0,-.209,4.904),(.030,.0025,.0055),mouth_dark,40,24)
+    mouth_cavity=uv("LAM_MOUTH_CAVITY",(0,-.209,4.904),(.042,.0025,.007),mouth_dark,40,24)
     tongue_obj=uv("LAM_TONGUE",(0,-.212,4.898),(.014,.002,.0028),tongue_mat,32,20)
 
     # Hair cap and back/side locks are fused into one continuous black hair mass.
     hair_cap=loft_rings("HAIR_CAP_SURFACE",[
-        (5.16,.277,.252,.012),(5.205,.292,.266,.012),
-        (5.27,.286,.258,.012),(5.34,.255,.235,.012),
+        (5.205,.277,.252,.012),(5.245,.292,.266,.012),
+        (5.300,.286,.258,.012),(5.35,.255,.235,.012),
         (5.41,.202,.190,.012),(5.465,.125,.122,.012),
         (5.495,.020,.020,.012)
     ],hair,64)
@@ -315,8 +315,8 @@ def main():
             front=clamp01((-y-.08)/.16)
             ax=abs(x)
             if name=="smile":
-                w=front*gauss(ax,.090,.045)*gauss(z,4.91,.060)
-                co.y-=.004*w; co.z+=.015*w
+                w=front*gauss(ax,.072,.042)*gauss(z,4.905,.060)
+                co.y-=.005*w; co.z+=.020*w
             elif name=="cheek_raise":
                 w=front*gauss(ax,.145,.064)*gauss(z,4.975,.060)
                 co.y-=.007*w; co.z+=.014*w
@@ -328,7 +328,7 @@ def main():
                 co.z-=.010*w
             elif name=="jaw_open":
                 jaw=clamp01((4.985-z)/.30)*clamp01(1.0-(ax/.245)**2)*front
-                co.z-=.040*jaw; co.y+=.006*jaw
+                co.z-=.055*jaw; co.y+=.010*jaw
             elif name=="jaw_hinge":
                 jaw=clamp01((4.985-z)/.30)*clamp01(1.0-(ax/.245)**2)*front
                 co.z-=.032*jaw; co.y+=.018*jaw
@@ -355,9 +355,9 @@ def main():
         def transform(co):
             x,y,z=co.x,co.y,co.z
             if kind=="smile":
-                co.x*=1.20; co.z+=.010*(abs(x)/.047)**2
+                co.x*=1.22; co.z+=.017*(abs(x)/.060)**2
             elif kind=="mouth_open":
-                co.z=(z+.004) if z>=0 else (z-.006)
+                co.z=(z+.012) if z>=0 else (z-.015)
             elif kind=="lip_press":
                 co.z*=.22
             elif kind=="lip_fv":
@@ -383,7 +383,7 @@ def main():
             elif kind=="jaw_hinge":
                 co.z*=2.8; co.y-=.002
             elif kind=="smile":
-                co.x*=1.3; co.z*=1.4
+                co.x*=1.5; co.z*=1.6
             elif kind=="lip_press":
                 co.z*=.12
             elif kind=="lip_round":
@@ -517,7 +517,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","V397 refined short-hair silhouette, inlaid ears/eyes/lids, reduced mouth protrusion, longer sneakers, and overlapping waistband/shirt hem","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","V398 refinement: raised hairline, less protruding eyes/nose, more readable smile/mouth opening, and higher shirt collar to reduce visible neck length","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
