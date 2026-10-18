@@ -3,8 +3,8 @@ name: Generate 3D Avatar Candidate
 on:
   workflow_dispatch:
     inputs:
-      image_url:
-        description: "Public HTTPS URL of the single reference image (do not use private/personal images)"
+      image_path:
+        description: "Path to an image already committed in this repository, e.g. references/lam-reference.png"
         required: true
         type: string
       caption:
@@ -21,6 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -29,33 +32,28 @@ jobs:
       - name: Install client
         run: python -m pip install --upgrade gradio_client requests
 
-      - name: Download reference image
+      - name: Validate repository reference image
         env:
-          IMAGE_URL: ${{ inputs.image_url }}
+          IMAGE_PATH: ${{ inputs.image_path }}
         run: |
           python - <<'PY'
           import os
-          from urllib.parse import urlparse
-          import requests
-          url = os.environ["IMAGE_URL"].strip()
-          parsed = urlparse(url)
-          if parsed.scheme != "https" or not parsed.hostname:
-              raise SystemExit("IMAGE_URL must be a public HTTPS URL.")
-          response = requests.get(url, timeout=60, headers={"User-Agent": "Ly-Lam-Lam-avatar-candidate/1.0"})
-          response.raise_for_status()
-          content_type = response.headers.get("content-type", "").lower()
-          if not content_type.startswith("image/"):
-              raise SystemExit("The URL did not return an image content type.")
-          if len(response.content) > 15 * 1024 * 1024:
+          from pathlib import Path
+          p = Path(os.environ["IMAGE_PATH"]).resolve()
+          root = Path.cwd().resolve()
+          if root not in p.parents:
+              raise SystemExit("IMAGE_PATH must point inside the checked-out repository.")
+          if not p.is_file():
+              raise SystemExit("Reference image not found in repository: " + str(p.relative_to(root)))
+          if p.suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"}:
+              raise SystemExit("Reference image must be PNG, JPG, JPEG, or WEBP.")
+          if p.stat().st_size > 15 * 1024 * 1024:
               raise SystemExit("Reference image exceeds 15 MB.")
-          ext = ".png" if "png" in content_type else ".webp" if "webp" in content_type else ".jpg"
-          with open("reference" + ext, "wb") as f:
-              f.write(response.content)
           with open("image_path.txt", "w") as f:
-              f.write("reference" + ext)
-          print("REFERENCE_IMAGE_DOWNLOADED=PASS")
-          print("CONTENT_TYPE=" + content_type)
-          print("BYTES=" + str(len(response.content)))
+              f.write(str(p))
+          print("REFERENCE_IMAGE_VALIDATED=PASS")
+          print("IMAGE_FILE=" + str(p.relative_to(root)))
+          print("BYTES=" + str(p.stat().st_size))
           PY
 
       - name: Generate model and export GLB
@@ -67,6 +65,7 @@ jobs:
           from gradio_client import Client, handle_file
           image_path = open("image_path.txt").read().strip()
           print("Connecting to Hunyuan3D-2 generation API...")
+          print("Using a reference image stored in the repository; no public image URL is required.")
           client = Client("tencent/Hunyuan3D-2", verbose=True)
           result = client.predict(
               caption=os.environ.get("CAPTION", ""),
