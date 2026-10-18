@@ -25,20 +25,28 @@ def main():
     meshes=[o for o in scene.objects if o.type=="MESH"]
     shape_objs=[o for o in meshes if o.data.shape_keys and len(o.data.shape_keys.key_blocks)>1]
     if not shape_objs: raise RuntimeError("No shape-key meshes found")
-    # Frame tightly around the actual facial feature meshes, not the upper third of the whole body.
-    # Including torso/shoulder bounds here previously made the face too small to inspect.
-    face_objs=list(shape_objs)
-    face_names=("head","hair","ear","nose","face","eye","brow","mouth","chin","teeth","tongue")
-    for o in meshes:
-        name=o.name.lower()
-        is_forearm="forearm" in name or "arm" in name
-        if o not in face_objs and not is_forearm and any(token in name for token in face_names):
-            face_objs.append(o)
+
+    # Treat facial framing as a semantic allowlist. Some imported non-face meshes
+    # (notably sneaker tongues) can carry generic shape keys and must never set the
+    # camera bounds for a face close-up.
+    face_names=("head","hair","ear","nose","face","eye","brow","mouth","chin","teeth","tongue","lip","jaw","cheek","pupil","iris","eyelid")
+    non_face_names=("sneaker","shoe","foot","forearm","upper_arm","arm_skin","hand","finger","thumb")
+    def is_face_mesh(obj):
+        name=obj.name.lower()
+        return any(token in name for token in face_names) and not any(token in name for token in non_face_names)
+
+    face_objs=[o for o in meshes if is_face_mesh(o)]
+    face_shape_objs=[o for o in shape_objs if is_face_mesh(o)]
     if not face_objs: raise RuntimeError("No face meshes available for close-up framing")
-    pts=[o.matrix_world @ Vector(c) for o in face_objs for c in o.bound_box]
+    if not face_shape_objs: raise RuntimeError("No facial shape-key meshes available")
+    pts=[o.matrix_world @ Vector(corner) for o in face_objs for corner in o.bound_box]
     mins=[min(p[i] for p in pts) for i in range(3)]; maxs=[max(p[i] for p in pts) for i in range(3)]
-    center=[(mins[i]+maxs[i])/2 for i in range(3)]
-    head_h=maxs[2]-mins[2]
+    # LAM_CONTINUOUS_HEAD_NECK includes the long neck in a single mesh. Clip the
+    # vertical camera bounds to the top 0.82 scene units so the face, not torso,
+    # determines the framing even when a head/neck mesh is fused.
+    face_min_z=max(mins[2],maxs[2]-0.82)
+    center=[(mins[0]+maxs[0])/2,(mins[1]+maxs[1])/2,(face_min_z+maxs[2])/2]
+    head_h=maxs[2]-face_min_z
     if head_h<=0: raise RuntimeError("Invalid head bounds")
     scene.render.engine="BLENDER_WORKBENCH"
     scene.display.shading.light="STUDIO"; scene.display.shading.color_type="MATERIAL"
@@ -50,7 +58,8 @@ def main():
     scene.world.color=(0.055,0.055,0.055)
     cam_data=bpy.data.cameras.new("FacialExpressionAuditCamera")
     cam=bpy.data.objects.new("FacialExpressionAuditCamera",cam_data); scene.collection.objects.link(cam)
-    # GLB front-facing features face toward +Y; render from +Y so eyes and mouth are visible.\n    cam.location=(center[0],center[1]+head_h*4,center[2]); aim(cam,center)
+    # In this model the facial features face toward -Y; render from -Y for the frontal view.
+    cam.location=(center[0],center[1]-head_h*4,center[2]); aim(cam,center)
     cam_data.type="ORTHO"; cam_data.ortho_scale=head_h*1.38; scene.camera=cam
     for o in shape_objs:
         for k in o.data.shape_keys.key_blocks: k.value=0.0
@@ -63,20 +72,20 @@ def main():
         filename=f"orientation-probe__{label}.png"
         scene.render.filepath=os.path.join(out,filename); bpy.ops.render.render(write_still=True)
         orientation_probes.append({"view":label,"image":filename})
-    cam.location=(center[0],center[1]+head_h*4,center[2]); aim(cam,center)
+    cam.location=(center[0],center[1]-head_h*4,center[2]); aim(cam,center)
     scene.render.filepath=os.path.join(out,"face-neutral.png"); bpy.ops.render.render(write_still=True)
     records=[]
     # Render each unique expression once, enabling that key on every mesh that owns it.
     # This produces one coherent face expression per key rather than 12 duplicates per mesh.
     key_names=[]
-    for o in shape_objs:
+    for o in face_shape_objs:
         for k in list(o.data.shape_keys.key_blocks)[1:]:
             if k.name not in key_names: key_names.append(k.name)
     for key_name in key_names:
         for other in shape_objs:
             for ok in other.data.shape_keys.key_blocks: ok.value=0.0
         enabled=[]
-        for o in shape_objs:
+        for o in face_shape_objs:
             key=o.data.shape_keys.key_blocks.get(key_name)
             if key is not None:
                 key.value=1.0
@@ -87,7 +96,9 @@ def main():
         records.append({"key":key_name,"value":1.0,"meshes_enabled":enabled,"image":filename,"status":"RENDERED_ISOLATED"})
     report={"status":"RENDERED_VISUAL_REVIEW_REQUIRED","source":os.path.basename(src),
             "face_meshes_used_for_framing":[o.name for o in face_objs],
-            "shape_key_mesh_count":len(shape_objs),"render_count":1+len(records),"orientation_probes":orientation_probes,
+            "non_facial_shape_key_meshes_excluded":[o.name for o in shape_objs if not is_face_mesh(o)],
+            "shape_key_mesh_count":len(face_shape_objs),"render_count":1+len(records),
+            "frontal_camera_direction":"-Y","orientation_probes":orientation_probes,
             "note":"Renders are isolated diagnostic images, not automatic expression-quality approval.",
             "expressions":records}
     with open(os.path.join(out,"facial-expression-render-report.json"),"w",encoding="utf-8") as f:
