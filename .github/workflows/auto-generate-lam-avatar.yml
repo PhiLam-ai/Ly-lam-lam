@@ -1,0 +1,117 @@
+name: Auto-generate Lam 3D avatar candidate
+
+on:
+  push:
+    branches:
+      - experiment/github-auto-avatar
+    paths:
+      - "references/lam-reference.png"
+      - ".github/workflows/auto-generate-lam-avatar.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lam-avatar-candidate
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out experiment branch
+        uses: actions/checkout@v4
+
+      - name: Check reference image exists
+        id: reference
+        run: |
+          if [ ! -f "references/lam-reference.png" ]; then
+            echo "::error::Missing references/lam-reference.png. Add the chosen reference image to this path on the experiment/github-auto-avatar branch; this workflow will then run automatically."
+            exit 1
+          fi
+          file references/lam-reference.png
+          echo "REFERENCE_IMAGE=references/lam-reference.png" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install client
+        run: python -m pip install --upgrade gradio_client
+
+      - name: Generate candidate and export GLB through Hunyuan3D-2
+        run: |
+          python - <<'PY'
+          import os, json, shutil
+          from gradio_client import Client, handle_file
+
+          image_path = "references/lam-reference.png"
+          print("Reference image found:", image_path)
+          print("Connecting to hosted Hunyuan3D-2. This uses the hosted demo; availability and free quota are not guaranteed.")
+          client = Client("tencent/Hunyuan3D-2", verbose=True)
+          client.view_api()
+
+          result = client.predict(
+              caption="Lam, consistent realistic female avatar; preserve the reference face, hairstyle and body proportions",
+              image=handle_file(image_path),
+              steps=30,
+              guidance_scale=5.0,
+              seed=1234,
+              octree_resolution=256,
+              check_box_rembg=True,
+              num_chunks=8000,
+              randomize_seed=True,
+              api_name="/generation_all",
+          )
+          print("GENERATION_RESULT_TYPE=" + type(result).__name__)
+          print("GENERATION_RESULT=" + json.dumps(result, default=str)[:4000])
+          if not isinstance(result, (tuple, list)) or len(result) < 2:
+              raise SystemExit("Generation API did not return the expected model files.")
+          mesh_a, mesh_b = result[0], result[1]
+          if not mesh_a or not mesh_b:
+              raise SystemExit("Generation API returned empty model file paths.")
+
+          exported = client.predict(
+              file_out=mesh_a,
+              file_out2=mesh_b,
+              file_type="glb",
+              reduce_face=True,
+              export_texture=True,
+              target_face_num=50000,
+              api_name="/on_export_click",
+          )
+          print("EXPORT_RESULT=" + json.dumps(exported, default=str)[:3000])
+          candidates = list(exported) if isinstance(exported, (tuple, list)) else [exported]
+          copied = False
+          for item in candidates:
+              if isinstance(item, str) and os.path.isfile(item) and item.lower().endswith((".glb", ".gltf")):
+                  shutil.copy2(item, "lam-avatar-candidate.glb")
+                  copied = True
+                  break
+              if isinstance(item, dict):
+                  for key in ("path", "name"):
+                      p = item.get(key)
+                      if isinstance(p, str) and os.path.isfile(p) and p.lower().endswith((".glb", ".gltf")):
+                          shutil.copy2(p, "lam-avatar-candidate.glb")
+                          copied = True
+                          break
+          if not copied:
+              raise SystemExit("Hunyuan3D returned no identifiable local GLB export. Existing lam-default.glb remains unchanged.")
+          size = os.path.getsize("lam-avatar-candidate.glb")
+          if size < 1024:
+              raise SystemExit("Exported GLB is unexpectedly small; refusing to publish candidate.")
+          print("GLB_CANDIDATE_CREATED=PASS")
+          print("GLB_BYTES=" + str(size))
+          PY
+
+      - name: Upload candidate as artifact (never replace production avatar)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lam-avatar-3d-candidate
+          path: lam-avatar-candidate.glb
+          if-no-files-found: error
+          retention-days: 7
