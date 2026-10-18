@@ -299,15 +299,15 @@ def main():
 
     # Ears are fused into the head/neck shell so they no longer look like buttons attached
     # to the side of the face. Keep the outer lobes shallow and close to the head silhouette.
-    ear_l=uv("EAR_L",(-.257,-.002,5.015),(.025,.029,.049),skin,40,28)
-    ear_r=uv("EAR_R",(.257,-.002,5.015),(.028,.034,.056),skin,40,28)
+    ear_l=uv("EAR_L",(-.257,.003,5.015),(.018,.022,.035),skin,40,28)  # V417: ear sits close to skull under hair
+    ear_r=uv("EAR_R",(.257,.003,5.015),(.020,.024,.038),skin,40,28)
     fused_head_neck=fuse([neck,fused_head,ear_l,ear_r],"LAM_CONTINUOUS_HEAD_NECK",.007,.22,1)
 
     # V408 jewelry cues from the canonical face/outfit references: discreet silver drops and pendant.
-    for x,side in [(-.273,"L"),(.273,"R")]:
-        uv("EARRING_STUD_"+side,(x,-.025,5.000),(.008,.005,.008),jewelry,24,16)
-        curve_stroke("EARRING_LINK_"+side,[(x,-.029,4.998),(x,-.030,4.982)],.0025,jewelry)
-        uv("EARRING_DROP_"+side,(x,-.031,4.970),(.006,.004,.011),jewelry,24,16)
+    for x,side in [(-.263,"L"),(.263,"R")]:
+        uv("EARRING_STUD_"+side,(x,-.030,5.000),(.007,.004,.007),jewelry,24,16)
+        curve_stroke("EARRING_LINK_"+side,[(x,-.033,4.998),(x,-.034,4.982)],.0022,jewelry)
+        uv("EARRING_DROP_"+side,(x,-.035,4.970),(.005,.0035,.009),jewelry,24,16)
     curve_stroke("NECKLACE_CHAIN",[
         (-.105,-.035,4.510),(-.090,-.067,4.460),(-.055,-.093,4.415),
         (0,-.104,4.390),(.055,-.093,4.415),(.090,-.067,4.460),(.105,-.035,4.510)
@@ -364,7 +364,15 @@ def main():
     hair_cap.data.update()
     hair_parts=[hair_cap]
     # V415: a single elongated rear mass makes long hair continuous down the back.
-    hair_parts.append(uv("HAIR_BACK_MASS",(0,.135,4.12),(.242,.128,1.23),hair,64,48))
+    hair_parts.append(tube_path("HAIR_BACK_MASS",[
+        (0,.15,2.72,.020,.045),(0,.15,2.82,.100,.080),
+        (0,.15,3.02,.180,.105),(0,.16,3.35,.225,.120),
+        (0,.16,3.70,.248,.135),(0,.16,4.05,.260,.140),
+        (0,.16,4.40,.265,.145),(0,.16,4.75,.270,.150),
+        (0,.15,5.00,.270,.150),(0,.14,5.20,.255,.135),
+        (0,.12,5.30,.200,.110),(0,.08,5.36,.100,.070),
+        (0,.05,5.38,.015,.030)
+    ],hair,48))  # V417: broad profile-aware rear hair silhouette
     # V416: broad side curtains connect the scalp to the long locks and cover the side gaps
     # around the temples/ears. They taper into the back hair mass rather than ending as ovals.
     for sign,side in [(-1,"L"),(1,"R")]:
@@ -707,7 +715,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V416: center-part hairline, elongated rear hair mass and tapered side curtains; facial sculpt and body remain experimental and candidate is not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V417: continuous profiled rear hair shell, temple-to-shoulder curtains and reduced ear protrusion; candidate remains experimental and not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
