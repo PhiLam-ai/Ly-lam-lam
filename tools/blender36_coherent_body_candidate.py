@@ -28,7 +28,7 @@ def main():
     skin=material("Lam warm natural skin",(0.62,.34,.23),.52)
     shirt=material("Lam clean white streetwear top",(.88,.88,.84),.62)
     pants=material("Lam matte black biker pants",(.018,.018,.022),.5)
-    hair=material("Lam deep black hair",(.018,.014,.018),.28)
+    hair=material("Lam deep black hair",(.012,.010,.013),.50)
     shoes=material("Lam white sneakers",(.88,.88,.86),.45)
     sole=material("Sneaker dark sole",(.04,.04,.045),.62)
     white=material("Natural warm eye whites",(.88,.83,.76),.4)
@@ -118,8 +118,26 @@ def main():
         (3.36,.345,.190,0),(3.40,.370,.202,0),(3.48,.385,.210,0),
         (3.58,.392,.214,0),(3.72,.400,.218,0),(3.86,.415,.222,0),
         (3.98,.435,.225,0),(4.08,.448,.224,0),(4.16,.438,.215,0),
-        (4.22,.402,.202,0),(4.27,.315,.170,0),(4.30,.132,.106,0)
+        (4.22,.402,.202,0),(4.30,.315,.170,0),(4.35,.245,.145,0),(4.39,.132,.106,0)
     ],shirt,64,False)
+
+    # Real short sleeves extend the white tee over the upper arms; fuse them into its body.
+    tee_sleeves=[]
+    for sign,side in [(-1,"L"),(1,"R")]:
+        tee_sleeves.append(tube_path("TEE_SLEEVE_"+side,[
+            (sign*.385,-.002,4.23,.108,.112),(sign*.415,-.003,4.15,.126,.128),
+            (sign*.448,-.006,4.05,.127,.130),(sign*.476,-.010,3.94,.119,.123),
+            (sign*.488,-.012,3.875,.115,.118)
+        ],shirt,40))
+    shirt_obj=fuse([shirt_obj]+tee_sleeves,"LAM_CONTINUOUS_WHITE_TEE",.010,.32,1)
+
+    # A narrow dark rib around the open collar helps define a finished neckline.
+    bpy.ops.mesh.primitive_torus_add(major_segments=48,minor_segments=10,
+        location=(0,0,4.382),major_radius=.116,minor_radius=.008)
+    collar=bpy.context.object; collar.name="TEE_BLACK_RIB_COLLAR"; collar.scale.y=.90
+    bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
+    collar.data.materials.append(pants)
+    for poly in collar.data.polygons:poly.use_smooth=True
 
     # Build the pelvis and two tapered pant legs, then voxel-fuse them into one garment.
     pelvis=loft_rings("PANTS_PELVIS",[
@@ -201,10 +219,11 @@ def main():
     hair_parts.append(uv("HAIR_BACK_MASS",(0,.105,4.925),(.285,.142,.365),hair,48,32))
     hair_parts.append(uv("HAIR_LOCK_L",(-.245,.015,4.955),(.052,.083,.245),hair,36,24))
     hair_parts.append(uv("HAIR_LOCK_R",(.245,.015,4.955),(.052,.083,.245),hair,36,24))
-    # Two swept fringe locks break the helmet-like straight hairline while staying fused.
-    hair_parts.append(capsule_piece("FRINGE_SWEEP_L",(-.025,-.232,5.425),(-.145,-.247,5.245),.033,hair,.021))
-    hair_parts.append(capsule_piece("FRINGE_SWEEP_R",(.055,-.232,5.430),(.185,-.244,5.255),.030,hair,.020))
-    fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.009,.38,1)
+    # One side-swept, low-relief fringe replaces the two spike-like locks from the prior render.
+    fringe=uv("HAIR_SIDE_SWEPT_FRINGE",(-.030,-.244,5.302),(.184,.026,.052),hair,48,32)
+    fringe.rotation_euler[1]=.20
+    hair_parts.append(fringe)
+    fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.010,.30,1)
 
     # Slim, tapered arm lofts; elbow transitions are built into each surface.
     arm_parts=[]
@@ -281,7 +300,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","V392 seam-integration pass: open shirt neckline, fused continuous head/neck, swept fringe locks, longer pant cuffs overlapping white sneakers; visual review required","Experimental candidate only; no production rig or facial morph transfer; must pass front/profile/three-quarter, pose/deformation and web/mobile acceptance gates before production consideration"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","V393 garment/hair refinement: fitted open collar with short sleeves, ribbed collar accent, low-relief side-swept fringe, and reduced hair shine; visual review required","Experimental candidate only; no production rig or facial morph transfer; must pass front/profile/three-quarter, pose/deformation and web/mobile acceptance gates before production consideration"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
