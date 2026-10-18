@@ -332,9 +332,9 @@ def main():
             (sign*.295,.120,3.490),(sign*.300,.095,3.150),
             (sign*.295,.085,2.860),(sign*.290,.080,2.720)
         ],[.032,.050,.062,.068,.070,.066,.060,.052,.032,.007],.018,hair))
-    # V408: preserve the overlapping broad locks as separate meshes instead of voxel-fusing them.
-    # This keeps tapered strand surfaces smooth and avoids remesh holes at intersections.
-    fused_hair=hair_cap
+    # V409: fuse the moderate-width panels back into one coherent scalp/hair volume.
+    # The V406 oversized version produced holes; current V407-sized locks passed remesh inspection.
+    fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.010,.24,1)
 
     # Reference-led hair flow: layered curved locks add directional silhouette beyond the cap.
     hair_sheen=material("Lam hair soft charcoal sheen",(.018,.014,.017),.42)
