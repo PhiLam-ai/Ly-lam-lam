@@ -195,7 +195,8 @@ jobs:
           if not attrs: raise RuntimeError("No vertex colors found to bake on the head mesh")
           attr=attrs[0]
           if hasattr(mesh,"uv_layers"):
-              mesh.uv_layers.clear()
+              for uv_layer in list(mesh.uv_layers):
+                  mesh.uv_layers.remove(uv_layer)
               mesh.uv_layers.new(name="UVMap")
           bpy.ops.object.mode_set(mode="EDIT")
           bpy.ops.mesh.select_all(action="SELECT")
