@@ -6,7 +6,6 @@ on:
       - experiment/github-auto-avatar
     paths:
       - "references/lam-reference.png"
-      - ".github/workflows/auto-generate-lam-avatar.yml"
   workflow_dispatch:
 
 permissions:
@@ -25,14 +24,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check reference image exists
-        id: reference
         run: |
           if [ ! -f "references/lam-reference.png" ]; then
             echo "::error::Missing references/lam-reference.png. Add the chosen reference image to this path on the experiment/github-auto-avatar branch; this workflow will then run automatically."
             exit 1
           fi
           file references/lam-reference.png
-          echo "REFERENCE_IMAGE=references/lam-reference.png" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
         uses: actions/setup-python@v5
