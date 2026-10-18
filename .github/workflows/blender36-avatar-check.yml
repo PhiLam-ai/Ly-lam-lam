@@ -320,3 +320,34 @@ jobs:
           path: artifacts/
           if-no-files-found: warn
           retention-days: 14
+
+      - name: BLOCK release until reference likeness is visually approved
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("tools/avatar-visual-acceptance.json")
+          if not p.exists():
+              print("AVATAR_RELEASE_GATE=BLOCKED: no visual acceptance record")
+              raise SystemExit(1)
+          review = json.loads(p.read_text(encoding="utf-8"))
+          required = {
+              "status": "APPROVED",
+              "reference_match_front": True,
+              "reference_match_three_quarter": True,
+              "reference_match_profile": True,
+              "natural_hair_silhouette": True,
+              "natural_anatomy_and_proportions": True,
+              "skin_and_eye_materials_reviewed": True,
+              "expression_deformation_reviewed": True,
+              "web_and_iphone_reviewed": True,
+              "user_approval": True
+          }
+          failed = [k for k, v in required.items() if review.get(k) != v]
+          if failed:
+              print("AVATAR_RELEASE_GATE=BLOCKED")
+              print("Missing/unapproved criteria: " + ", ".join(failed))
+              raise SystemExit(1)
+          print("AVATAR_RELEASE_GATE=PASS: reference likeness approved")
+          PY
