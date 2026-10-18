@@ -363,9 +363,23 @@ def main():
             vert.co.z += front_weight*edge_weight*(.025+center_peak-temple_dip)
     hair_cap.data.update()
     hair_parts=[hair_cap]
-    # V415: a single elongated rear mass makes long hair continuous down the back;
-    # remove the small temple ovals that created a detached clump at profile view.
+    # V415: a single elongated rear mass makes long hair continuous down the back.
     hair_parts.append(uv("HAIR_BACK_MASS",(0,.135,4.12),(.242,.128,1.23),hair,64,48))
+    # V416: broad side curtains connect the scalp to the long locks and cover the side gaps
+    # around the temples/ears. They taper into the back hair mass rather than ending as ovals.
+    for sign,side in [(-1,"L"),(1,"R")]:
+        hair_parts.append(tube_path("HAIR_LONG_SIDE_MASS_"+side,[
+            (sign*.212,-.030,5.285,.045,.095),
+            (sign*.222,-.040,5.120,.052,.110),
+            (sign*.235,-.035,4.900,.060,.120),
+            (sign*.248,-.020,4.650,.066,.125),
+            (sign*.258,-.005,4.350,.068,.122),
+            (sign*.268,.008,4.020,.068,.118),
+            (sign*.278,.020,3.680,.064,.108),
+            (sign*.283,.035,3.340,.055,.092),
+            (sign*.280,.045,3.050,.038,.070),
+            (sign*.275,.055,2.860,.012,.038)
+        ],hair,40))
     # V403: broad layered curtains create the main long-hair silhouette; thin sheen strokes
     # are only accents, never the primary hair mass. Panels are behind the facial surface.
     for sign,side in [(-1,"L"),(1,"R")]:
@@ -693,7 +707,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V412: lower exposure and light energy, wider cargo trouser legs and hips, slightly fuller neck; face remains a procedural approximation and candidate is not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V416: center-part hairline, elongated rear hair mass and tapered side curtains; facial sculpt and body remain experimental and candidate is not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
