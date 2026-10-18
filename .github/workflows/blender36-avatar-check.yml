@@ -208,7 +208,8 @@ jobs:
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
             --python tools/blender36_facial_expression_render_audit.py -- \
             --input "$GITHUB_WORKSPACE/artifacts/coherent-body-candidate/lam-coherent-body-candidate.glb" \
-            --output-dir "$GITHUB_WORKSPACE/artifacts/coherent-body-candidate-expression-renders"
+            --output-dir "$GITHUB_WORKSPACE/artifacts/coherent-body-candidate-expression-renders" \
+            --front-axis "-Y"
           python3 - <<'PY'
           import json
           from pathlib import Path
