@@ -297,14 +297,18 @@ def main():
         for j in range(face_segments):
             a=i*face_segments+j; b=i*face_segments+(j+1)%face_segments
             c=(i+1)*face_segments+(j+1)%face_segments; d=(i+1)*face_segments+j
-            face_faces.append((a,b,d,c))
+            # V420: face rings use y = center_y - ry*sin(angle), opposite the
+            # winding used by the generic loft. Reverse this quad winding so normals
+            # point outward toward the camera/light rather than into the head.
+            face_faces.append((a,d,c,b))
     face_verts.extend([(0,-.002,face_levels[0][0]),(0,-.002,face_levels[-1][0])])
     bottom=len(face_verts)-2; top=len(face_verts)-1
     for j in range(face_segments):
-        face_faces.append((bottom,(j+1)%face_segments,j))
+        # V420: orient the lower and upper caps outward as well.
+        face_faces.append((bottom,j,(j+1)%face_segments))
         a=(len(face_levels)-1)*face_segments+j
         b=(len(face_levels)-1)*face_segments+(j+1)%face_segments
-        face_faces.append((top,a,b))
+        face_faces.append((top,b,a))
     face_mesh=bpy.data.meshes.new("LAM_SCULPTED_FACE_SURFACE_MESH")
     face_mesh.from_pydata(face_verts,[],face_faces); face_mesh.update()
     head=bpy.data.objects.new("LAM_SCULPTED_FACE_SURFACE",face_mesh)
@@ -742,7 +746,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V418: broader temple curtains conceal the ear seam, with finer brows and stronger integrated nose/cheek relief; candidate remains experimental and not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V420: corrected outward face-surface winding and cap normals; experimental render must be visually reviewed and is not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
