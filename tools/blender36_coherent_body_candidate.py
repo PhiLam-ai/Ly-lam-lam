@@ -187,7 +187,7 @@ def main():
         zn=vert.co.z/.342
         if zn < -.03:
             t=min(1.0,max(0.0,(-zn-.03)/.97))
-            vert.co.x *= (1.0-.24*t)
+            vert.co.x *= (1.0-.31*t)  # V403: more reference-like cheek-to-chin taper
             vert.co.y *= (1.0-.05*t)
         if vert.co.y < 0:
             vert.co.y *= .96
@@ -216,9 +216,9 @@ def main():
 
     # Inset eyes, brown irises, dark pupils and small highlights.
     for x,side in [(-.104,"L"),(.104,"R")]:
-        uv("EYE_WHITE_"+side,(x,-.219,5.080),(.032,.0065,.0155),white,40,28)
-        uv("IRIS_"+side,(x,-.226,5.079),(.0115,.0028,.0115),iris,32,24)
-        uv("PUPIL_"+side,(x,-.230,5.079),(.0050,.0018,.0065),pupil,24,18)
+        uv("EYE_WHITE_"+side,(x,-.219,5.080),(.030,.0048,.0115),white,40,28)  # V403: flatter almond-like eye opening
+        uv("IRIS_"+side,(x,-.225,5.079),(.0105,.0022,.0095),iris,32,24)
+        uv("PUPIL_"+side,(x,-.228,5.079),(.0046,.0016,.0060),pupil,24,18)
         uv("EYE_GLINT_"+side,(x-.004,-.233,5.085),(.0025,.0013,.0028),white,20,12)
         # Curved eyelid rims integrate the eyeballs into the head and soften the stylized gaze.
         curve_stroke("EYELID_UPPER_"+side,[
@@ -230,7 +230,7 @@ def main():
         curve_stroke("BROW_"+side,[
             (x-.050,-.211,5.128),(x,-.218,5.140),(x+.050,-.211,5.128)
         ],.0055,hair)
-    lips_obj=uv("LAM_LIPS",(0,-.214,4.905),(.054,.0045,.009),lipmat,40,24)
+    lips_obj=uv("LAM_LIPS",(0,-.215,4.905),(.066,.0060,.013),lipmat,48,28)  # V403: fuller, softer lip volume
     mouth_dark=material("Mouth cavity deep rose",(.075,.018,.022),.62)
     tongue_mat=material("Tongue muted rose",(.48,.12,.15),.52)
     mouth_cavity=uv("LAM_MOUTH_CAVITY",(0,-.209,4.904),(.038,.0035,.009),mouth_dark,40,24)
@@ -256,6 +256,34 @@ def main():
     hair_parts.append(uv("HAIR_BACK_MASS",(0,.105,5.005),(.270,.115,.238),hair,48,32))
     hair_parts.append(uv("HAIR_LOCK_L",(-.242,.006,4.995),(.041,.052,.174),hair,36,24))
     hair_parts.append(uv("HAIR_LOCK_R",(.242,.006,4.995),(.041,.052,.174),hair,36,24))
+    # V403: broad layered curtains create the main long-hair silhouette; thin sheen strokes
+    # are only accents, never the primary hair mass. Panels are behind the facial surface.
+    for sign,side in [(-1,"L"),(1,"R")]:
+        hair_parts.append(tube_path("HAIR_LONG_FACE_PANEL_"+side,[
+            (sign*.205,-.018,5.315,.045,.055),
+            (sign*.238,-.020,5.170,.060,.060),
+            (sign*.265,-.035,4.980,.066,.058),
+            (sign*.286,-.048,4.735,.073,.055),
+            (sign*.300,-.058,4.470,.075,.053),
+            (sign*.316,-.066,4.180,.073,.052),
+            (sign*.328,-.060,3.890,.067,.050),
+            (sign*.340,-.040,3.590,.061,.046),
+            (sign*.345,-.012,3.280,.052,.043),
+            (sign*.342,.015,2.960,.036,.035),
+            (sign*.335,.025,2.800,.012,.020)
+        ],hair,40))
+        hair_parts.append(tube_path("HAIR_LONG_REAR_PANEL_"+side,[
+            (sign*.145,.070,5.330,.075,.060),
+            (sign*.195,.105,5.100,.090,.070),
+            (sign*.230,.135,4.820,.095,.075),
+            (sign*.250,.150,4.510,.092,.072),
+            (sign*.270,.150,4.180,.090,.070),
+            (sign*.285,.130,3.830,.084,.065),
+            (sign*.295,.100,3.490,.076,.060),
+            (sign*.300,.075,3.150,.063,.052),
+            (sign*.295,.065,2.860,.040,.040),
+            (sign*.290,.060,2.720,.010,.018)
+        ],hair,40))
     # A short diagonal fringe follows the cap surface instead of floating in front like a tube.
     fringe=capsule_piece("HAIR_SIDE_SWEPT_FRINGE",(-.155,-.197,5.365),(.125,-.245,5.270),.045,hair,.018)
     hair_parts.append(fringe)
