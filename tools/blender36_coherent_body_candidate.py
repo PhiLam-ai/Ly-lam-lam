@@ -295,27 +295,34 @@ def main():
     ],.0045,jewelry)
     uv("NECKLACE_PENDANT",(0,-.111,4.372),(.014,.006,.021),jewelry,32,24)
 
-    # Inset eyes, brown irises, dark pupils and small highlights.
-    for x,side in [(-.104,"L"),(.104,"R")]:
-        uv("EYE_WHITE_"+side,(x,-.219,5.080),(.034,.006,.014),white,40,28)  # V411: enlarge eye surface for reference-like eyes
-        uv("IRIS_"+side,(x,-.226,5.079),(.0125,.0031,.0115),iris,32,24)
-        uv("PUPIL_"+side,(x,-.230,5.079),(.0054,.0020,.0070),pupil,24,18)
-        uv("EYE_GLINT_"+side,(x-.004,-.233,5.085),(.0025,.0013,.0028),white,20,12)
-        # Curved eyelid rims integrate the eyeballs into the head and soften the stylized gaze.
+    # V413: larger warm-brown eyes with visible inset iris, shaped lids and softer arched brows.
+    for x,side in [(-.100,"L"),(.100,"R")]:
+        uv("EYE_WHITE_"+side,(x,-.229,5.080),(.045,.010,.018),white,48,32)
+        uv("IRIS_"+side,(x,-.239,5.079),(.016,.004,.014),iris,40,28)
+        uv("PUPIL_"+side,(x,-.244,5.079),(.007,.0025,.009),pupil,32,24)
+        uv("EYE_GLINT_"+side,(x-.005,-.250,5.085),(.0032,.0018,.0035),white,24,16)
         curve_stroke("EYELID_UPPER_"+side,[
-            (x-.043,-.220,5.079),(x,-.229,5.102),(x+.043,-.220,5.079)
-        ],.0035,skin)
+            (x-.052,-.227,5.078),(x,-.239,5.105),(x+.052,-.227,5.078)
+        ],.0040,skin)
         curve_stroke("EYELID_LOWER_"+side,[
-            (x-.040,-.219,5.077),(x,-.226,5.058),(x+.040,-.219,5.077)
-        ],.0028,skin)
+            (x-.048,-.226,5.078),(x,-.235,5.056),(x+.048,-.226,5.078)
+        ],.0030,skin)
         curve_stroke("BROW_"+side,[
-            (x-.050,-.211,5.128),(x,-.218,5.140),(x+.050,-.211,5.128)
-        ],.0055,hair)
-    lips_obj=uv("LAM_LIPS",(0,-.215,4.905),(.066,.0060,.013),lipmat,48,28)  # V403: fuller, softer lip volume
+            (x-.058,-.219,5.129),(x,-.229,5.151),(x+.058,-.219,5.129)
+        ],.0065,hair)
+    lips_obj=uv("LAM_LIPS",(0,-.228,4.905),(.070,.010,.016),lipmat,48,28)
     mouth_dark=material("Mouth cavity deep rose",(.075,.018,.022),.62)
     tongue_mat=material("Tongue muted rose",(.48,.12,.15),.52)
-    mouth_cavity=uv("LAM_MOUTH_CAVITY",(0,-.209,4.904),(.038,.0035,.009),mouth_dark,40,24)
-    tongue_obj=uv("LAM_TONGUE",(0,-.212,4.898),(.012,.0025,.0025),tongue_mat,32,20)
+    mouth_cavity=uv("LAM_MOUTH_CAVITY",(0,-.222,4.904),(.038,.0045,.008),mouth_dark,40,24)
+    tongue_obj=uv("LAM_TONGUE",(0,-.230,4.898),(.012,.003,.003),tongue_mat,32,20)
+    # Cupid's-bow and lower-lip contours turn the mouth from a flat oval into a soft lip shape.
+    curve_stroke("UPPER_LIP_CONTOUR",[
+        (-.066,-.235,4.905),(-.040,-.238,4.914),(-.018,-.240,4.918),
+        (0,-.239,4.913),(.018,-.240,4.918),(.040,-.238,4.914),(.066,-.235,4.905)
+    ],.0028,lipmat)
+    curve_stroke("LOWER_LIP_CONTOUR",[
+        (-.052,-.236,4.900),(0,-.241,4.894),(.052,-.236,4.900)
+    ],.0025,lipmat)
 
     # Hair cap and back/side locks are fused into one continuous black hair mass.
     hair_cap=loft_rings("HAIR_CAP_SURFACE",[
@@ -331,7 +338,7 @@ def main():
             front_weight=max(0.0,min(1.0,(-y-.025)/.20))
             edge_weight=max(0.0,min(1.0,(5.38-z)/.15))
             sweep_weight=max(0.0,min(1.0,.5-x/.52))
-            vert.co.z += front_weight*edge_weight*(.018 - .022*math.exp(-((x/.030)**2)))  # V405: softer center part, remove raised helmet-like sweep
+            vert.co.z += front_weight*edge_weight*(.004 + .008*(x/.25))  # V413: remove center notch and create a mild center-part sweep
     hair_cap.data.update()
     hair_parts=[hair_cap]
     hair_parts.append(uv("HAIR_BACK_MASS",(0,.105,5.005),(.270,.115,.238),hair,48,32))
@@ -359,17 +366,26 @@ def main():
     # The V406 oversized version produced holes; current V407-sized locks passed remesh inspection.
     fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.010,.24,1)
 
+    # V413: fine, tapered center-part locks sit on the forehead surface rather than drawing
+    # two straight cords from the crown down the face.
+    for sign,side in [(-1,"L"),(1,"R")]:
+        hair_ribbon("HAIR_PARTED_FORELOCK_"+side,[
+            (sign*.018,-.140,5.435),(sign*.050,-.205,5.385),
+            (sign*.088,-.229,5.330),(sign*.128,-.238,5.275),
+            (sign*.163,-.232,5.225)
+        ],[.004,.014,.021,.019,.005],.008,hair)
+
     # Reference-led hair flow: layered curved locks add directional silhouette beyond the cap.
     hair_sheen=material("Lam hair soft charcoal sheen",(.018,.014,.017),.42)
     hair_glint=material("Lam hair subtle warm strand",(.028,.019,.022),.46)
     for sign,side in [(-1,"L"),(1,"R")]:
         # Face-framing locks taper from the part, pass beside the cheek, then fall over the chest.
         for idx,offset in enumerate((0.0,.075)):
-            x0=sign*(.035+offset*.32)
-            x1=sign*(.105+offset*.52)
-            x2=sign*(.185+offset*.62)
-            x3=sign*(.235+offset*.62)
-            x4=sign*(.270+offset*.58)
+            x0=sign*(.075+offset*.18)
+            x1=sign*(.130+offset*.22)
+            x2=sign*(.200+offset*.28)
+            x3=sign*(.255+offset*.25)
+            x4=sign*(.285+offset*.25)
             pts=[
                 (x0,-.155-offset*.08,5.435-offset*.06),
                 (x1,-.206-offset*.035,5.315-offset*.035),
