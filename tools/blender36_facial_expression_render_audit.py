@@ -5,11 +5,12 @@ def args_after_dashdash():
     return sys.argv[sys.argv.index("--")+1:] if "--" in sys.argv else []
 
 def parse_args():
-    args=args_after_dashdash(); cfg={"input":"lam-default.glb","output-dir":"artifacts/facial-expression-renders"}
+    args=args_after_dashdash(); cfg={"input":"lam-default.glb","output-dir":"artifacts/facial-expression-renders","front-axis":"+Y"}
     i=0
     while i<len(args):
-        if args[i] in ("--input","--output-dir") and i+1<len(args):
-            cfg["input" if args[i]=="--input" else "output-dir"]=args[i+1]; i+=2
+        if args[i] in ("--input","--output-dir","--front-axis") and i+1<len(args):
+            key={"--input":"input","--output-dir":"output-dir","--front-axis":"front-axis"}[args[i]]
+            cfg[key]=args[i+1]; i+=2
         else: i+=1
     return cfg
 
@@ -39,6 +40,8 @@ def main():
     face_shape_objs=[o for o in shape_objs if is_face_mesh(o)]
     if not face_objs: raise RuntimeError("No face meshes available for close-up framing")
     if not face_shape_objs: raise RuntimeError("No facial shape-key meshes available")
+    if cfg["front-axis"] not in ("+Y","-Y"): raise ValueError("--front-axis must be +Y or -Y")
+    front_sign=1 if cfg["front-axis"]=="+Y" else -1
     pts=[o.matrix_world @ Vector(corner) for o in face_objs for corner in o.bound_box]
     mins=[min(p[i] for p in pts) for i in range(3)]; maxs=[max(p[i] for p in pts) for i in range(3)]
     # LAM_CONTINUOUS_HEAD_NECK includes the long neck in a single mesh. Clip the
@@ -58,8 +61,8 @@ def main():
     scene.world.color=(0.055,0.055,0.055)
     cam_data=bpy.data.cameras.new("FacialExpressionAuditCamera")
     cam=bpy.data.objects.new("FacialExpressionAuditCamera",cam_data); scene.collection.objects.link(cam)
-    # In this model the facial features face toward -Y; render from -Y for the frontal view.
-    cam.location=(center[0],center[1]-head_h*4,center[2]); aim(cam,center)
+    # Keep production's known +Y direction as the default; candidates can opt into -Y explicitly.
+    cam.location=(center[0],center[1]+front_sign*head_h*4,center[2]); aim(cam,center)
     cam_data.type="ORTHO"; cam_data.ortho_scale=head_h*1.38; scene.camera=cam
     for o in shape_objs:
         for k in o.data.shape_keys.key_blocks: k.value=0.0
@@ -72,7 +75,7 @@ def main():
         filename=f"orientation-probe__{label}.png"
         scene.render.filepath=os.path.join(out,filename); bpy.ops.render.render(write_still=True)
         orientation_probes.append({"view":label,"image":filename})
-    cam.location=(center[0],center[1]-head_h*4,center[2]); aim(cam,center)
+    cam.location=(center[0],center[1]+front_sign*head_h*4,center[2]); aim(cam,center)
     scene.render.filepath=os.path.join(out,"face-neutral.png"); bpy.ops.render.render(write_still=True)
     records=[]
     # Render each unique expression once, enabling that key on every mesh that owns it.
@@ -98,7 +101,7 @@ def main():
             "face_meshes_used_for_framing":[o.name for o in face_objs],
             "non_facial_shape_key_meshes_excluded":[o.name for o in shape_objs if not is_face_mesh(o)],
             "shape_key_mesh_count":len(face_shape_objs),"render_count":1+len(records),
-            "frontal_camera_direction":"-Y","orientation_probes":orientation_probes,
+            "frontal_camera_direction":cfg["front-axis"],"orientation_probes":orientation_probes,
             "note":"Renders are isolated diagnostic images, not automatic expression-quality approval.",
             "expressions":records}
     with open(os.path.join(out,"facial-expression-render-report.json"),"w",encoding="utf-8") as f:
