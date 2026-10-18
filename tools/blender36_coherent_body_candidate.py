@@ -178,7 +178,7 @@ def main():
         curve_stroke("CROP_TOP_STRAP_"+side,[
             (sign*.225,-.105,4.105),(sign*.205,-.137,4.19),
             (sign*.167,-.123,4.285),(sign*.142,-.096,4.345)
-        ],.027,shirt)
+        ],.014,shirt)
 
     # A narrow dark rib around the open collar helps define a finished neckline.
     bpy.ops.mesh.primitive_torus_add(major_segments=48,minor_segments=10,
@@ -284,7 +284,7 @@ def main():
             front_weight=max(0.0,min(1.0,(-y-.025)/.20))
             edge_weight=max(0.0,min(1.0,(5.38-z)/.15))
             sweep_weight=max(0.0,min(1.0,.5-x/.52))
-            vert.co.z += front_weight*edge_weight*.065*sweep_weight
+            vert.co.z += front_weight*edge_weight*(.018 - .022*math.exp(-((x/.030)**2)))  # V405: softer center part, remove raised helmet-like sweep
     hair_cap.data.update()
     hair_parts=[hair_cap]
     hair_parts.append(uv("HAIR_BACK_MASS",(0,.105,5.005),(.270,.115,.238),hair,48,32))
@@ -294,20 +294,20 @@ def main():
     # are only accents, never the primary hair mass. Panels are behind the facial surface.
     for sign,side in [(-1,"L"),(1,"R")]:
         hair_parts.append(hair_ribbon("HAIR_LONG_FACE_PANEL_"+side,[
-            (sign*.205,-.018,5.315),(sign*.238,-.020,5.170),
-            (sign*.265,-.035,4.980),(sign*.280,-.048,4.735),
-            (sign*.304,-.058,4.470),(sign*.298,-.066,4.180),
-            (sign*.327,-.060,3.890),(sign*.315,-.040,3.590),
-            (sign*.345,-.012,3.280),(sign*.328,.015,2.960),
-            (sign*.335,.025,2.800)
-        ],[.028,.042,.052,.057,.060,.056,.054,.050,.043,.030,.008],.018,hair))
+            (sign*.205,-.155,5.315),(sign*.238,-.180,5.170),
+            (sign*.265,-.190,4.980),(sign*.280,-.180,4.735),
+            (sign*.304,-.165,4.470),(sign*.298,-.150,4.180),
+            (sign*.327,-.125,3.890),(sign*.315,-.100,3.590),
+            (sign*.345,-.075,3.280),(sign*.328,-.045,2.960),
+            (sign*.335,-.025,2.800)
+        ],[.020,.040,.052,.060,.068,.067,.062,.056,.047,.032,.008],.024,hair))
         hair_parts.append(hair_ribbon("HAIR_LONG_REAR_PANEL_"+side,[
-            (sign*.145,.070,5.330),(sign*.195,.105,5.100),
-            (sign*.230,.135,4.820),(sign*.250,.150,4.510),
-            (sign*.270,.150,4.180),(sign*.285,.130,3.830),
-            (sign*.295,.100,3.490),(sign*.300,.075,3.150),
-            (sign*.295,.065,2.860),(sign*.290,.060,2.720)
-        ],[.028,.050,.067,.072,.073,.069,.062,.052,.032,.007],.022,hair))
+            (sign*.145,.085,5.330),(sign*.195,.125,5.100),
+            (sign*.230,.155,4.820),(sign*.250,.170,4.510),
+            (sign*.270,.170,4.180),(sign*.285,.150,3.830),
+            (sign*.295,.120,3.490),(sign*.300,.095,3.150),
+            (sign*.295,.085,2.860),(sign*.290,.080,2.720)
+        ],[.040,.065,.082,.090,.092,.087,.078,.065,.040,.008],.026,hair))
     # A short diagonal fringe follows the cap surface instead of floating in front like a tube.
     fringe=capsule_piece("HAIR_SIDE_SWEPT_FRINGE",(-.155,-.197,5.365),(.125,-.245,5.270),.045,hair,.018)
     hair_parts.append(fringe)
