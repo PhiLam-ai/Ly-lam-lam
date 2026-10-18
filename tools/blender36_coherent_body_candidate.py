@@ -192,10 +192,10 @@ def main():
         zn=vert.co.z/.342
         if zn < -.03:
             t=min(1.0,max(0.0,(-zn-.03)/.97))
-            vert.co.x *= (1.0-.16*t)
+            vert.co.x *= (1.0-.11*t)
             vert.co.y *= (1.0-.05*t)
         if vert.co.y < 0:
-            vert.co.y *= .94
+            vert.co.y *= .96
             frontness=min(1.0,max(0.0,(-vert.co.y-.095)/.105))
             zlocal=vert.co.z
             bridge=.010*math.exp(-((vert.co.x/.040)**2)-(((zlocal+.012)/.105)**2))
@@ -215,15 +215,15 @@ def main():
 
     # Ears are fused into the head/neck shell so they no longer look like buttons attached
     # to the side of the face. Keep the outer lobes shallow and close to the head silhouette.
-    ear_l=uv("EAR_L",(-.257,-.002,5.015),(.028,.034,.056),skin,40,28)
+    ear_l=uv("EAR_L",(-.257,-.002,5.015),(.025,.029,.049),skin,40,28)
     ear_r=uv("EAR_R",(.257,-.002,5.015),(.028,.034,.056),skin,40,28)
     fused_head_neck=fuse([neck,fused_head,ear_l,ear_r],"LAM_CONTINUOUS_HEAD_NECK",.007,.22,1)
 
     # Inset eyes, brown irises, dark pupils and small highlights.
     for x,side in [(-.104,"L"),(.104,"R")]:
-        uv("EYE_WHITE_"+side,(x,-.219,5.080),(.036,.008,.020),white,40,28)
-        uv("IRIS_"+side,(x,-.226,5.079),(.0135,.0035,.0135),iris,32,24)
-        uv("PUPIL_"+side,(x,-.230,5.079),(.006,.0022,.0075),pupil,24,18)
+        uv("EYE_WHITE_"+side,(x,-.219,5.080),(.034,.008,.018),white,40,28)
+        uv("IRIS_"+side,(x,-.226,5.079),(.0125,.0035,.0125),iris,32,24)
+        uv("PUPIL_"+side,(x,-.230,5.079),(.0055,.0022,.0070),pupil,24,18)
         uv("EYE_GLINT_"+side,(x-.004,-.233,5.085),(.0025,.0013,.0028),white,20,12)
         # Curved eyelid rims integrate the eyeballs into the head and soften the stylized gaze.
         curve_stroke("EYELID_UPPER_"+side,[
@@ -253,7 +253,7 @@ def main():
     hair_parts.append(uv("HAIR_LOCK_L",(-.245,.015,4.975),(.046,.072,.205),hair,36,24))
     hair_parts.append(uv("HAIR_LOCK_R",(.245,.015,4.975),(.046,.072,.205),hair,36,24))
     # A short diagonal fringe follows the cap surface instead of floating in front like a tube.
-    fringe=capsule_piece("HAIR_SIDE_SWEPT_FRINGE",(-.13,-.196,5.375),(.105,-.247,5.255),.020,hair,.014)
+    fringe=capsule_piece("HAIR_SIDE_SWEPT_FRINGE",(-.145,-.190,5.365),(.105,-.241,5.255),.026,hair,.016)
     hair_parts.append(fringe)
     fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.010,.26,1)
 
@@ -517,7 +517,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","V399 face pass: subtly narrowed eye/iris/pupil scale, softened ear silhouette, adjusted head proportions and reduced lip/cavity blockout size; candidate remains unapproved pending fresh render review","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","V400 face pass: softened jaw taper and head-front depth, reduced ear and eye prominence, broadened swept fringe; candidate remains unapproved pending fresh render review","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
