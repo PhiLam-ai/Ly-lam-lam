@@ -8,6 +8,7 @@ on:
       - "references/lam-reference.png"
       - "references/lam-reference.png.png"
       - ".github/workflows/auto-generate-lam-avatar.yml"
+      - ".github/workflows/auto-generate-lam-avatar.yml"
   workflow_dispatch:
 
 permissions:
