@@ -121,6 +121,89 @@ jobs:
           print("HEAD_OBJ_AVAILABLE=" + str(bool(obj_path)))
           PY
 
+      - name: Try Hunyuan3D using generated multi-view images (optional fallback)
+        continue-on-error: true
+        run: |
+          python -m pip install --upgrade gradio_client pillow
+          python - <<'PY'
+          import os, json, shutil, traceback
+          from PIL import Image, ImageOps, ImageChops
+          from gradio_client import Client, handle_file
+
+          try:
+              sheet = Image.open("lam-face-generated-multiview.webp").convert("RGB")
+              w, h = sheet.size
+              tiles = {
+                  "front": sheet.crop((2*w//3, h//2, w, h)),
+                  "left": sheet.crop((0, 0, w//3, h//2)),
+                  "right": sheet.crop((2*w//3, 0, w, h//2)),
+              }
+              for name, im in tiles.items():
+                  # The generated views sit on a near-white canvas; trim padding while keeping a small border.
+                  px = im.load()
+                  xs, ys = [], []
+                  for y in range(im.height):
+                      for x in range(im.width):
+                          r, g, b = px[x, y]
+                          if min(r, g, b) < 225:
+                              xs.append(x); ys.append(y)
+                  if xs and ys:
+                      pad = 10
+                      box = (max(0,min(xs)-pad), max(0,min(ys)-pad),
+                             min(im.width,max(xs)+pad+1), min(im.height,max(ys)+pad+1))
+                      im = im.crop(box)
+                  canvas = Image.new("RGB", (384, 384), (238, 238, 238))
+                  fitted = ImageOps.contain(im, (360, 360), method=Image.Resampling.LANCZOS)
+                  canvas.paste(fitted, ((384-fitted.width)//2, (384-fitted.height)//2))
+                  canvas.save("lam-hunyuan-view-"+name+".png")
+                  print("HUNYUAN_VIEW_"+name.upper()+"_SIZE="+str(canvas.size))
+              print("Connecting to Hunyuan3D shape-only API with 3 generated views; no production file will be changed.")
+              client = Client("tencent/Hunyuan3D-2", verbose=True)
+              result = client.predict(
+                  caption="Realistic 3D female head and shoulders, long dark hair, natural face, preserve the supplied multi-view identity",
+                  image=handle_file("lam-face-preprocessed.webp"),
+                  mv_image_front=handle_file("lam-hunyuan-view-front.png"),
+                  mv_image_back=None,
+                  mv_image_left=handle_file("lam-hunyuan-view-left.png"),
+                  mv_image_right=handle_file("lam-hunyuan-view-right.png"),
+                  steps=30,
+                  guidance_scale=5.0,
+                  seed=1510,
+                  octree_resolution=256,
+                  check_box_rembg=True,
+                  num_chunks=8000,
+                  randomize_seed=True,
+                  api_name="/shape_generation",
+              )
+              print("HUNYUAN_MV_RESULT="+json.dumps(result, default=str)[:3000])
+              first = result[0] if isinstance(result, (tuple,list)) else result
+              path = None
+              if isinstance(first, str):
+                  path = first
+              elif isinstance(first, dict):
+                  for key in ("path", "name", "value"):
+                      val = first.get(key)
+                      if isinstance(val, str):
+                          path = val; break
+              if path and os.path.isfile(path):
+                  shutil.copy2(path, "lam-head-hunyuan-multiview.glb")
+                  with open("lam-head-hunyuan-multiview.glb", "rb") as model:
+                      header = model.read(4)
+                  size = os.path.getsize("lam-head-hunyuan-multiview.glb")
+                  if header == b"glTF" and size > 1024:
+                      print("HUNYUAN_MULTIVIEW_GLB_CREATED=PASS")
+                      print("HUNYUAN_MULTIVIEW_GLB_BYTES="+str(size))
+                  else:
+                      os.remove("lam-head-hunyuan-multiview.glb")
+                      print("HUNYUAN_MULTIVIEW_GLB_CREATED=FAIL_INVALID_FILE")
+              else:
+                  print("HUNYUAN_MULTIVIEW_GLB_CREATED=NO_FILE_RETURNED")
+          except Exception as exc:
+              print("HUNYUAN_MULTIVIEW_ATTEMPT_FAILED="+repr(exc))
+              traceback.print_exc()
+              # Keep this as an optional experiment; the InstantMesh candidate will still be uploaded.
+          PY
+
       - name: Install Blender 3.6 LTS for texture baking and preview
         run: |
           set -euo pipefail
@@ -341,6 +424,10 @@ jobs:
           name: lam-head-3d-candidate
           path: |
             lam-head-candidate-colored.glb
+            lam-head-hunyuan-multiview.glb
+            lam-hunyuan-view-front.png
+            lam-hunyuan-view-left.png
+            lam-hunyuan-view-right.png
             lam-head-candidate-untextured-import.glb
             lam-head-candidate-textured.glb
             lam-head-baked-color.png
