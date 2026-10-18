@@ -51,7 +51,21 @@ def main():
     trunk.append(uv("trunk_shoulders",(0,0,4.29),(.43,.225,.15),dress))
     # Neck and head are intentionally separate to preserve future facial rigging.
     uv("neck",(0,0,4.625),(.135,.135,.27),skin)
-    uv("head",(0,-.015,5.035),(.275,.255,.365),skin,48,32)
+    # Experimental head blockout: taper the lower half into a jaw/chin instead of a perfect sphere.
+    head=uv("head",(0,-.015,5.035),(.275,.255,.365),skin,64,48)
+    for vert in head.data.vertices:
+        z=vert.co.z / .365
+        # Lower face narrows toward the chin; cheek/temple region stays fuller.
+        if z < -0.05:
+            t=min(1.0,max(0.0,(-z-0.05)/0.95))
+            vert.co.x *= (1.0 - 0.28*t)
+            vert.co.y *= (1.0 - 0.08*t)
+        # Slightly flatten the front plane so facial features sit closer to the skin surface.
+        if vert.co.y < 0:
+            vert.co.y *= 0.94
+    head.data.update()
+    for poly in head.data.polygons:
+        poly.use_smooth=True
     # ears
     uv("ear.L",(-.29,0,5.02),(.065,.075,.105),skin)
     uv("ear.R",(.29,0,5.02),(.065,.075,.105),skin)
@@ -142,7 +156,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=fused_trunk
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","Experimental face refinement: tapered lower-face silhouette and slightly flattened facial plane; requires visual review"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024

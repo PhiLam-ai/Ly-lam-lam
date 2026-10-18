@@ -15,6 +15,10 @@ on:
       - "tools/blender36_model_audit.py"
       - "tools/blender36_arm_alignment_candidate.py"
       - "tools/blender36_geometry_gap_audit.py"
+      - "tools/blender36_rig_skinning_audit.py"
+      - "tools/blender36_pose_deformation_audit.py"
+      - "tools/blender36_facial_shape_key_audit.py"
+      - "tools/blender36_facial_expression_render_audit.py"
       - "tools/blender36_coherent_body_candidate.py"
       - "tools/avatar-builder.py"
       - "lam-default.glb"
@@ -148,6 +152,64 @@ jobs:
           print("COHERENT_BODY_CANDIDATE_EXPORTED=PASS_EXPERIMENTAL")
           PY
 
+      - name: Audit actual armature, bones, skin weights and shape keys
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/rig-skinning-audit
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_rig_skinning_audit.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/rig-skinning-audit"
+          test -s artifacts/rig-skinning-audit/rig-skinning-audit.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/rig-skinning-audit/rig-skinning-audit.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["status"] in {"BLOCKED", "RIG_PRESENT_REQUIRES_POSE_VALIDATION"}, report
+          print("RIG_SKINNING_STRUCTURAL_AUDIT=RECORDED")
+          print("RIG_SKINNING_STATUS=" + report["status"])
+          print("RIG_SKINNING_FINDINGS=" + json.dumps(report["findings"], ensure_ascii=False))
+          PY
+
+      - name: Probe skeletal deformation with isolated shoulder and elbow poses
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/pose-deformation-audit
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_pose_deformation_audit.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/pose-deformation-audit"
+          test -s artifacts/pose-deformation-audit/pose-deformation-audit.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/pose-deformation-audit/pose-deformation-audit.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["status"] == "POSE_TEST_RECORDED", report
+          print("POSE_DEFORMATION_PROBE=RECORDED")
+          print(json.dumps(report["tests"], ensure_ascii=False))
+          PY
+
+      - name: Audit facial shape-key geometry changes
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/facial-shape-key-audit
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_facial_shape_key_audit.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
+            --output "$GITHUB_WORKSPACE/artifacts/facial-shape-key-audit/facial-shape-key-audit.json"
+          test -s artifacts/facial-shape-key-audit/facial-shape-key-audit.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/facial-shape-key-audit/facial-shape-key-audit.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["status"] == "RECORDED", report
+          print("FACIAL_SHAPE_KEY_AUDIT=RECORDED")
+          print(json.dumps(report["key_results"], ensure_ascii=False))
+          PY
+
       - name: Optionally run another committed avatar builder
         if: ${{ inputs.builder_script != '' }}
         run: |
@@ -157,6 +219,28 @@ jobs:
           "$RUNNER_TEMP/blender/blender" --background --factory-startup \
             --python "${{ inputs.builder_script }}" -- \
             --output-dir "$GITHUB_WORKSPACE/artifacts/builder"
+
+      - name: Render isolated facial expressions for visual review
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/facial-expression-renders
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_facial_expression_render_audit.py -- \
+            --input "$GITHUB_WORKSPACE/lam-default.glb" \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/facial-expression-renders"
+          test -s artifacts/facial-expression-renders/face-neutral.png
+          test -s artifacts/facial-expression-renders/facial-expression-render-report.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/facial-expression-renders/facial-expression-render-report.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["status"] == "RENDERED_VISUAL_REVIEW_REQUIRED", report
+          assert report["render_count"] == 13, report
+          assert len(report["expressions"]) == 12, report
+          print("FACIAL_EXPRESSION_RENDER_AUDIT=PASS_DIAGNOSTIC_ONLY")
+          print("FACIAL_EXPRESSION_RENDER_COUNT=" + str(report["render_count"]))
+          PY
 
       - name: Upload real-model renders, candidate GLB and reports
         if: always()
