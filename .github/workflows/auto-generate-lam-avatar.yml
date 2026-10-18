@@ -36,7 +36,6 @@ jobs:
             echo "::error::Reference image not found. Expected references/lam-reference.png or references/lam-reference.png.png."
             exit 1
           fi
-          file "${{ steps.reference.outputs.image_path }}"
 
       - name: Set up Python
         uses: actions/setup-python@v5
