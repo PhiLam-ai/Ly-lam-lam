@@ -132,6 +132,40 @@ def main():
         for poly in obj.data.polygons:poly.use_smooth=True
         return obj
 
+    def hair_ribbon(name, points, widths, thickness, mat, segments=16):
+        """Create a broad, softly rounded tapered hair lock swept along a curved centerline."""
+        centers=[Vector(p) for p in points]
+        if len(centers)<3 or len(widths)!=len(centers):
+            raise ValueError("hair_ribbon requires >=3 points and one width per point")
+        verts=[]; faces=[]
+        for i,center in enumerate(centers):
+            tangent=(centers[min(i+1,len(centers)-1)]-centers[max(i-1,0)]).normalized()
+            lateral=Vector((tangent.z,0.0,-tangent.x))
+            if lateral.length<1e-6:
+                lateral=Vector((1.0,0.0,0.0))
+            lateral.normalize()
+            depth=tangent.cross(lateral)
+            if depth.length<1e-6:
+                depth=Vector((0.0,1.0,0.0))
+            depth.normalize()
+            for j in range(segments):
+                a=2.0*math.pi*j/segments
+                p=center+lateral*(widths[i]*math.cos(a))+depth*(thickness*math.sin(a))
+                verts.append(tuple(p))
+        for i in range(len(centers)-1):
+            for j in range(segments):
+                a=i*segments+j; b=i*segments+(j+1)%segments
+                c=(i+1)*segments+(j+1)%segments; d=(i+1)*segments+j
+                faces.append((a,b,d,c))
+        faces.append(tuple(reversed(tuple(range(segments)))))
+        faces.append(tuple((len(centers)-1)*segments+j for j in range(segments)))
+        mesh=bpy.data.meshes.new(name+"Mesh")
+        mesh.from_pydata(verts,[],faces); mesh.update()
+        obj=bpy.data.objects.new(name,mesh); scene.collection.objects.link(obj)
+        obj.data.materials.append(mat)
+        for poly in obj.data.polygons: poly.use_smooth=True
+        return obj
+
     # Reference-led everyday outfit: fitted dark-teal crop tank, not the earlier white tee blockout.
     shirt_obj=loft_rings("LAM_DARK_TEAL_CROP_TOP",[
         (3.46,.300,.176,0),(3.51,.330,.190,0),(3.60,.350,.198,0),
@@ -259,42 +293,32 @@ def main():
     # V403: broad layered curtains create the main long-hair silhouette; thin sheen strokes
     # are only accents, never the primary hair mass. Panels are behind the facial surface.
     for sign,side in [(-1,"L"),(1,"R")]:
-        hair_parts.append(tube_path("HAIR_LONG_FACE_PANEL_"+side,[
-            (sign*.205,-.018,5.315,.045,.055),
-            (sign*.238,-.020,5.170,.060,.060),
-            (sign*.265,-.035,4.980,.066,.058),
-            (sign*.286,-.048,4.735,.073,.055),
-            (sign*.300,-.058,4.470,.075,.053),
-            (sign*.316,-.066,4.180,.073,.052),
-            (sign*.328,-.060,3.890,.067,.050),
-            (sign*.340,-.040,3.590,.061,.046),
-            (sign*.345,-.012,3.280,.052,.043),
-            (sign*.342,.015,2.960,.036,.035),
-            (sign*.335,.025,2.800,.012,.020)
-        ],hair,40))
-        hair_parts.append(tube_path("HAIR_LONG_REAR_PANEL_"+side,[
-            (sign*.145,.070,5.330,.075,.060),
-            (sign*.195,.105,5.100,.090,.070),
-            (sign*.230,.135,4.820,.095,.075),
-            (sign*.250,.150,4.510,.092,.072),
-            (sign*.270,.150,4.180,.090,.070),
-            (sign*.285,.130,3.830,.084,.065),
-            (sign*.295,.100,3.490,.076,.060),
-            (sign*.300,.075,3.150,.063,.052),
-            (sign*.295,.065,2.860,.040,.040),
-            (sign*.290,.060,2.720,.010,.018)
-        ],hair,40))
+        hair_parts.append(hair_ribbon("HAIR_LONG_FACE_PANEL_"+side,[
+            (sign*.205,-.018,5.315),(sign*.238,-.020,5.170),
+            (sign*.265,-.035,4.980),(sign*.280,-.048,4.735),
+            (sign*.304,-.058,4.470),(sign*.298,-.066,4.180),
+            (sign*.327,-.060,3.890),(sign*.315,-.040,3.590),
+            (sign*.345,-.012,3.280),(sign*.328,.015,2.960),
+            (sign*.335,.025,2.800)
+        ],[.028,.042,.052,.057,.060,.056,.054,.050,.043,.030,.008],.018,hair))
+        hair_parts.append(hair_ribbon("HAIR_LONG_REAR_PANEL_"+side,[
+            (sign*.145,.070,5.330),(sign*.195,.105,5.100),
+            (sign*.230,.135,4.820),(sign*.250,.150,4.510),
+            (sign*.270,.150,4.180),(sign*.285,.130,3.830),
+            (sign*.295,.100,3.490),(sign*.300,.075,3.150),
+            (sign*.295,.065,2.860),(sign*.290,.060,2.720)
+        ],[.028,.050,.067,.072,.073,.069,.062,.052,.032,.007],.022,hair))
     # A short diagonal fringe follows the cap surface instead of floating in front like a tube.
     fringe=capsule_piece("HAIR_SIDE_SWEPT_FRINGE",(-.155,-.197,5.365),(.125,-.245,5.270),.045,hair,.018)
     hair_parts.append(fringe)
     fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.010,.26,1)
 
     # Reference-led hair flow: layered curved locks add directional silhouette beyond the cap.
-    hair_sheen=material("Lam hair soft charcoal sheen",(.035,.027,.032),.36)
-    hair_glint=material("Lam hair subtle warm strand",(.060,.043,.045),.40)
+    hair_sheen=material("Lam hair soft charcoal sheen",(.018,.014,.017),.42)
+    hair_glint=material("Lam hair subtle warm strand",(.028,.019,.022),.46)
     for sign,side in [(-1,"L"),(1,"R")]:
         # Face-framing locks taper from the part, pass beside the cheek, then fall over the chest.
-        for idx,offset in enumerate((0.0,.035,.070,.105)):
+        for idx,offset in enumerate((0.0,.075)):
             x0=sign*(.035+offset*.32)
             x1=sign*(.105+offset*.52)
             x2=sign*(.185+offset*.62)
@@ -309,9 +333,9 @@ def main():
                 (sign*(.285+offset*.52),-.145-offset*.008,4.485),
                 (sign*(.300+offset*.45),-.115-offset*.006,4.315)
             ]
-            curve_stroke("HAIR_FACE_FRAME_"+side+str(idx),pts,.0045 if idx%2 else .006,hair_sheen if idx%2 else hair_glint)
+            curve_stroke("HAIR_FACE_FRAME_"+side+str(idx),pts,.0025 if idx%2 else .0033,hair_sheen if idx%2 else hair_glint)
         # Longer side/back locks follow the shoulder line rather than ending as a single lump.
-        for idx,offset in enumerate((0.0,.045,.090)):
+        for idx,offset in enumerate((0.0,.080)):
             pts=[
                 (sign*(.075+offset*.20),.025+offset*.15,5.420-offset*.025),
                 (sign*(.150+offset*.24),.095+offset*.12,5.245),
@@ -320,7 +344,7 @@ def main():
                 (sign*(.255+offset*.15),.135+offset*.08,4.560),
                 (sign*(.260+offset*.12),.105+offset*.06,4.345)
             ]
-            curve_stroke("HAIR_BACK_FLOW_"+side+str(idx),pts,.0045,hair_sheen)
+            curve_stroke("HAIR_BACK_FLOW_"+side+str(idx),pts,.0025,hair_sheen)
 
     # Slim, tapered arm lofts; elbow transitions are built into each surface.
     arm_parts=[]
