@@ -11,17 +11,25 @@ def main():
     os.makedirs(out,exist_ok=True)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene=bpy.context.scene
-    scene.render.engine="BLENDER_WORKBENCH"
-    scene.display.shading.light="STUDIO"
-    scene.display.shading.color_type="MATERIAL"
-    scene.display.shading.show_shadows=True
-    scene.display.shading.show_cavity=True
-    scene.display.shading.cavity_type="WORLD"
+    # V410: use physically based Eevee preview instead of the flat Workbench clay render.
+    scene.render.engine="BLENDER_EEVEE"
+    scene.eevee.use_gtao=True
+    scene.eevee.gtao_distance=.22
+    scene.eevee.gtao_factor=1.25
+    scene.view_settings.view_transform="Filmic"
+    scene.view_settings.look="Medium High Contrast"
+    scene.view_settings.exposure=0.0
+    scene.view_settings.gamma=1.0
     scene.render.resolution_x=900; scene.render.resolution_y=1100; scene.render.resolution_percentage=100
     scene.render.image_settings.file_format="PNG"
     scene.render.film_transparent=False
     if scene.world is None: scene.world=bpy.data.worlds.new("LamCandidateWorld")
     scene.world.color=(0.045,0.045,0.045)
+    scene.world.use_nodes=True
+    world_bg=scene.world.node_tree.nodes.get("Background")
+    if world_bg:
+        world_bg.inputs["Color"].default_value=(.055,.060,.070,1)
+        world_bg.inputs["Strength"].default_value=.45
 
     def material(name,color,rough=.6):
         m=bpy.data.materials.new(name)
@@ -36,7 +44,7 @@ def main():
             if "Specular" in bsdf.inputs: bsdf.inputs["Specular"].default_value=.32
             if "Subsurface" in bsdf.inputs: bsdf.inputs["Subsurface"].default_value=.075 if "skin" in name.lower() else 0.0
         return m
-    skin=material("Lam warm natural skin",(0.62,.34,.23),.52)
+    skin=material("Lam warm natural skin",(0.73,.52,.44),.44)  # V410: lighter warm skin tone guided by the portrait
     shirt=material("Lam deep teal fitted crop top",(.025,.095,.105),.48)
     pants=material("Lam matte black biker pants",(.018,.018,.022),.5)
     hair=material("Lam deep black hair",(.012,.010,.013),.50)
@@ -603,6 +611,17 @@ def main():
     # camera, ground, and render
     bpy.ops.mesh.primitive_plane_add(size=200, location=(0,0,-.015))
     floor=bpy.context.object; floor.name="StudioFloor"; floor.data.materials.append(material("Studio floor",(.055,.06,.065)))
+    # Soft key/fill/rim lighting for inspecting facial volume, skin and glossy hair in Eevee.
+    def area_light(name,loc,energy,size,color,target=(0,0,.80)):
+        data=bpy.data.lights.new(name,"AREA")
+        data.energy=energy; data.shape="DISK"; data.size=size; data.color=color
+        obj=bpy.data.objects.new(name,data); scene.collection.objects.link(obj)
+        obj.location=loc
+        obj.rotation_euler=(Vector(target)-obj.location).to_track_quat("-Z","Y").to_euler()
+        return obj
+    area_light("Lam_Key_Softbox",(-2.2,-3.0,2.5),800,2.3,(1.0,.86,.76),(0,0,.88))
+    area_light("Lam_Fill_Softbox",(2.4,-2.3,1.7),420,2.8,(.78,.86,1.0),(0,0,.85))
+    area_light("Lam_Hair_Rim",(0,1.6,2.25),700,1.8,(.72,.82,1.0),(0,0,1.02))
     target=(0,0,.77); dist=4.1
     def camera(name,loc):
         d=bpy.data.cameras.new(name); c=bpy.data.objects.new(name,d); scene.collection.objects.link(c); c.location=loc
