@@ -18,7 +18,7 @@ def main():
     scene.eevee.gtao_factor=1.25
     scene.view_settings.view_transform="Filmic"
     scene.view_settings.look="Medium High Contrast"
-    scene.view_settings.exposure=0.0
+    scene.view_settings.exposure=-0.5
     scene.view_settings.gamma=1.0
     scene.render.resolution_x=900; scene.render.resolution_y=1100; scene.render.resolution_percentage=100
     scene.render.image_settings.file_format="PNG"
@@ -29,7 +29,7 @@ def main():
     world_bg=scene.world.node_tree.nodes.get("Background")
     if world_bg:
         world_bg.inputs["Color"].default_value=(.055,.060,.070,1)
-        world_bg.inputs["Strength"].default_value=.32
+        world_bg.inputs["Strength"].default_value=.22
 
     def material(name,color,rough=.6):
         m=bpy.data.materials.new(name)
@@ -41,10 +41,10 @@ def main():
             if "Base Color" in bsdf.inputs: bsdf.inputs["Base Color"].default_value=(*color,1)
             if "Roughness" in bsdf.inputs: bsdf.inputs["Roughness"].default_value=rough
             if "Metallic" in bsdf.inputs: bsdf.inputs["Metallic"].default_value=.58 if "jewel" in name.lower() else 0.0
-            if "Specular" in bsdf.inputs: bsdf.inputs["Specular"].default_value=.32
-            if "Subsurface" in bsdf.inputs: bsdf.inputs["Subsurface"].default_value=.075 if "skin" in name.lower() else 0.0
+            if "Specular" in bsdf.inputs: bsdf.inputs["Specular"].default_value=.24
+            if "Subsurface" in bsdf.inputs: bsdf.inputs["Subsurface"].default_value=.04 if "skin" in name.lower() else 0.0
         return m
-    skin=material("Lam warm natural skin",(0.66,.43,.36),.48)  # V411: warm light skin without blowing out under key light
+    skin=material("Lam warm natural skin",(0.62,.40,.34),.50)  # V412: moderated warm skin tone
     shirt=material("Lam deep teal fitted crop top",(.025,.095,.105),.48)
     pants=material("Lam matte black biker pants",(.018,.018,.022),.5)
     hair=material("Lam deep black hair",(.012,.010,.013),.50)
@@ -210,21 +210,21 @@ def main():
 
     # Build the pelvis and two tapered pant legs, then voxel-fuse them into one garment.
     pelvis=loft_rings("PANTS_PELVIS",[
-        (2.48,.315,.185,0),(2.60,.350,.205,0),(2.74,.375,.216,0),
-        (2.88,.382,.220,0),(3.00,.380,.220,0),(3.12,.372,.216,0),
-        (3.20,.350,.204,0),(3.30,.350,.204,0),(3.38,.325,.195,0)
+        (2.48,.335,.192,0),(2.60,.375,.215,0),(2.74,.405,.226,0),
+        (2.88,.420,.230,0),(3.00,.420,.230,0),(3.12,.410,.226,0),
+        (3.20,.390,.214,0),(3.30,.390,.214,0),(3.38,.370,.205,0)
     ],pants,56)
     pant_parts=[pelvis]
     for sign,side in [(-1,"L"),(1,"R")]:
         pant_parts.append(tube_path("PANTS_LEG_"+side,[
-            (sign*.200,-.018,.10,.076,.085),(sign*.200,-.012,.22,.079,.089),
-            (sign*.198,0,.36,.082,.092),
-            (sign*.200,0,.48,.088,.100),(sign*.205,0,.68,.098,.108),
-            (sign*.205,0,.92,.108,.118),(sign*.207,0,1.18,.119,.128),
-            (sign*.207,0,1.43,.132,.138),(sign*.205,0,1.64,.142,.148),
-            (sign*.203,0,1.78,.148,.153),(sign*.200,0,1.96,.154,.158),
-            (sign*.198,0,2.18,.162,.165),(sign*.195,0,2.39,.170,.172),
-            (sign*.192,0,2.58,.178,.178),(sign*.190,0,2.73,.183,.181)
+            (sign*.200,-.018,.10,.105,.112),(sign*.200,-.012,.22,.108,.115),
+            (sign*.198,0,.36,.116,.122),
+            (sign*.200,0,.48,.125,.132),(sign*.205,0,.68,.137,.144),
+            (sign*.205,0,.92,.148,.154),(sign*.207,0,1.18,.160,.166),
+            (sign*.207,0,1.43,.170,.176),(sign*.205,0,1.64,.180,.185),
+            (sign*.203,0,1.78,.185,.190),(sign*.200,0,1.96,.190,.195),
+            (sign*.198,0,2.18,.198,.200),(sign*.195,0,2.39,.200,.205),
+            (sign*.192,0,2.58,.205,.210),(sign*.190,0,2.73,.210,.215)
         ],pants,32))
     fused_pants=fuse(pant_parts,"LAM_CONTINUOUS_BLACK_PANTS",.012,.55,2)
 
@@ -245,9 +245,9 @@ def main():
 
     # Shorter/slimmer neck, partly hidden by the collar and lower head.
     neck=tube_path("LAM_NECK",[
-        (0,0,4.18,.102,.098),(0,0,4.27,.105,.100),(0,0,4.36,.108,.102),
-        (0,0,4.46,.105,.100),(0,0,4.56,.104,.100),(0,0,4.66,.106,.102),
-        (0,0,4.75,.112,.108)
+        (0,0,4.18,.118,.112),(0,0,4.27,.122,.116),(0,0,4.36,.125,.118),
+        (0,0,4.46,.122,.116),(0,0,4.56,.120,.115),(0,0,4.66,.122,.116),
+        (0,0,4.75,.126,.120)
     ],skin,40)
 
     # Tapered jaw and low-relief cheek contours sculpted into the head surface.
@@ -634,9 +634,9 @@ def main():
         obj.location=loc
         obj.rotation_euler=(Vector(target)-obj.location).to_track_quat("-Z","Y").to_euler()
         return obj
-    area_light("Lam_Key_Softbox",(-2.2,-3.0,2.5),320,2.3,(1.0,.88,.80),(0,0,.88))
-    area_light("Lam_Fill_Softbox",(2.4,-2.3,1.7),140,2.8,(.82,.88,1.0),(0,0,.85))
-    area_light("Lam_Hair_Rim",(0,1.6,2.25),240,1.8,(.78,.84,1.0),(0,0,1.02))
+    area_light("Lam_Key_Softbox",(-2.2,-3.0,2.5),140,2.3,(1.0,.90,.84),(0,0,.88))
+    area_light("Lam_Fill_Softbox",(2.4,-2.3,1.7),50,2.8,(.84,.90,1.0),(0,0,.85))
+    area_light("Lam_Hair_Rim",(0,1.6,2.25),90,1.8,(.78,.84,1.0),(0,0,1.02))
     target=(0,0,.77); dist=4.1
     def camera(name,loc):
         d=bpy.data.cameras.new(name); c=bpy.data.objects.new(name,d); scene.collection.objects.link(c); c.location=loc
@@ -663,7 +663,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V411: balanced Eevee lighting, warm skin, taller crop-top neckline and cargo pockets; face remains a procedural approximation and candidate is not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V412: lower exposure and light energy, wider cargo trouser legs and hips, slightly fuller neck; face remains a procedural approximation and candidate is not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
