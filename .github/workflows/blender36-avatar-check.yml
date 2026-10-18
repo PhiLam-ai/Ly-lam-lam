@@ -150,6 +150,75 @@ jobs:
           assert report["status"] == "EXPERIMENTAL_CANDIDATE_NOT_APPROVED", report
           assert report["bytes"] > 1024, report
           print("COHERENT_BODY_CANDIDATE_EXPORTED=PASS_EXPERIMENTAL")
+          print("CANDIDATE_BONES=" + str(report.get("bone_count")))
+          print("CANDIDATE_MORPH_TARGETS=" + str(len(report.get("morph_targets", []))))
+          PY
+
+      - name: Pose-test the exported coherent-body candidate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/coherent-body-candidate-pose-audit
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_pose_deformation_audit.py -- \
+            --input "$GITHUB_WORKSPACE/artifacts/coherent-body-candidate/lam-coherent-body-candidate.glb" \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/coherent-body-candidate-pose-audit"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/coherent-body-candidate-pose-audit/pose-deformation-audit.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["status"] == "POSE_TEST_RECORDED", report
+          assert report["bone_count"] == 17, report
+          assert len(report["tests"]) == 4, report
+          failed = [t for t in report["tests"] if t["status"] != "MOVED" or t["max_vertex_displacement"] <= 1e-5]
+          assert not failed, {"candidate_pose_failures": failed, "report": report}
+          print("CANDIDATE_POSE_DEFORMATION_GATE=PASS_STRUCTURAL_ONLY")
+          print(json.dumps(report["tests"], ensure_ascii=False, indent=2))
+          PY
+
+      - name: Audit the exported candidate's 12 facial morph targets
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/coherent-body-candidate-morph-audit
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_facial_shape_key_audit.py -- \
+            --input "$GITHUB_WORKSPACE/artifacts/coherent-body-candidate/lam-coherent-body-candidate.glb" \
+            --output "$GITHUB_WORKSPACE/artifacts/coherent-body-candidate-morph-audit/facial-shape-key-audit.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/coherent-body-candidate-morph-audit/facial-shape-key-audit.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          required = {
+              "smile", "blink_left", "blink_right", "mouth_open", "brow_raise", "jaw_open",
+              "jaw_hinge", "cheek_raise", "lip_press", "lip_fv", "lip_round", "tongue_tip"
+          }
+          results = report.get("key_results", [])
+          effective = {r["key"] for r in results if r["status"] == "HAS_GEOMETRIC_EFFECT"}
+          missing = sorted(required - effective)
+          assert not missing, {"missing_or_ineffective_candidate_morphs": missing, "report": report}
+          print("CANDIDATE_FACIAL_MORPH_GATE=PASS_GEOMETRY_ONLY")
+          print(json.dumps({k: sorted({r["mesh"] for r in results if r["key"] == k and r["status"] == "HAS_GEOMETRIC_EFFECT"}) for k in sorted(required)}, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Render facial expressions on the exported candidate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/coherent-body-candidate-expression-renders
+          "$RUNNER_TEMP/blender/blender" --background --factory-startup \
+            --python tools/blender36_facial_expression_render_audit.py -- \
+            --input "$GITHUB_WORKSPACE/artifacts/coherent-body-candidate/lam-coherent-body-candidate.glb" \
+            --output-dir "$GITHUB_WORKSPACE/artifacts/coherent-body-candidate-expression-renders"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("artifacts/coherent-body-candidate-expression-renders/facial-expression-render-report.json")
+          report = json.loads(p.read_text(encoding="utf-8"))
+          assert report["status"] == "RENDERED_VISUAL_REVIEW_REQUIRED", report
+          assert report["render_count"] == 13, report
+          assert len(report["expressions"]) == 12, report
+          print("CANDIDATE_EXPRESSION_RENDER_GATE=PASS_DIAGNOSTIC_ONLY")
+          print("CANDIDATE_EXPRESSION_RENDER_COUNT=" + str(report["render_count"]))
           PY
 
       - name: Audit actual armature, bones, skin weights and shape keys
