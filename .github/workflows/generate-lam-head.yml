@@ -132,12 +132,53 @@ jobs:
           tar -xJf /tmp/blender.tar.xz -C "$RUNNER_TEMP/blender" --strip-components=1
           "$RUNNER_TEMP/blender/blender" --background --factory-startup --python-expr "import bpy; print('BLENDER_VERSION=' + bpy.app.version_string)"
 
+      - name: Remove corrupt source image references before Blender import
+        run: |
+          python - <<'PY'
+          import json, struct
+          src = "lam-head-candidate-colored.glb"
+          dst = "lam-head-candidate-untextured-import.glb"
+          data = open(src, "rb").read()
+          magic, version, total = struct.unpack_from("<4sII", data, 0)
+          if magic != b"glTF" or version != 2 or total != len(data):
+              raise SystemExit("Source head candidate is not a structurally valid GLB")
+          jlen, jtype = struct.unpack_from("<I4s", data, 12)
+          if jtype != b"JSON":
+              raise SystemExit("Expected JSON chunk at start of GLB")
+          doc = json.loads(data[20:20+jlen].decode("utf-8").rstrip("\\x00 "))
+          for mat in doc.get("materials", []):
+              pbr = mat.get("pbrMetallicRoughness") or {}
+              pbr.pop("baseColorTexture", None)
+              pbr.pop("metallicRoughnessTexture", None)
+              mat.pop("normalTexture", None)
+              mat.pop("occlusionTexture", None)
+              mat.pop("emissiveTexture", None)
+          doc.pop("images", None)
+          doc.pop("textures", None)
+          doc.pop("samplers", None)
+          jdata = json.dumps(doc, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+          while len(jdata) % 4: jdata += b" "
+          bin_start = 20 + jlen
+          old_bin_len, bin_type = struct.unpack_from("<I4s", data, bin_start)
+          bin_data = data[bin_start+8:bin_start+8+old_bin_len]
+          new_total = 12 + 8 + len(jdata) + 8 + len(bin_data)
+          out = bytearray(struct.pack("<4sII", b"glTF", 2, new_total))
+          out.extend(struct.pack("<I4s", len(jdata), b"JSON"))
+          out.extend(jdata)
+          out.extend(struct.pack("<I4s", len(bin_data), bin_type))
+          out.extend(bin_data)
+          open(dst, "wb").write(out)
+          print("SOURCE_GLB_BYTES=" + str(len(data)))
+          print("SANITIZED_GLB_BYTES=" + str(len(out)))
+          print("REMOVED_BROKEN_IMAGE_REFERENCES=PASS")
+          PY
+
       - name: Bake vertex colors into standard UV base-color texture
         run: |
           set -euo pipefail
           cat > /tmp/bake_head.py <<'PY'
           import bpy, os, json, struct, traceback
-          src=os.path.abspath("lam-head-candidate-colored.glb")
+          src=os.path.abspath("lam-head-candidate-untextured-import.glb")
           out=os.path.abspath("lam-head-candidate-textured.glb")
           texpath=os.path.abspath("lam-head-baked-color.png")
           bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -294,6 +335,7 @@ jobs:
           name: lam-head-3d-candidate
           path: |
             lam-head-candidate-colored.glb
+            lam-head-candidate-untextured-import.glb
             lam-head-candidate-textured.glb
             lam-head-baked-color.png
             lam-face-preprocessed.webp
