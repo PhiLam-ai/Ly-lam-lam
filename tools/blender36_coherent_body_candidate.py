@@ -253,7 +253,7 @@ def main():
     hair_parts.append(uv("HAIR_LOCK_L",(-.245,.015,4.955),(.052,.083,.245),hair,36,24))
     hair_parts.append(uv("HAIR_LOCK_R",(.245,.015,4.955),(.052,.083,.245),hair,36,24))
     # One side-swept, low-relief fringe replaces the two spike-like locks from the prior render.
-    fringe=uv("HAIR_SIDE_SWEPT_FRINGE",(-.030,-.244,5.302),(.184,.026,.052),hair,48,32)
+    fringe=uv("HAIR_SIDE_SWEPT_FRINGE",(-.030,-.240,5.302),(.170,.018,.034),hair,48,32)
     fringe.rotation_euler[1]=.20
     hair_parts.append(fringe)
     fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.010,.30,1)
@@ -295,6 +295,191 @@ def main():
         if obj.type=="MESH":
             obj.location *= scale_factor
             obj.scale *= scale_factor
+    # Add semantic facial morph targets on the new meshes. These names match the viewer API.
+    def add_shape_key(obj, name, transform):
+        if obj is None or obj.type!="MESH":
+            raise RuntimeError("Cannot add shape key "+name+": target mesh is missing")
+        if obj.data.shape_keys is None:
+            obj.shape_key_add(name="Basis",from_mix=False)
+        key=obj.shape_key_add(name=name,from_mix=False)
+        basis=obj.data.shape_keys.key_blocks.get("Basis")
+        for i,vertex in enumerate(obj.data.vertices):
+            key.data[i].co=transform(vertex.co.copy())
+        return key
+
+    def clamp01(x): return max(0.0,min(1.0,x))
+    def gauss(x,center,width): return math.exp(-((x-center)/width)**2)
+
+    def head_key(name):
+        def transform(co):
+            x,y,z=co.x,co.y,co.z
+            front=clamp01((-y-.08)/.16)
+            ax=abs(x)
+            if name=="smile":
+                w=front*gauss(ax,.090,.045)*gauss(z,4.91,.060)
+                co.y-=.004*w; co.z+=.015*w
+            elif name=="cheek_raise":
+                w=front*gauss(ax,.145,.064)*gauss(z,4.975,.060)
+                co.y-=.007*w; co.z+=.014*w
+            elif name=="brow_raise":
+                w=front*gauss(ax,.105,.075)*gauss(z,5.145,.060)
+                co.z+=.016*w
+            elif name=="mouth_open":
+                w=front*gauss(z,4.902,.065)*clamp01(1.0-(ax/.14)**2)
+                co.z-=.010*w
+            elif name=="jaw_open":
+                jaw=clamp01((4.985-z)/.30)*clamp01(1.0-(ax/.245)**2)*front
+                co.z-=.040*jaw; co.y+=.006*jaw
+            elif name=="jaw_hinge":
+                jaw=clamp01((4.985-z)/.30)*clamp01(1.0-(ax/.245)**2)*front
+                co.z-=.032*jaw; co.y+=.018*jaw
+            return co
+        return transform
+
+    for name in ("smile","cheek_raise","brow_raise","mouth_open","jaw_open","jaw_hinge"):
+        add_shape_key(fused_head_neck,name,head_key(name))
+
+    # Blink targets flatten the visible eyeballs and their iris/pupil highlights together.
+    for side,morph in (("L","blink_left"),("R","blink_right")):
+        for prefix in ("EYE_WHITE_","IRIS_","PUPIL_","EYE_GLINT_"):
+            obj=scene.objects.get(prefix+side)
+            if obj:
+                add_shape_key(obj,morph,lambda co: Vector((co.x,co.y,co.z*.06)))
+
+    # Brows lift with the same semantic target as the forehead skin.
+    for side in ("L","R"):
+        brow_obj=scene.objects.get("BROW_"+side)
+        if brow_obj:
+            add_shape_key(brow_obj,"brow_raise",lambda co: Vector((co.x,co.y,co.z+.020)))
+
+    def mouth_transform(kind):
+        def transform(co):
+            x,y,z=co.x,co.y,co.z
+            if kind=="smile":
+                co.x*=1.20; co.z+=.010*(abs(x)/.047)**2
+            elif kind=="mouth_open":
+                co.z=(z+.004) if z>=0 else (z-.006)
+            elif kind=="lip_press":
+                co.z*=.22
+            elif kind=="lip_fv":
+                co.z+=(.004 if z>=0 else -.004); co.x*=1.04
+            elif kind=="lip_round":
+                co.x*=.58; co.z*=1.45
+            elif kind=="jaw_open":
+                co.z*=2.2
+            elif kind=="jaw_hinge":
+                co.z*=1.8
+            return co
+        return transform
+
+    for key_name in ("smile","mouth_open","lip_press","lip_fv","lip_round","jaw_open","jaw_hinge"):
+        add_shape_key(lips_obj,key_name,mouth_transform(key_name))
+
+    def cavity_transform(kind):
+        def transform(co):
+            if kind=="mouth_open":
+                co.z*=3.5
+            elif kind=="jaw_open":
+                co.z*=3.2
+            elif kind=="jaw_hinge":
+                co.z*=2.8; co.y-=.002
+            elif kind=="smile":
+                co.x*=1.3; co.z*=1.4
+            elif kind=="lip_press":
+                co.z*=.12
+            elif kind=="lip_round":
+                co.x*=.58; co.z*=1.8
+            elif kind=="lip_fv":
+                co.z+=(.002 if co.z>=0 else -.002)
+            return co
+        return transform
+
+    for key_name in ("smile","mouth_open","lip_press","lip_fv","lip_round","jaw_open","jaw_hinge"):
+        add_shape_key(mouth_cavity,key_name,cavity_transform(key_name))
+    add_shape_key(tongue_obj,"tongue_tip",lambda co: Vector((co.x,co.y-.010,co.z+.022)))
+    add_shape_key(tongue_obj,"mouth_open",lambda co: Vector((co.x,co.y,co.z*2.0)))
+
+    required_morphs=[
+        "smile","blink_left","blink_right","mouth_open","brow_raise","jaw_open",
+        "jaw_hinge","cheek_raise","lip_press","lip_fv","lip_round","tongue_tip"
+    ]
+    morph_effects={name:0.0 for name in required_morphs}
+    for obj in [o for o in scene.objects if o.type=="MESH"]:
+        shapes=obj.data.shape_keys
+        if not shapes: continue
+        basis=shapes.key_blocks.get("Basis")
+        if not basis: continue
+        for key in shapes.key_blocks:
+            if key.name=="Basis" or key.name not in morph_effects: continue
+            maximum=0.0
+            for i,bv in enumerate(basis.data):
+                delta=(key.data[i].co-bv.co).length
+                maximum=max(maximum,delta)
+            morph_effects[key.name]=max(morph_effects[key.name],maximum)
+    missing=[name for name,value in morph_effects.items() if value<=1e-6]
+    if missing: raise RuntimeError("Required facial morphs missing or ineffective: "+", ".join(missing))
+
+    # Create the 17-bone Lam humanoid skeleton in the candidate's normalized coordinate space.
+    rig_data=bpy.data.armatures.new("Lam_Humanoid_Skeleton")
+    rig=bpy.data.objects.new("Lam_Humanoid_Root",rig_data)
+    scene.collection.objects.link(rig)
+    bpy.context.view_layer.objects.active=rig
+    bpy.ops.object.select_all(action="DESELECT"); rig.select_set(True)
+    bpy.ops.object.mode_set(mode="EDIT")
+    for eb in list(rig.data.edit_bones): rig.data.edit_bones.remove(eb)
+    bone_specs=[
+        ("Lam_Joint_Hips",(0,0,2.78),(0,0,3.12),None),
+        ("Lam_Joint_Spine",(0,0,3.00),(0,0,3.72),"Lam_Joint_Hips"),
+        ("Lam_Joint_Chest",(0,0,3.68),(0,0,4.15),"Lam_Joint_Spine"),
+        ("Lam_Joint_Neck",(0,0,4.17),(0,0,4.69),"Lam_Joint_Chest"),
+        ("Lam_Joint_Head",(0,0,4.62),(0,0,5.35),"Lam_Joint_Neck"),
+        ("Lam_Joint_LeftShoulder",(0,0,4.13),(-.425,0,4.05),"Lam_Joint_Chest"),
+        ("Lam_Joint_LeftElbow",(-.425,0,4.05),(-.500,-.012,3.72),"Lam_Joint_LeftShoulder"),
+        ("Lam_Joint_LeftWrist",(-.500,-.012,3.72),(-.525,-.035,3.17),"Lam_Joint_LeftElbow"),
+        ("Lam_Joint_RightShoulder",(0,0,4.13),(.425,0,4.05),"Lam_Joint_Chest"),
+        ("Lam_Joint_RightElbow",(.425,0,4.05),(.500,-.012,3.72),"Lam_Joint_RightShoulder"),
+        ("Lam_Joint_RightWrist",(.500,-.012,3.72),(.525,-.035,3.17),"Lam_Joint_RightElbow"),
+        ("Lam_Joint_LeftHip",(0,0,2.88),(-.195,0,2.58),"Lam_Joint_Hips"),
+        ("Lam_Joint_LeftKnee",(-.195,0,2.58),(-.205,0,1.65),"Lam_Joint_LeftHip"),
+        ("Lam_Joint_LeftAnkle",(-.205,0,1.65),(-.205,-.03,.13),"Lam_Joint_LeftKnee"),
+        ("Lam_Joint_RightHip",(0,0,2.88),(.195,0,2.58),"Lam_Joint_Hips"),
+        ("Lam_Joint_RightKnee",(.195,0,2.58),(.205,0,1.65),"Lam_Joint_RightHip"),
+        ("Lam_Joint_RightAnkle",(.205,0,1.65),(.205,-.03,.13),"Lam_Joint_RightKnee")
+    ]
+    bone_map={}; bone_segments=[]
+    for name,head_xyz,tail_xyz,parent_name in bone_specs:
+        eb=rig.data.edit_bones.new(name)
+        eb.head=Vector(head_xyz)*scale_factor; eb.tail=Vector(tail_xyz)*scale_factor
+        if parent_name: eb.parent=bone_map[parent_name]
+        bone_map[name]=eb
+        bone_segments.append((name,Vector(head_xyz)*scale_factor,Vector(tail_xyz)*scale_factor))
+    bpy.ops.object.mode_set(mode="OBJECT")
+    rig.show_in_front=False
+
+    # Distance-based smooth weights across the custom bone segments. This is an initial rig
+    # pass and is validated with pose probes and render review below, not assumed to be final.
+    character_meshes=[o for o in scene.objects if o.type=="MESH" and o.name!="StudioFloor"]
+    for obj in character_meshes:
+        groups={bone_name:obj.vertex_groups.new(name=bone_name) for bone_name,_,_ in bone_segments}
+        world_vertices=[obj.matrix_world @ v.co for v in obj.data.vertices]
+        for index,point in enumerate(world_vertices):
+            scores=[]
+            for bone_name,a,b in bone_segments:
+                ab=b-a; denom=max(ab.length_squared,1e-10)
+                t=clamp01((point-a).dot(ab)/denom)
+                closest=a+ab*t
+                distance=(point-closest).length
+                score=1.0/((distance+.025)**3)
+                scores.append((score,bone_name))
+            best=sorted(scores,reverse=True)[:3]
+            total=sum(score for score,_ in best)
+            for score,bone_name in best:
+                groups[bone_name].add([index],score/total,"REPLACE")
+        obj.parent=rig
+        obj.matrix_parent_inverse=rig.matrix_world.inverted()
+        mod=obj.modifiers.new("LamHumanoidSkin","ARMATURE")
+        mod.object=rig; mod.use_deform_preserve_volume=True
+
     # Measure the actual scaled character mesh bounds (exclude floor/cameras/lights).
     bpy.context.view_layer.update()
     figure_meshes=[obj for obj in scene.objects if obj.type=="MESH" and obj.name!="StudioFloor"]
@@ -333,11 +518,13 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Procedural stylized anatomy prototype; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","V395 facial detail pass adds upper/lower eyelid contours and a layered mouth cavity/tongue for later expressive morph testing; still requires visual approval","Experimental candidate only; no production rig or facial morph transfer; must pass front/profile/three-quarter, pose/deformation and web/mobile acceptance gates before production consideration"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Arms fused as experimental skin surfaces to reduce segment seams","Must visually inspect and test in web viewer before any promotion","Second silhouette refinement: softened waist-to-hip transition, reduced shoulder shelf and smaller feet/knees","V395 facial detail pass adds upper/lower eyelid contours and a layered mouth cavity/tongue for later expressive morph testing; still requires visual approval","Experimental candidate only; no production rig or facial morph transfer; must pass front/profile/three-quarter, pose/deformation and web/mobile acceptance gates before production consideration"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
     assert abs(bounds["size"][2]-1.60)<0.03, "Candidate height is outside 1.60m tolerance"
+    assert len(rig.data.bones)==17, "Candidate rig must have all 17 humanoid bones"
+    assert all(v>1e-6 for v in morph_effects.values()), "Candidate facial morphs must be geometrically effective"
 if __name__=="__main__":
     try:main()
     except Exception:traceback.print_exc();raise
