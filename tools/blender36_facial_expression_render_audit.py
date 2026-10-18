@@ -25,14 +25,15 @@ def main():
     meshes=[o for o in scene.objects if o.type=="MESH"]
     shape_objs=[o for o in meshes if o.data.shape_keys and len(o.data.shape_keys.key_blocks)>1]
     if not shape_objs: raise RuntimeError("No shape-key meshes found")
-    # Estimate head framing from meshes in the upper 30% of the character's total bounds.
-    allpts=[o.matrix_world @ Vector(c) for o in meshes for c in o.bound_box]
-    zmin=min(p.z for p in allpts); zmax=max(p.z for p in allpts); zcut=zmax-(zmax-zmin)*0.34
-    head_objs=[]
+    # Frame tightly around the actual facial feature meshes, not the upper third of the whole body.
+    # Including torso/shoulder bounds here previously made the face too small to inspect.
+    face_objs=list(shape_objs)
+    face_names=("head","hair","ear","nose","face","eye","brow","mouth","chin","teeth","tongue")
     for o in meshes:
-        pts=[o.matrix_world @ Vector(c) for c in o.bound_box]
-        if max(p.z for p in pts)>=zcut: head_objs.append(o)
-    pts=[o.matrix_world @ Vector(c) for o in head_objs for c in o.bound_box]
+        if o not in face_objs and any(token in o.name.lower() for token in face_names):
+            face_objs.append(o)
+    if not face_objs: raise RuntimeError("No face meshes available for close-up framing")
+    pts=[o.matrix_world @ Vector(c) for o in face_objs for c in o.bound_box]
     mins=[min(p[i] for p in pts) for i in range(3)]; maxs=[max(p[i] for p in pts) for i in range(3)]
     center=[(mins[i]+maxs[i])/2 for i in range(3)]
     head_h=maxs[2]-mins[2]
@@ -73,7 +74,7 @@ def main():
         scene.render.filepath=os.path.join(out,filename); bpy.ops.render.render(write_still=True)
         records.append({"key":key_name,"value":1.0,"meshes_enabled":enabled,"image":filename,"status":"RENDERED_ISOLATED"})
     report={"status":"RENDERED_VISUAL_REVIEW_REQUIRED","source":os.path.basename(src),
-            "head_meshes_used_for_framing":[o.name for o in head_objs],
+            "face_meshes_used_for_framing":[o.name for o in face_objs],
             "shape_key_mesh_count":len(shape_objs),"render_count":1+len(records),
             "note":"Renders are isolated diagnostic images, not automatic expression-quality approval.",
             "expressions":records}
