@@ -4,8 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       image_path:
-        description: "Path to an image already committed in this repository, e.g. references/lam-reference.png"
+        description: "Path to the uploaded reference image in this repository"
         required: true
+        default: "E05541A5-8CE9-42A8-A495-29EE7854C5EF.png"
         type: string
       caption:
         description: "Optional short description for the model"
