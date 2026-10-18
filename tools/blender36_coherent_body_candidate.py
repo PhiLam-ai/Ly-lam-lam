@@ -24,7 +24,18 @@ def main():
     scene.world.color=(0.045,0.045,0.045)
 
     def material(name,color,rough=.6):
-        m=bpy.data.materials.new(name); m.diffuse_color=(*color,1); m.roughness=rough; return m
+        m=bpy.data.materials.new(name)
+        m.diffuse_color=(*color,1); m.roughness=rough
+        # V408: export PBR principled materials for web/mobile GLB viewers.
+        m.use_nodes=True
+        bsdf=m.node_tree.nodes.get("Principled BSDF")
+        if bsdf:
+            if "Base Color" in bsdf.inputs: bsdf.inputs["Base Color"].default_value=(*color,1)
+            if "Roughness" in bsdf.inputs: bsdf.inputs["Roughness"].default_value=rough
+            if "Metallic" in bsdf.inputs: bsdf.inputs["Metallic"].default_value=.58 if "jewel" in name.lower() else 0.0
+            if "Specular" in bsdf.inputs: bsdf.inputs["Specular"].default_value=.32
+            if "Subsurface" in bsdf.inputs: bsdf.inputs["Subsurface"].default_value=.075 if "skin" in name.lower() else 0.0
+        return m
     skin=material("Lam warm natural skin",(0.62,.34,.23),.52)
     shirt=material("Lam deep teal fitted crop top",(.025,.095,.105),.48)
     pants=material("Lam matte black biker pants",(.018,.018,.022),.5)
@@ -35,6 +46,7 @@ def main():
     iris=material("Warm brown irises",(.20,.085,.035),.3)
     pupil=material("Dark pupils",(.012,.009,.008),.22)
     lipmat=material("Soft natural rose lips",(.37,.105,.11),.45)
+    jewelry=material("Lam silver jewelry",(.58,.62,.68),.28)
     def uv(name,loc,scale,mat,segments=32,rings=20):
         bpy.ops.mesh.primitive_uv_sphere_add(segments=segments,ring_count=rings,location=loc)
         o=bpy.context.object; o.name=name; o.scale=scale; bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
@@ -236,10 +248,11 @@ def main():
 
     # Fuse a tapered nose bridge and tip directly into the head skin; no separate nose sphere.
     nose=loft_rings("NOSE_RELIEF_TO_FUSE",[
-        (4.966,.012,.012,-.241),(4.979,.018,.017,-.247),
-        (4.994,.020,.021,-.252),(5.010,.016,.017,-.247),
-        (5.040,.010,.012,-.239)
-    ],skin,32)
+        (4.958,.014,.010,-.238),(4.972,.021,.018,-.249),
+        (4.985,.022,.022,-.255),(4.999,.019,.023,-.255),
+        (5.018,.014,.019,-.250),(5.050,.010,.013,-.242),
+        (5.078,.006,.008,-.232)
+    ],skin,40)  # V408: longer bridge with a softer tapered tip
     fused_head=fuse([head,nose],"LAM_HEAD_INTEGRATED_NOSE",.006,.30,1)
 
     # Ears are fused into the head/neck shell so they no longer look like buttons attached
@@ -247,6 +260,17 @@ def main():
     ear_l=uv("EAR_L",(-.257,-.002,5.015),(.025,.029,.049),skin,40,28)
     ear_r=uv("EAR_R",(.257,-.002,5.015),(.028,.034,.056),skin,40,28)
     fused_head_neck=fuse([neck,fused_head,ear_l,ear_r],"LAM_CONTINUOUS_HEAD_NECK",.007,.22,1)
+
+    # V408 jewelry cues from the canonical face/outfit references: discreet silver drops and pendant.
+    for x,side in [(-.273,"L"),(.273,"R")]:
+        uv("EARRING_STUD_"+side,(x,-.025,5.000),(.008,.005,.008),jewelry,24,16)
+        curve_stroke("EARRING_LINK_"+side,[(x,-.029,4.998),(x,-.030,4.982)],.0025,jewelry)
+        uv("EARRING_DROP_"+side,(x,-.031,4.970),(.006,.004,.011),jewelry,24,16)
+    curve_stroke("NECKLACE_CHAIN",[
+        (-.105,-.035,4.510),(-.090,-.067,4.460),(-.055,-.093,4.415),
+        (0,-.104,4.390),(.055,-.093,4.415),(.090,-.067,4.460),(.105,-.035,4.510)
+    ],.0045,jewelry)
+    uv("NECKLACE_PENDANT",(0,-.111,4.372),(.014,.006,.021),jewelry,32,24)
 
     # Inset eyes, brown irises, dark pupils and small highlights.
     for x,side in [(-.104,"L"),(.104,"R")]:
@@ -308,8 +332,9 @@ def main():
             (sign*.295,.120,3.490),(sign*.300,.095,3.150),
             (sign*.295,.085,2.860),(sign*.290,.080,2.720)
         ],[.032,.050,.062,.068,.070,.066,.060,.052,.032,.007],.018,hair))
-    # V406: remove the single thick diagonal capsule fringe; let the center-parted cap and broad tapered locks define the hairline.
-    fused_hair=fuse(hair_parts,"LAM_CONTINUOUS_HAIR",.010,.26,1)
+    # V408: preserve the overlapping broad locks as separate meshes instead of voxel-fusing them.
+    # This keeps tapered strand surfaces smooth and avoids remesh holes at intersections.
+    fused_hair=hair_cap
 
     # Reference-led hair flow: layered curved locks add directional silhouette beyond the cap.
     hair_sheen=material("Lam hair soft charcoal sheen",(.018,.014,.017),.42)
@@ -604,7 +629,7 @@ def main():
         if o.type in {"MESH","ARMATURE"}:o.select_set(True)
     bpy.context.view_layer.objects.active=shirt_obj
     bpy.ops.export_scene.gltf(filepath=glb,export_format="GLB",use_selection=True)
-    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No armature or facial morphs transferred","Figure normalized to approximately 1.60 m","Reference Reconstruction V1: changed everyday outfit to dark-teal crop top, refined eye proportions, and added layered front/back hair-flow curves; head sculpt remains a procedural approximation and candidate is not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
+    report={"status":"EXPERIMENTAL_CANDIDATE_NOT_APPROVED","purpose":"Integrated stylized avatar candidate; separate from production GLB","candidate":os.path.basename(glb),"bytes":os.path.getsize(glb),"mesh_count":sum(o.type=="MESH" for o in figure_meshes),"armature_name":rig.name,"bone_count":len(rig.data.bones),"skinned_mesh_count":sum(1 for o in figure_meshes if any(m.type=="ARMATURE" and m.object==rig for m in o.modifiers)),"morph_targets":required_morphs,"morph_max_local_delta":morph_effects,"measured_bounds_m":bounds,"height_error_m":abs(bounds["size"][2]-1.60),"renders":["coherent-body-front.png","coherent-body-three-quarter.png","coherent-body-face-front.png","coherent-body-face-profile.png"],"warnings":["Not a photorealistic final avatar","No production armature or facial morphs transferred; candidate rig and morphs are newly generated and not production-approved","Figure normalized to approximately 1.60 m","V408: PBR materials, separate overlapping hair layers, softened/extended nose bridge and discreet jewelry; face remains a procedural approximation and candidate is not approved","Rig and facial morph targets are initial candidates, not production-approved; must pass candidate-specific pose/morph validation, expression render review, and web/mobile acceptance"]}
     with open(os.path.join(out,"coherent-body-candidate.json"),"w",encoding="utf-8") as f:json.dump(report,f,ensure_ascii=False,indent=2)
     print("COHERENT_BODY_CANDIDATE="+json.dumps(report,ensure_ascii=False))
     assert os.path.getsize(glb)>1024
