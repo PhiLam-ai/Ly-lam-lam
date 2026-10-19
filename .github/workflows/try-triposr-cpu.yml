@@ -1,0 +1,100 @@
+name: Free TripoSR CPU avatar experiment
+
+on:
+  push:
+    branches:
+      - experiment/github-auto-avatar
+    paths:
+      - ".github/workflows/try-triposr-cpu.yml"
+      - "references/lam-face-reference.jpg"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lam-triposr-cpu-experiment
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 55
+    steps:
+      - name: Checkout experiment branch only
+        uses: actions/checkout@v4
+        with:
+          ref: experiment/github-auto-avatar
+
+      - name: Verify locked Lam face reference
+        run: |
+          python -m pip install --upgrade pillow
+          python - <<'PY'
+          from PIL import Image
+          p = "references/lam-face-reference.jpg"
+          im = Image.open(p)
+          im.verify()
+          im = Image.open(p)
+          print("REFERENCE_OK=1")
+          print("REFERENCE_SIZE=%s" % (im.size,))
+          PY
+
+      - name: Install TripoSR and CPU dependencies
+        run: |
+          git clone --depth 1 https://github.com/VAST-AI-Research/TripoSR.git /tmp/TripoSR
+          python -m pip install --upgrade pip
+          python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r /tmp/TripoSR/requirements.txt
+          python -m pip install trimesh pillow pygltflib
+
+      - name: Generate a real volumetric mesh on CPU
+        run: |
+          mkdir -p output/triposr
+          cd /tmp/TripoSR
+          python run.py /home/runner/work/Ly-lam-lam/Ly-lam-lam/references/lam-face-reference.jpg \
+            --output-dir /home/runner/work/Ly-lam-lam/Ly-lam-lam/output/triposr \
+            --device cpu --mc-resolution 128
+          echo "TRIPOSR_RUN_COMPLETE=1"
+
+      - name: Convert mesh to GLB and validate geometry
+        run: |
+          python - <<'PY'
+          import os, glob, json
+          import trimesh
+          root = "output/triposr"
+          objs = glob.glob(root + "/**/*.obj", recursive=True)
+          if not objs:
+              raise SystemExit("No OBJ mesh produced by TripoSR.")
+          obj = objs[0]
+          scene = trimesh.load(obj, force="scene", process=False)
+          if not scene.geometry:
+              raise SystemExit("TripoSR OBJ contains no geometry.")
+          out = "output/lam-triposr-cpu-candidate.glb"
+          scene.export(out)
+          check = trimesh.load(out, force="scene", process=False)
+          meshes = [g for g in check.geometry.values() if isinstance(g, trimesh.Trimesh)]
+          if not meshes:
+              raise SystemExit("GLB validation failed: no mesh.")
+          vertices = sum(len(m.vertices) for m in meshes)
+          faces = sum(len(m.faces) for m in meshes)
+          bounds = check.bounds.tolist() if check.bounds is not None else None
+          if vertices < 1000 or faces < 1000:
+              raise SystemExit("GLB geometry below minimum sanity thresholds.")
+          print("GLB_VALID=1")
+          print("GLB_BYTES=" + str(os.path.getsize(out)))
+          print("VERTICES=" + str(vertices))
+          print("FACES=" + str(faces))
+          print("BOUNDS=" + json.dumps(bounds))
+          print("SOURCE_OBJ=" + obj)
+          print("TEXTURE_FILES=" + json.dumps(glob.glob(root + "/**/*.png", recursive=True)))
+          PY
+
+      - name: Upload candidate only; never touch production avatar
+        uses: actions/upload-artifact@v4
+        with:
+          name: lam-triposr-cpu-candidate
+          path: |
+            output/triposr/
+            output/lam-triposr-cpu-candidate.glb
+          if-no-files-found: error
+          retention-days: 14
