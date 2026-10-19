@@ -79,7 +79,7 @@ jobs:
           cd /tmp/TripoSR
           xvfb-run -a -s "-screen 0 1024x768x24" python run.py /home/runner/work/Ly-lam-lam/Ly-lam-lam/output/lam-face-detail-reference.png \
             --output-dir /home/runner/work/Ly-lam-lam/Ly-lam-lam/output/triposr-face-detail \
-            --device cpu --mc-resolution 256 --model-save-format obj --bake-texture --texture-resolution 2048
+            --device cpu --mc-resolution 384 --chunk-size 4096 --model-save-format obj --bake-texture --texture-resolution 2048
           echo "TRIPOSR_FACE_DETAIL_RUN_COMPLETE=1"
 
       - name: Standardize glTF axes and pad face-detail texture islands
