@@ -78,71 +78,14 @@ jobs:
             --device cpu --mc-resolution 128 --model-save-format obj --bake-texture --texture-resolution 1024
           echo "TRIPOSR_RUN_COMPLETE=1"
 
-      - name: Convert textured OBJ to GLB and validate output
+      - name: Standardize glTF axes and pad portrait texture islands
         run: |
-          python - <<'PY'
-          import os, glob, json, math
-          import trimesh
-          from PIL import Image
-          root = "output/triposr"
-          objs = glob.glob(root + "/**/*.obj", recursive=True)
-          textures = glob.glob(root + "/**/texture.png", recursive=True)
-          if not objs:
-              raise SystemExit("No OBJ mesh produced by TripoSR.")
-          if not textures:
-              raise SystemExit("TripoSR did not produce a baked texture.png.")
-          obj = objs[0]
-          texture_path = textures[0]
-          loaded = trimesh.load(obj, force="scene", process=False)
-          if not loaded.geometry:
-              raise SystemExit("TripoSR OBJ contains no geometry.")
-          texture = Image.open(texture_path).convert("RGBA")
-          for mesh in loaded.geometry.values():
-              uv = getattr(mesh.visual, "uv", None)
-              if uv is None or len(uv) != len(mesh.vertices):
-                  raise SystemExit("OBJ UV coordinates are missing or do not match vertices.")
-              # TripoSR's mesh comes out upside-down in the Z-up viewer convention.
-              # Rotate around the width axis so the head is upright while preserving left/right UV placement.
-              mesh.apply_transform(trimesh.transformations.rotation_matrix(math.pi, [0, 1, 0]))
-              material = trimesh.visual.material.PBRMaterial(
-                  name="Lam TripoSR baked texture",
-                  baseColorTexture=texture.copy(),
-                  metallicFactor=0.0,
-                  roughnessFactor=0.85,
-                  alphaMode="OPAQUE",
-              )
-              mesh.visual = trimesh.visual.texture.TextureVisuals(uv=uv, material=material)
-          out = "output/lam-triposr-cpu-candidate.glb"
-          loaded.export(out)
-          check = trimesh.load(out, force="scene", process=False)
-          meshes = [g for g in check.geometry.values() if isinstance(g, trimesh.Trimesh)]
-          if not meshes:
-              raise SystemExit("GLB validation failed: no mesh.")
-          vertices = sum(len(m.vertices) for m in meshes)
-          faces = sum(len(m.faces) for m in meshes)
-          bounds = check.bounds.tolist() if check.bounds is not None else None
-          sizes = []
-          for mesh in meshes:
-              mat = getattr(mesh.visual, "material", None)
-              img = getattr(mat, "baseColorTexture", None) if mat else None
-              sizes.append(list(img.size) if img is not None else None)
-          if vertices < 1000 or faces < 1000:
-              raise SystemExit("GLB geometry below minimum sanity thresholds.")
-          if not all(size and size[0] >= 512 and size[1] >= 512 for size in sizes):
-              raise SystemExit("Embedded texture missing or too small after GLB export: " + str(sizes))
-          if os.path.getsize(out) < 1024:
-              raise SystemExit("GLB file too small.")
-          print("GLB_VALID=1")
-          print("GLB_BYTES=" + str(os.path.getsize(out)))
-          print("VERTICES=" + str(vertices))
-          print("FACES=" + str(faces))
-          print("BOUNDS=" + json.dumps(bounds))
-          print("SOURCE_OBJ=" + obj)
-          print("SOURCE_TEXTURE=" + texture_path)
-          print("ORIENTATION_FIX=rotate_y_180_degrees")
-          print("EMBEDDED_TEXTURE_SIZES=" + json.dumps(sizes))
-          print("MATERIALS=" + str([getattr(m.visual, "material", None).__class__.__name__ for m in meshes]))
-          PY
+          python .github/scripts/refine_lam_triposr_mesh.py \
+            --mesh-dir output/triposr/0 \
+            --output output/lam-triposr-cpu-candidate.glb \
+            --label "Lam TripoSR portrait candidate" \
+            --minimum-vertices 1000 --minimum-faces 1000 \
+            --atlas-output output/lam-triposr-cpu-padded-atlas.png
 
       - name: Upload candidate only; never touch production avatar
         uses: actions/upload-artifact@v4
@@ -151,5 +94,6 @@ jobs:
           path: |
             output/triposr/
             output/lam-triposr-cpu-candidate.glb
+            output/lam-triposr-cpu-padded-atlas.png
           if-no-files-found: error
           retention-days: 14
