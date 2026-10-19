@@ -80,12 +80,7 @@ jobs:
 
       - name: Standardize glTF axes and pad portrait texture islands
         run: |
-          python .github/scripts/refine_lam_triposr_mesh.py \
-            --mesh-dir output/triposr/0 \
-            --output output/lam-triposr-cpu-candidate.glb \
-            --label "Lam TripoSR portrait candidate" \
-            --minimum-vertices 1000 --minimum-faces 1000 \
-            --atlas-output output/lam-triposr-cpu-padded-atlas.png
+          python .github/scripts/refine_lam_triposr_mesh.py --mesh-dir output/triposr/0 --output output/lam-triposr-cpu-candidate.glb --label "Lam TripoSR portrait candidate" --minimum-vertices 1000 --minimum-faces 1000 --atlas-output output/lam-triposr-cpu-padded-atlas.png
 
       - name: Upload candidate only; never touch production avatar
         uses: actions/upload-artifact@v4
