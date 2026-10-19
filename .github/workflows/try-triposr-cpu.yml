@@ -53,20 +53,25 @@ jobs:
           cd /tmp/TripoSR
           python run.py /home/runner/work/Ly-lam-lam/Ly-lam-lam/references/lam-face-reference.jpg \
             --output-dir /home/runner/work/Ly-lam-lam/Ly-lam-lam/output/triposr \
-            --device cpu --mc-resolution 128 --model-save-format glb --bake-texture --texture-resolution 1024
+            --device cpu --mc-resolution 128 --model-save-format obj --bake-texture --texture-resolution 1024
           echo "TRIPOSR_RUN_COMPLETE=1"
 
-      - name: Validate TripoSR GLB and texture output
+      - name: Convert textured OBJ to GLB and validate output
         run: |
           python - <<'PY'
           import os, glob, json
           import trimesh
           root = "output/triposr"
-          glbs = glob.glob(root + "/**/*.glb", recursive=True)
-          if not glbs:
-              raise SystemExit("No GLB mesh produced by TripoSR.")
-          glb = glbs[0]
-          check = trimesh.load(glb, force="scene", process=False)
+          objs = glob.glob(root + "/**/*.obj", recursive=True)
+          if not objs:
+              raise SystemExit("No OBJ mesh produced by TripoSR.")
+          obj = objs[0]
+          loaded = trimesh.load(obj, force="scene", process=False)
+          if not loaded.geometry:
+              raise SystemExit("TripoSR OBJ contains no geometry.")
+          out = "output/lam-triposr-cpu-candidate.glb"
+          loaded.export(out)
+          check = trimesh.load(out, force="scene", process=False)
           meshes = [g for g in check.geometry.values() if isinstance(g, trimesh.Trimesh)]
           if not meshes:
               raise SystemExit("GLB validation failed: no mesh.")
@@ -75,16 +80,16 @@ jobs:
           bounds = check.bounds.tolist() if check.bounds is not None else None
           if vertices < 1000 or faces < 1000:
               raise SystemExit("GLB geometry below minimum sanity thresholds.")
-          out = "output/lam-triposr-cpu-candidate.glb"
-          if os.path.abspath(glb) != os.path.abspath(out):
-              import shutil
-              shutil.copy2(glb, out)
+          if os.path.getsize(out) < 1024:
+              raise SystemExit("GLB file too small.")
           print("GLB_VALID=1")
           print("GLB_BYTES=" + str(os.path.getsize(out)))
           print("VERTICES=" + str(vertices))
           print("FACES=" + str(faces))
           print("BOUNDS=" + json.dumps(bounds))
+          print("SOURCE_OBJ=" + obj)
           print("TEXTURE_FILES=" + json.dumps(glob.glob(root + "/**/*.png", recursive=True)))
+          print("MATERIALS=" + str([getattr(m.visual, "material", None).__class__.__name__ for m in meshes]))
           PY
 
       - name: Upload candidate only; never touch production avatar
