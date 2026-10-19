@@ -82,63 +82,14 @@ jobs:
             --device cpu --mc-resolution 256 --model-save-format obj --bake-texture --texture-resolution 2048
           echo "TRIPOSR_FACE_DETAIL_RUN_COMPLETE=1"
 
-      - name: Convert to upright textured GLB and validate output
+      - name: Standardize glTF axes and pad face-detail texture islands
         run: |
-          python - <<'PY'
-          import os, glob, json, math
-          import trimesh
-          from PIL import Image
-          root = "output/triposr-face-detail"
-          objs = glob.glob(root + "/**/*.obj", recursive=True)
-          textures = glob.glob(root + "/**/texture.png", recursive=True)
-          if not objs:
-              raise SystemExit("No face-detail OBJ mesh produced.")
-          if not textures:
-              raise SystemExit("No baked face-detail texture.png produced.")
-          loaded = trimesh.load(objs[0], force="scene", process=False)
-          if not loaded.geometry:
-              raise SystemExit("Face-detail OBJ has no geometry.")
-          texture = Image.open(textures[0]).convert("RGBA")
-          for mesh in loaded.geometry.values():
-              uv = getattr(mesh.visual, "uv", None)
-              if uv is None or len(uv) != len(mesh.vertices):
-                  raise SystemExit("Face-detail OBJ UV coordinates are missing.")
-              mesh.apply_transform(trimesh.transformations.rotation_matrix(math.pi, [0, 1, 0]))
-              mat = trimesh.visual.material.PBRMaterial(
-                  name="Lam TripoSR face-detail baked texture",
-                  baseColorTexture=texture.copy(),
-                  metallicFactor=0.0,
-                  roughnessFactor=0.85,
-                  alphaMode="OPAQUE",
-              )
-              mesh.visual = trimesh.visual.texture.TextureVisuals(uv=uv, material=mat)
-          out = "output/lam-triposr-face-detail-candidate.glb"
-          loaded.export(out)
-          check = trimesh.load(out, force="scene", process=False)
-          meshes = [g for g in check.geometry.values() if isinstance(g, trimesh.Trimesh)]
-          if not meshes:
-              raise SystemExit("GLB validation failed: no face-detail mesh.")
-          vertices = sum(len(m.vertices) for m in meshes)
-          faces = sum(len(m.faces) for m in meshes)
-          sizes = []
-          for mesh in meshes:
-              mat = getattr(mesh.visual, "material", None)
-              img = getattr(mat, "baseColorTexture", None) if mat else None
-              sizes.append(list(img.size) if img is not None else None)
-          if vertices < 10000 or faces < 10000:
-              raise SystemExit("Face-detail mesh below minimum geometry thresholds.")
-          if not all(size and size[0] >= 1024 and size[1] >= 1024 for size in sizes):
-              raise SystemExit("Embedded face-detail texture missing or below 1024x1024: " + str(sizes))
-          if os.path.getsize(out) < 1024:
-              raise SystemExit("Face-detail GLB file too small.")
-          print("FACE_DETAIL_GLB_VALID=1")
-          print("GLB_BYTES=" + str(os.path.getsize(out)))
-          print("VERTICES=" + str(vertices))
-          print("FACES=" + str(faces))
-          print("BOUNDS=" + json.dumps(check.bounds.tolist() if check.bounds is not None else None))
-          print("EMBEDDED_TEXTURE_SIZES=" + json.dumps(sizes))
-          print("ORIENTATION_FIX=rotate_y_180_degrees")
-          PY
+          python .github/scripts/refine_lam_triposr_mesh.py \\
+            --mesh-dir output/triposr-face-detail/0 \\
+            --output output/lam-triposr-face-detail-candidate.glb \\
+            --label "Lam TripoSR face-detail candidate" \\
+            --minimum-vertices 10000 --minimum-faces 10000 \\
+            --atlas-output output/lam-face-detail-padded-atlas.png
 
       - name: Upload detailed-head candidate only; never touch production avatar
         uses: actions/upload-artifact@v4
@@ -148,5 +99,6 @@ jobs:
             output/lam-face-detail-reference.png
             output/triposr-face-detail/
             output/lam-triposr-face-detail-candidate.glb
+            output/lam-face-detail-padded-atlas.png
           if-no-files-found: error
           retention-days: 14
