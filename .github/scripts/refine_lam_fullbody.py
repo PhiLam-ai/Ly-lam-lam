@@ -251,7 +251,11 @@ def project_view(image, alpha_mask, mode, blend_amount, x_window=None):
         pz = wa * p3[0, 2] + wb * p3[1, 2] + wc * p3[2, 2]
         sy = np.clip((y_hi - py) / (y_hi - y_lo) * (ih - 1), 0, ih - 1.001).astype(np.float32)
         if mode == "back":
-            sx = np.clip((z_hi - pz) / (z_hi - z_lo) * (iw - 1), 0, iw - 1.001).astype(np.float32)
+            # The side/back thumbnails have panel margins. Map only the person-bearing
+            # horizontal span to the full body width, rather than stretching gray margins.
+            back_sx0, back_sx1 = 18.0, 88.0
+            sx = back_sx0 + (z_hi - pz) / (z_hi - z_lo) * (back_sx1 - back_sx0)
+            sx = np.clip(sx, 0, iw - 1.001).astype(np.float32)
             valid &= (pz >= z_lo - 0.005) & (pz <= z_hi + 0.005)
         else:
             sx0, sx1 = x_window
