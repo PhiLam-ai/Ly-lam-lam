@@ -1,0 +1,166 @@
+name: Free TripoSR CPU full-body avatar experiment
+
+on:
+  push:
+    branches:
+      - experiment/github-auto-avatar
+    paths:
+      - ".github/workflows/try-triposr-fullbody-cpu.yml"
+      - "references/lam-reference.png.png"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lam-triposr-fullbody-cpu
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout experiment branch only
+        uses: actions/checkout@v4
+        with:
+          ref: experiment/github-auto-avatar
+
+      - name: Prepare a clean full-body front reference from the multi-view sheet
+        run: |
+          python -m pip install --upgrade pillow opencv-python-headless==4.10.0.84
+          python - <<'PY'
+          import os
+          import numpy as np
+          import cv2
+          from PIL import Image
+          src = "references/lam-reference.png.png"
+          im = Image.open(src).convert("RGB")
+          print("REFERENCE_SIZE=%s" % (im.size,))
+          if im.width < 900 or im.height < 1400:
+              raise SystemExit("The full-body multi-view reference is smaller than expected.")
+          # The front-facing full-body figure occupies the left panel of this 1024x1536 sheet.
+          # Exclude the profile/detail panels on the right; retain the complete head, arms, legs and feet.
+          crop = im.crop((120, 0, 625, 1536))
+          arr = np.array(crop)
+          # Remove the small white brand lettering in the background above/left of the hair.
+          # The mask is intentionally restricted to the empty upper-left background, away from the figure.
+          roi = arr[:125, :95]
+          gray = cv2.cvtColor(roi, cv2.COLOR_RGB2GRAY)
+          mask = np.zeros(arr.shape[:2], dtype=np.uint8)
+          local = np.where(gray > 165, 255, 0).astype(np.uint8)
+          local = cv2.dilate(local, np.ones((3, 3), np.uint8), iterations=1)
+          mask[:125, :95] = local
+          arr = cv2.inpaint(arr, mask, 3, cv2.INPAINT_TELEA)
+          out = "output/lam-fullbody-front-reference.png"
+          os.makedirs("output", exist_ok=True)
+          Image.fromarray(arr).save(out)
+          check = Image.open(out)
+          if check.width < 450 or check.height < 1400:
+              raise SystemExit("Full-body crop validation failed.")
+          print("FULLBODY_REFERENCE_OK=1")
+          print("FULLBODY_CROP_SIZE=%s" % (check.size,))
+          PY
+
+      - name: Install headless OpenGL display for texture baking
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri libgl1-mesa-glx
+
+      - name: Install TripoSR and CPU dependencies
+        run: |
+          git clone --depth 1 https://github.com/VAST-AI-Research/TripoSR.git /tmp/TripoSR
+          python -m pip install --upgrade pip wheel setuptools
+          python -m pip install "numpy<2" "cmake<4" ninja scikit-build-core pybind11 "huggingface-hub==0.25.2"
+          python -m pip install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cpu
+          grep -vE 'torchmcubes|^gradio' /tmp/TripoSR/requirements.txt > /tmp/triposr-requirements.txt
+          python -m pip install -r /tmp/triposr-requirements.txt
+          python -m pip install "numpy==1.26.4" "opencv-python-headless==4.10.0.84" "huggingface-hub==0.25.2" pybind11 "onnxruntime==1.20.1"
+          export CMAKE_PREFIX_PATH="$(python -m pybind11 --cmakedir):${CMAKE_PREFIX_PATH:-}"
+          python -m pip install --no-build-isolation git+https://github.com/tatsy/torchmcubes.git
+          python -m pip install trimesh pillow pygltflib
+          python - <<'PY'
+          import numpy, torch, cv2, transformers
+          print("NUMPY_VERSION=" + numpy.__version__)
+          print("TORCH_VERSION=" + torch.__version__)
+          print("OPENCV_VERSION=" + cv2.__version__)
+          print("TRANSFORMERS_VERSION=" + transformers.__version__)
+          PY
+
+      - name: Generate full-body volume from the front reference on CPU
+        run: |
+          mkdir -p output/triposr-fullbody
+          cd /tmp/TripoSR
+          xvfb-run -a -s "-screen 0 1024x768x24" python run.py /home/runner/work/Ly-lam-lam/Ly-lam-lam/output/lam-fullbody-front-reference.png \
+            --output-dir /home/runner/work/Ly-lam-lam/Ly-lam-lam/output/triposr-fullbody \
+            --device cpu --mc-resolution 256 --model-save-format obj --bake-texture --texture-resolution 2048
+          echo "TRIPOSR_FULLBODY_RUN_COMPLETE=1"
+
+      - name: Convert to upright textured GLB and validate output
+        run: |
+          python - <<'PY'
+          import os, glob, json, math
+          import trimesh
+          from PIL import Image
+          root = "output/triposr-fullbody"
+          objs = glob.glob(root + "/**/*.obj", recursive=True)
+          textures = glob.glob(root + "/**/texture.png", recursive=True)
+          if not objs:
+              raise SystemExit("No full-body OBJ mesh produced.")
+          if not textures:
+              raise SystemExit("No baked full-body texture.png produced.")
+          loaded = trimesh.load(objs[0], force="scene", process=False)
+          if not loaded.geometry:
+              raise SystemExit("Full-body OBJ has no geometry.")
+          texture = Image.open(textures[0]).convert("RGBA")
+          for mesh in loaded.geometry.values():
+              uv = getattr(mesh.visual, "uv", None)
+              if uv is None or len(uv) != len(mesh.vertices):
+                  raise SystemExit("Full-body OBJ UV coordinates are missing.")
+              mesh.apply_transform(trimesh.transformations.rotation_matrix(math.pi, [0, 1, 0]))
+              mat = trimesh.visual.material.PBRMaterial(
+                  name="Lam TripoSR full-body baked texture",
+                  baseColorTexture=texture.copy(),
+                  metallicFactor=0.0,
+                  roughnessFactor=0.85,
+                  alphaMode="OPAQUE",
+              )
+              mesh.visual = trimesh.visual.texture.TextureVisuals(uv=uv, material=mat)
+          out = "output/lam-triposr-fullbody-candidate.glb"
+          loaded.export(out)
+          check = trimesh.load(out, force="scene", process=False)
+          meshes = [g for g in check.geometry.values() if isinstance(g, trimesh.Trimesh)]
+          if not meshes:
+              raise SystemExit("GLB validation failed: no full-body mesh.")
+          vertices = sum(len(m.vertices) for m in meshes)
+          faces = sum(len(m.faces) for m in meshes)
+          sizes = []
+          for mesh in meshes:
+              mat = getattr(mesh.visual, "material", None)
+              img = getattr(mat, "baseColorTexture", None) if mat else None
+              sizes.append(list(img.size) if img is not None else None)
+          if vertices < 10000 or faces < 10000:
+              raise SystemExit("Full-body mesh below minimum geometry thresholds.")
+          if not all(size and size[0] >= 1024 and size[1] >= 1024 for size in sizes):
+              raise SystemExit("Embedded full-body texture missing or below 1024x1024: " + str(sizes))
+          if os.path.getsize(out) < 1024:
+              raise SystemExit("Full-body GLB file too small.")
+          print("FULLBODY_GLB_VALID=1")
+          print("GLB_BYTES=" + str(os.path.getsize(out)))
+          print("VERTICES=" + str(vertices))
+          print("FACES=" + str(faces))
+          print("BOUNDS=" + json.dumps(check.bounds.tolist() if check.bounds is not None else None))
+          print("EMBEDDED_TEXTURE_SIZES=" + json.dumps(sizes))
+          print("ORIENTATION_FIX=rotate_y_180_degrees")
+          PY
+
+      - name: Upload full-body candidate only; never touch production avatar
+        uses: actions/upload-artifact@v4
+        with:
+          name: lam-triposr-fullbody-candidate
+          path: |
+            output/lam-fullbody-front-reference.png
+            output/triposr-fullbody/
+            output/lam-triposr-fullbody-candidate.glb
+          if-no-files-found: error
+          retention-days: 14
