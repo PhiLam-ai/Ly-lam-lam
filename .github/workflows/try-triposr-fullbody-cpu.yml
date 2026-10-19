@@ -97,7 +97,7 @@ jobs:
           cd /tmp/TripoSR
           xvfb-run -a -s "-screen 0 1024x768x24" python run.py /home/runner/work/Ly-lam-lam/Ly-lam-lam/output/lam-fullbody-front-reference.png \
             --output-dir /home/runner/work/Ly-lam-lam/Ly-lam-lam/output/triposr-fullbody \
-            --device cpu --mc-resolution 256 --model-save-format obj --bake-texture --texture-resolution 2048
+            --device cpu --mc-resolution 384 --chunk-size 4096 --model-save-format obj --bake-texture --texture-resolution 2048
           echo "TRIPOSR_FULLBODY_RUN_COMPLETE=1"
 
       - name: Fix GLB axes and improve front texture from the locked reference
