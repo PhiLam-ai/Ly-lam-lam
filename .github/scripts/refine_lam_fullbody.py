@@ -10,6 +10,11 @@ import trimesh
 RAW_OBJ = "output/triposr-fullbody/0/mesh.obj"
 RAW_TEX = "output/triposr-fullbody/0/texture.png"
 REF = "output/lam-fullbody-front-reference.png"
+SHEET = "references/lam-reference.png.png"
+SIDE_REF_OUT = "output/lam-fullbody-side-reference.png"
+SIDE_MASK_OUT = "output/lam-fullbody-side-mask.png"
+BACK_REF_OUT = "output/lam-fullbody-back-reference.png"
+BACK_MASK_OUT = "output/lam-fullbody-back-mask.png"
 OUT = "output/lam-triposr-fullbody-candidate.glb"
 ATLAS_OUT = "output/lam-fullbody-corrected-atlas.png"
 MASK_OUT = "output/lam-fullbody-front-mask.png"
@@ -28,7 +33,7 @@ src_x0, src_x1 = 36.0, 470.0
 src_y0, src_y1 = 8.0, 1525.0
 blend = 0.97
 
-for p in (RAW_OBJ, RAW_TEX, REF):
+for p in (RAW_OBJ, RAW_TEX, REF, SHEET):
     if not os.path.exists(p):
         raise SystemExit("Required source file missing: " + p)
 
@@ -43,6 +48,7 @@ sh, sw = source.shape[:2]
 print("RAW_VERTICES=", len(mesh.vertices), "RAW_FACES=", len(mesh.faces), "ATLAS=", (w, h), "SOURCE=", (sw, sh), flush=True)
 
 mesh.apply_transform(orientation)
+mesh.fix_normals(multibody=True)
 verts = np.asarray(mesh.vertices, dtype=np.float32)
 faces = np.asarray(mesh.faces, dtype=np.int32)
 normals = np.asarray(mesh.face_normals, dtype=np.float32)
@@ -144,6 +150,139 @@ if painted < 10000:
     raise SystemExit("Front projection covered too few atlas texels: " + str(painted))
 print("FRONT_SHELL_TRIANGLES=", selected, "PROJECTED_TEXELS=", painted, flush=True)
 
+# Use the dedicated side and back views already present in the locked reference sheet.
+# The panels are low resolution, but they greatly reduce texture hallucination on the silhouette.
+sheet = Image.open(SHEET).convert("RGB")
+side_im = sheet.crop((773, 85, 884, 431))
+back_im = sheet.crop((887, 85, 1000, 431))
+side = np.asarray(side_im, dtype=np.uint8)
+back = np.asarray(back_im, dtype=np.uint8)
+
+def panel_foreground(image, polygon, out_path):
+    ih, iw = image.shape[:2]
+    envelope = np.zeros((ih, iw), dtype=np.uint8)
+    cv2.fillPoly(envelope, [np.asarray(polygon, dtype=np.int32)], 255)
+    edge = np.concatenate([image[:8].reshape(-1, 3), image[-8:].reshape(-1, 3),
+                           image[:, :8].reshape(-1, 3), image[:, -8:].reshape(-1, 3)], axis=0)
+    bg = np.median(edge, axis=0)
+    d = np.linalg.norm(image.astype(np.float32) - bg[None, None, :], axis=2)
+    gc = np.full((ih, iw), cv2.GC_PR_BGD, dtype=np.uint8)
+    gc[envelope == 0] = cv2.GC_BGD
+    inside = envelope > 0
+    gc[inside] = cv2.GC_PR_FGD
+    gc[inside & (d > 28)] = cv2.GC_FGD
+    gc[inside & (d > 13) & (d <= 28)] = cv2.GC_PR_FGD
+    # Keep central hair/torso as sure foreground to prevent cutout of dark hair.
+    core = np.zeros((ih, iw), dtype=np.uint8)
+    cv2.fillPoly(core, [np.asarray(polygon, dtype=np.int32)], 255)
+    eroded = cv2.erode(core, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)), iterations=1)
+    gc[eroded > 0] = cv2.GC_FGD
+    bgm = np.zeros((1, 65), np.float64)
+    fgm = np.zeros((1, 65), np.float64)
+    cv2.grabCut(image, gc, None, bgm, fgm, 3, cv2.GC_INIT_WITH_MASK)
+    mask = np.where((gc == cv2.GC_FGD) | (gc == cv2.GC_PR_FGD), 255, 0).astype(np.uint8)
+    mask = cv2.bitwise_and(mask, envelope)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE,
+                            cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3)), iterations=1)
+    mask = cv2.GaussianBlur(mask, (0, 0), sigmaX=0.9, sigmaY=0.9)
+    Image.fromarray(image).save(out_path.replace("-mask.png", "-reference.png"))
+    Image.fromarray(mask).save(out_path)
+    return mask
+
+side_poly = [(44,3),(56,3),(65,15),(70,36),(74,62),(77,90),(76,117),
+             (72,144),(73,170),(78,195),(77,222),(72,250),(68,279),(64,309),
+             (59,339),(43,339),(39,318),(38,290),(34,263),(30,235),(27,206),
+             (24,176),(21,146),(19,116),(20,87),(23,59),(29,34),(36,15)]
+back_poly = [(31,3),(68,3),(78,18),(81,44),(80,75),(79,109),(80,141),
+             (82,171),(80,200),(78,229),(73,258),(69,285),(64,314),(58,339),
+             (39,339),(34,314),(31,286),(29,258),(27,229),(26,199),(26,168),
+             (26,137),(25,107),(25,78),(26,50),(27,23)]
+side_mask = panel_foreground(side, side_poly, SIDE_MASK_OUT)
+back_mask = panel_foreground(back, back_poly, BACK_MASK_OUT)
+Image.fromarray(side).save(SIDE_REF_OUT)
+Image.fromarray(back).save(BACK_REF_OUT)
+
+x_min, x_max = float(bounds[0, 0]), float(bounds[1, 0])
+y_lo, y_hi = float(bounds[0, 1]), float(bounds[1, 1])
+z_lo, z_hi = float(bounds[0, 2]), float(bounds[1, 2])
+uvpix = uv.copy()
+uvpix[:, 0] *= (w - 1)
+uvpix[:, 1] = (1.0 - uvpix[:, 1]) * (h - 1)
+
+def project_view(image, alpha_mask, mode, blend_amount, x_window=None):
+    ih, iw = image.shape[:2]
+    texels = 0
+    triangles = 0
+    if mode == "side_negative":
+        image = np.fliplr(image).copy()
+        alpha_mask = np.fliplr(alpha_mask).copy()
+    for fi, tri in enumerate(faces):
+        p3 = verts[tri]
+        center = p3.mean(axis=0)
+        n = normals[fi]
+        if mode == "back":
+            if center[0] < 0.025 or n[0] < 0.22: continue
+        elif mode == "side_positive":
+            if center[2] < 0.025 or n[2] < 0.22: continue
+        elif mode == "side_negative":
+            if center[2] > -0.025 or n[2] > -0.22: continue
+        else:
+            raise ValueError(mode)
+        p2 = uvpix[tri]
+        x0, y0 = np.floor(p2.min(axis=0)).astype(int)
+        x1, y1 = np.ceil(p2.max(axis=0)).astype(int)
+        x0, y0 = max(0, x0), max(0, y0)
+        x1, y1 = min(w - 1, x1), min(h - 1, y1)
+        if x1 < x0 or y1 < y0: continue
+        bw, bh = x1 - x0 + 1, y1 - y0 + 1
+        if bw * bh > 200000: continue
+        gx, gy = np.meshgrid(np.arange(x0, x1 + 1, dtype=np.float32) + 0.5,
+                             np.arange(y0, y1 + 1, dtype=np.float32) + 0.5)
+        a, b, d = p2
+        den = (b[1] - d[1]) * (a[0] - d[0]) + (d[0] - b[0]) * (a[1] - d[1])
+        if abs(float(den)) < 1e-6: continue
+        wa = ((b[1] - d[1]) * (gx - d[0]) + (d[0] - b[0]) * (gy - d[1])) / den
+        wb = ((d[1] - a[1]) * (gx - d[0]) + (a[0] - d[0]) * (gy - d[1])) / den
+        wc = 1.0 - wa - wb
+        valid = (wa >= -0.005) & (wb >= -0.005) & (wc >= -0.005) & (wa <= 1.005) & (wb <= 1.005) & (wc <= 1.005)
+        if not valid.any(): continue
+        px = wa * p3[0, 0] + wb * p3[1, 0] + wc * p3[2, 0]
+        py = wa * p3[0, 1] + wb * p3[1, 1] + wc * p3[2, 1]
+        pz = wa * p3[0, 2] + wb * p3[1, 2] + wc * p3[2, 2]
+        sy = np.clip((y_hi - py) / (y_hi - y_lo) * (ih - 1), 0, ih - 1.001).astype(np.float32)
+        if mode == "back":
+            sx = np.clip((z_hi - pz) / (z_hi - z_lo) * (iw - 1), 0, iw - 1.001).astype(np.float32)
+            valid &= (pz >= z_lo - 0.005) & (pz <= z_hi + 0.005)
+        else:
+            sx0, sx1 = x_window
+            sx = sx0 + np.clip((px - x_min) / (x_max - x_min), 0, 1) * (sx1 - sx0)
+            sx = np.clip(sx, 0, iw - 1.001).astype(np.float32)
+            valid &= (px >= x_min - 0.005) & (px <= x_max + 0.005)
+        sample = cv2.remap(image, sx, sy, interpolation=cv2.INTER_LINEAR,
+                           borderMode=cv2.BORDER_REPLICATE)
+        a_mask = cv2.remap(alpha_mask, sx, sy, interpolation=cv2.INTER_LINEAR,
+                           borderMode=cv2.BORDER_CONSTANT, borderValue=0).astype(np.float32) / 255.0
+        valid &= a_mask > 0.10
+        if not valid.any(): continue
+        al = (blend_amount * np.clip(a_mask, 0, 1))[valid][..., None]
+        dest = tex[y0:y1 + 1, x0:x1 + 1]
+        dest[valid] = np.clip(sample[valid].astype(np.float32) * al +
+                              dest[valid].astype(np.float32) * (1 - al), 0, 255).astype(np.uint8)
+        texels += int(valid.sum())
+        triangles += 1
+    print("PROJECT_VIEW=", mode, "TRIANGLES=", triangles, "PROJECTED_TEXELS=", texels, flush=True)
+    return texels
+
+# Source-side front is on the left of the profile photograph; map it to negative X.
+side_pos_texels = project_view(side, side_mask, "side_positive", 0.82, x_window=(13, 86))
+# Mirror the one profile for the opposite side so front remains oriented correctly.
+side_neg_texels = project_view(side, side_mask, "side_negative", 0.82, x_window=(13, 86))
+back_texels = project_view(back, back_mask, "back", 0.85)
+print("MULTIVIEW_PROJECTION_TOTALS=", json.dumps({
+    "front": int(painted), "side_positive": int(side_pos_texels),
+    "side_negative": int(side_neg_texels), "back": int(back_texels)
+}), flush=True)
+
 # Pad UV islands by nearest valid colors to prevent black unused atlas gutters bleeding at runtime.
 coverage = np.zeros((h, w), dtype=np.uint8)
 for tri in faces:
@@ -196,7 +335,7 @@ summary = {
     "up_axis": "Y",
     "embedded_texture": list(embedded.size),
     "geometry_smoothing": smoothing,
-    "front_projection_texels": painted,
+    "front_projection_texels": painted,\n    "side_positive_projection_texels": int(side_pos_texels),\n    "side_negative_projection_texels": int(side_neg_texels),\n    "back_projection_texels": int(back_texels),
     "uv_padding_texels": int(pad.sum()),
     "production_modified": False,
     "note": "Not production-ready; inspect side/back texture and face likeness before use.",
