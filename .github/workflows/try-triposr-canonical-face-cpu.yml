@@ -1,0 +1,105 @@
+name: Free TripoSR CPU canonical-face experiment
+
+on:
+  push:
+    branches:
+      - experiment/github-auto-avatar
+    paths:
+      - ".github/workflows/try-triposr-canonical-face-cpu.yml"
+      - ".github/scripts/refine_lam_triposr_mesh.py"
+      - "references/lam-face-reference.jpg"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lam-triposr-canonical-face-cpu
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - name: Checkout experiment branch only
+        uses: actions/checkout@v4
+        with:
+          ref: experiment/github-auto-avatar
+
+      - name: Prepare and validate the locked canonical face
+        run: |
+          python -m pip install --upgrade pillow
+          python - <<'PY'
+          import os
+          from PIL import Image, ImageOps
+          src = "references/lam-face-reference.jpg"
+          im = ImageOps.exif_transpose(Image.open(src)).convert("RGB")
+          if im.width < 150 or im.height < 200:
+              raise SystemExit("Canonical face reference unexpectedly small: " + str(im.size))
+          # Preserve the locked image content; only upscale with Lanczos to avoid feeding a tiny raster.
+          scale = max(3, int(768 / im.width))
+          out = im.resize((im.width * scale, im.height * scale), Image.Resampling.LANCZOS)
+          os.makedirs("output", exist_ok=True)
+          out.save("output/lam-canonical-face-upscaled.png")
+          im.save("output/lam-canonical-face-original.png")
+          print("CANONICAL_FACE_OK=1")
+          print("ORIGINAL_SIZE=%s" % (im.size,))
+          print("MODEL_INPUT_SIZE=%s" % (out.size,))
+          PY
+
+      - name: Install headless OpenGL display for texture baking
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri libgl1-mesa-glx
+
+      - name: Install TripoSR and CPU dependencies
+        run: |
+          git clone --depth 1 https://github.com/VAST-AI-Research/TripoSR.git /tmp/TripoSR
+          python -m pip install --upgrade pip wheel setuptools
+          python -m pip install "numpy<2" "cmake<4" ninja scikit-build-core pybind11 "huggingface-hub==0.25.2"
+          python -m pip install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cpu
+          grep -vE 'torchmcubes|^gradio' /tmp/TripoSR/requirements.txt > /tmp/triposr-requirements.txt
+          python -m pip install -r /tmp/triposr-requirements.txt
+          python -m pip install "numpy==1.26.4" "opencv-python-headless==4.10.0.84" "huggingface-hub==0.25.2" pybind11 "onnxruntime==1.20.1"
+          export CMAKE_PREFIX_PATH="$(python -m pybind11 --cmakedir):${CMAKE_PREFIX_PATH:-}"
+          python -m pip install --no-build-isolation git+https://github.com/tatsy/torchmcubes.git
+          python -m pip install trimesh pillow pygltflib
+          python - <<'PY'
+          import numpy, torch, cv2, transformers
+          print("NUMPY_VERSION=" + numpy.__version__)
+          print("TORCH_VERSION=" + torch.__version__)
+          print("OPENCV_VERSION=" + cv2.__version__)
+          print("TRANSFORMERS_VERSION=" + transformers.__version__)
+          PY
+
+      - name: Generate head and neck geometry from canonical face on CPU
+        run: |
+          mkdir -p output/triposr-canonical-face
+          cd /tmp/TripoSR
+          xvfb-run -a -s "-screen 0 1024x768x24" python run.py /home/runner/work/Ly-lam-lam/Ly-lam-lam/output/lam-canonical-face-upscaled.png \
+            --output-dir /home/runner/work/Ly-lam-lam/Ly-lam-lam/output/triposr-canonical-face \
+            --device cpu --mc-resolution 384 --chunk-size 4096 --model-save-format obj --bake-texture --texture-resolution 2048
+          echo "TRIPOSR_CANONICAL_FACE_RUN_COMPLETE=1"
+
+      - name: Standardize axes and validate the textured canonical-face GLB
+        run: |
+          python .github/scripts/refine_lam_triposr_mesh.py \
+            --mesh-dir output/triposr-canonical-face/0 \
+            --output output/lam-triposr-canonical-face-candidate.glb \
+            --label "Lam locked canonical face candidate" \
+            --minimum-vertices 10000 --minimum-faces 10000 --padding-pixels 32 \
+            --atlas-output output/lam-triposr-canonical-face-padded-atlas.png
+
+      - name: Upload canonical-face candidate only; never touch production avatar
+        uses: actions/upload-artifact@v4
+        with:
+          name: lam-triposr-canonical-face-candidate
+          path: |
+            output/lam-canonical-face-original.png
+            output/lam-canonical-face-upscaled.png
+            output/triposr-canonical-face/
+            output/lam-triposr-canonical-face-candidate.glb
+            output/lam-triposr-canonical-face-padded-atlas.png
+          if-no-files-found: error
+          retention-days: 14
