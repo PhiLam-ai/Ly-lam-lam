@@ -6,6 +6,7 @@ on:
       - experiment/github-auto-avatar
     paths:
       - ".github/workflows/try-triposr-fullbody-cpu.yml"
+      - ".github/scripts/refine_lam_fullbody.py"
       - "references/lam-reference.png.png"
   workflow_dispatch:
 
@@ -107,6 +108,10 @@ jobs:
           path: |
             output/lam-fullbody-front-reference.png
             output/lam-fullbody-front-mask.png
+            output/lam-fullbody-side-reference.png
+            output/lam-fullbody-side-mask.png
+            output/lam-fullbody-back-reference.png
+            output/lam-fullbody-back-mask.png
             output/lam-fullbody-corrected-atlas.png
             output/lam-fullbody-uv-coverage.png
             output/triposr-fullbody/
