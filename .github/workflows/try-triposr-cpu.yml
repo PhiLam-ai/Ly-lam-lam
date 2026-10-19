@@ -81,7 +81,7 @@ jobs:
       - name: Convert textured OBJ to GLB and validate output
         run: |
           python - <<'PY'
-          import os, glob, json
+          import os, glob, json, math
           import trimesh
           from PIL import Image
           root = "output/triposr"
@@ -101,6 +101,9 @@ jobs:
               uv = getattr(mesh.visual, "uv", None)
               if uv is None or len(uv) != len(mesh.vertices):
                   raise SystemExit("OBJ UV coordinates are missing or do not match vertices.")
+              # TripoSR's mesh comes out upside-down in the Z-up viewer convention.
+              # Rotate around the width axis so the head is upright while preserving left/right UV placement.
+              mesh.apply_transform(trimesh.transformations.rotation_matrix(math.pi, [0, 1, 0]))
               material = trimesh.visual.material.PBRMaterial(
                   name="Lam TripoSR baked texture",
                   baseColorTexture=texture.copy(),
@@ -136,6 +139,7 @@ jobs:
           print("BOUNDS=" + json.dumps(bounds))
           print("SOURCE_OBJ=" + obj)
           print("SOURCE_TEXTURE=" + texture_path)
+          print("ORIENTATION_FIX=rotate_y_180_degrees")
           print("EMBEDDED_TEXTURE_SIZES=" + json.dumps(sizes))
           print("MATERIALS=" + str([getattr(m.visual, "material", None).__class__.__name__ for m in meshes]))
           PY
