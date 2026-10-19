@@ -39,6 +39,11 @@ jobs:
           print("REFERENCE_SIZE=%s" % (im.size,))
           PY
 
+      - name: Install headless OpenGL display for texture baking
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1-mesa-dri libgl1-mesa-glx
+
       - name: Install TripoSR and CPU dependencies
         run: |
           git clone --depth 1 https://github.com/VAST-AI-Research/TripoSR.git /tmp/TripoSR
@@ -68,7 +73,7 @@ jobs:
         run: |
           mkdir -p output/triposr
           cd /tmp/TripoSR
-          python run.py /home/runner/work/Ly-lam-lam/Ly-lam-lam/references/lam-face-reference.jpg \
+          xvfb-run -a -s "-screen 0 1024x768x24" python run.py /home/runner/work/Ly-lam-lam/Ly-lam-lam/references/lam-face-reference.jpg \
             --output-dir /home/runner/work/Ly-lam-lam/Ly-lam-lam/output/triposr \
             --device cpu --mc-resolution 128 --model-save-format obj --bake-texture --texture-resolution 1024
           echo "TRIPOSR_RUN_COMPLETE=1"
