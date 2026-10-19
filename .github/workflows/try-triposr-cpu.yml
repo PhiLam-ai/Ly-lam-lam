@@ -52,7 +52,7 @@ jobs:
           python -m pip install -r /tmp/triposr-requirements.txt
           # Some unconstrained transitive packages select NumPy 2/OpenCV 5; restore
           # the compatible NumPy 1.x + OpenCV 4 pair after installing TripoSR deps.
-          python -m pip install "numpy==1.26.4" "opencv-python-headless==4.10.0.84" "huggingface-hub==0.25.2" pybind11
+          python -m pip install "numpy==1.26.4" "opencv-python-headless==4.10.0.84" "huggingface-hub==0.25.2" pybind11 "onnxruntime==1.20.1"
           export CMAKE_PREFIX_PATH="$(python -m pybind11 --cmakedir):${CMAKE_PREFIX_PATH:-}"
           python -m pip install --no-build-isolation git+https://github.com/tatsy/torchmcubes.git
           python -m pip install trimesh pillow pygltflib
