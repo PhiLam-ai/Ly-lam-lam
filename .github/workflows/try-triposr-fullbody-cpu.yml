@@ -96,63 +96,9 @@ jobs:
             --device cpu --mc-resolution 256 --model-save-format obj --bake-texture --texture-resolution 2048
           echo "TRIPOSR_FULLBODY_RUN_COMPLETE=1"
 
-      - name: Convert to upright textured GLB and validate output
+      - name: Fix GLB axes and improve front texture from the locked reference
         run: |
-          python - <<'PY'
-          import os, glob, json, math
-          import trimesh
-          from PIL import Image
-          root = "output/triposr-fullbody"
-          objs = glob.glob(root + "/**/*.obj", recursive=True)
-          textures = glob.glob(root + "/**/texture.png", recursive=True)
-          if not objs:
-              raise SystemExit("No full-body OBJ mesh produced.")
-          if not textures:
-              raise SystemExit("No baked full-body texture.png produced.")
-          loaded = trimesh.load(objs[0], force="scene", process=False)
-          if not loaded.geometry:
-              raise SystemExit("Full-body OBJ has no geometry.")
-          texture = Image.open(textures[0]).convert("RGBA")
-          for mesh in loaded.geometry.values():
-              uv = getattr(mesh.visual, "uv", None)
-              if uv is None or len(uv) != len(mesh.vertices):
-                  raise SystemExit("Full-body OBJ UV coordinates are missing.")
-              mesh.apply_transform(trimesh.transformations.rotation_matrix(math.pi, [0, 1, 0]))
-              mat = trimesh.visual.material.PBRMaterial(
-                  name="Lam TripoSR full-body baked texture",
-                  baseColorTexture=texture.copy(),
-                  metallicFactor=0.0,
-                  roughnessFactor=0.85,
-                  alphaMode="OPAQUE",
-              )
-              mesh.visual = trimesh.visual.texture.TextureVisuals(uv=uv, material=mat)
-          out = "output/lam-triposr-fullbody-candidate.glb"
-          loaded.export(out)
-          check = trimesh.load(out, force="scene", process=False)
-          meshes = [g for g in check.geometry.values() if isinstance(g, trimesh.Trimesh)]
-          if not meshes:
-              raise SystemExit("GLB validation failed: no full-body mesh.")
-          vertices = sum(len(m.vertices) for m in meshes)
-          faces = sum(len(m.faces) for m in meshes)
-          sizes = []
-          for mesh in meshes:
-              mat = getattr(mesh.visual, "material", None)
-              img = getattr(mat, "baseColorTexture", None) if mat else None
-              sizes.append(list(img.size) if img is not None else None)
-          if vertices < 10000 or faces < 10000:
-              raise SystemExit("Full-body mesh below minimum geometry thresholds.")
-          if not all(size and size[0] >= 1024 and size[1] >= 1024 for size in sizes):
-              raise SystemExit("Embedded full-body texture missing or below 1024x1024: " + str(sizes))
-          if os.path.getsize(out) < 1024:
-              raise SystemExit("Full-body GLB file too small.")
-          print("FULLBODY_GLB_VALID=1")
-          print("GLB_BYTES=" + str(os.path.getsize(out)))
-          print("VERTICES=" + str(vertices))
-          print("FACES=" + str(faces))
-          print("BOUNDS=" + json.dumps(check.bounds.tolist() if check.bounds is not None else None))
-          print("EMBEDDED_TEXTURE_SIZES=" + json.dumps(sizes))
-          print("ORIENTATION_FIX=rotate_y_180_degrees")
-          PY
+          python .github/scripts/refine_lam_fullbody.py
 
       - name: Upload full-body candidate only; never touch production avatar
         uses: actions/upload-artifact@v4
@@ -160,7 +106,11 @@ jobs:
           name: lam-triposr-fullbody-candidate
           path: |
             output/lam-fullbody-front-reference.png
+            output/lam-fullbody-front-mask.png
+            output/lam-fullbody-corrected-atlas.png
+            output/lam-fullbody-uv-coverage.png
             output/triposr-fullbody/
             output/lam-triposr-fullbody-candidate.glb
+            output/README-lam-fullbody-refined.txt
           if-no-files-found: error
           retention-days: 14
