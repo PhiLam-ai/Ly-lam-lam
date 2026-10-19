@@ -159,20 +159,23 @@ jobs:
                   print("HUNYUAN_VIEW_"+name.upper()+"_SIZE="+str(canvas.size))
               print("Connecting to Hunyuan3D shape-only API with 3 generated views; no production file will be changed.")
               client = Client("tencent/Hunyuan3D-2", verbose=True)
+              # Use the source portrait as the only front view. The InstantMesh
+              # turntable contains a flat source-derived mesh and must not be reused
+              # as multi-view geometry guidance.
               result = client.predict(
-                  caption="Realistic 3D female head and shoulders, long dark hair, natural face, preserve the supplied multi-view identity",
+                  caption="Realistic volumetric 3D female head and shoulders bust, long dark hair, natural face, sculpted skull depth, rounded cranium and jaw, preserve the supplied identity",
                   image=handle_file("lam-face-preprocessed.webp"),
-                  mv_image_front=handle_file("lam-hunyuan-view-front.png"),
+                  mv_image_front=handle_file("lam-face-preprocessed.webp"),
                   mv_image_back=None,
-                  mv_image_left=handle_file("lam-hunyuan-view-left.png"),
-                  mv_image_right=handle_file("lam-hunyuan-view-right.png"),
-                  steps=30,
+                  mv_image_left=None,
+                  mv_image_right=None,
+                  steps=35,
                   guidance_scale=5.0,
                   seed=1510,
                   octree_resolution=256,
                   check_box_rembg=True,
                   num_chunks=8000,
-                  randomize_seed=True,
+                  randomize_seed=False,
                   api_name="/shape_generation",
               )
               print("HUNYUAN_MV_RESULT="+json.dumps(result, default=str)[:3000])
@@ -186,15 +189,15 @@ jobs:
                       if isinstance(val, str):
                           path = val; break
               if path and os.path.isfile(path):
-                  shutil.copy2(path, "lam-head-hunyuan-multiview.glb")
-                  with open("lam-head-hunyuan-multiview.glb", "rb") as model:
+                  shutil.copy2(path, "lam-head-hunyuan-singleview.glb")
+                  with open("lam-head-hunyuan-singleview.glb", "rb") as model:
                       header = model.read(4)
-                  size = os.path.getsize("lam-head-hunyuan-multiview.glb")
+                  size = os.path.getsize("lam-head-hunyuan-singleview.glb")
                   if header == b"glTF" and size > 1024:
                       print("HUNYUAN_MULTIVIEW_GLB_CREATED=PASS")
                       print("HUNYUAN_MULTIVIEW_GLB_BYTES="+str(size))
                   else:
-                      os.remove("lam-head-hunyuan-multiview.glb")
+                      os.remove("lam-head-hunyuan-singleview.glb")
                       print("HUNYUAN_MULTIVIEW_GLB_CREATED=FAIL_INVALID_FILE")
               else:
                   print("HUNYUAN_MULTIVIEW_GLB_CREATED=NO_FILE_RETURNED")
@@ -424,7 +427,7 @@ jobs:
           name: lam-head-3d-candidate
           path: |
             lam-head-candidate-colored.glb
-            lam-head-hunyuan-multiview.glb
+            lam-head-hunyuan-singleview.glb
             lam-hunyuan-view-front.png
             lam-hunyuan-view-left.png
             lam-hunyuan-view-right.png
