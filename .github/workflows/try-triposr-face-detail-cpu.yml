@@ -84,12 +84,7 @@ jobs:
 
       - name: Standardize glTF axes and pad face-detail texture islands
         run: |
-          python .github/scripts/refine_lam_triposr_mesh.py \\
-            --mesh-dir output/triposr-face-detail/0 \\
-            --output output/lam-triposr-face-detail-candidate.glb \\
-            --label "Lam TripoSR face-detail candidate" \\
-            --minimum-vertices 10000 --minimum-faces 10000 \\
-            --atlas-output output/lam-face-detail-padded-atlas.png
+          python .github/scripts/refine_lam_triposr_mesh.py --mesh-dir output/triposr-face-detail/0 --output output/lam-triposr-face-detail-candidate.glb --label "Lam TripoSR face-detail candidate" --minimum-vertices 10000 --minimum-faces 10000 --atlas-output output/lam-face-detail-padded-atlas.png
 
       - name: Upload detailed-head candidate only; never touch production avatar
         uses: actions/upload-artifact@v4
