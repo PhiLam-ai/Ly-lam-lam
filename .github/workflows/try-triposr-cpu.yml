@@ -44,14 +44,25 @@ jobs:
           git clone --depth 1 https://github.com/VAST-AI-Research/TripoSR.git /tmp/TripoSR
           python -m pip install --upgrade pip wheel setuptools
           # Pin a mature CPU PyTorch/NumPy pair compatible with this older TripoSR codebase.
-          python -m pip install "numpy<2" cmake ninja scikit-build-core "huggingface-hub==0.25.2"
+          python -m pip install "numpy<2" "cmake<4" ninja scikit-build-core pybind11 "huggingface-hub==0.25.2"
           python -m pip install torch==2.2.2 torchvision==0.17.2 --index-url https://download.pytorch.org/whl/cpu
           # Build torchmcubes without build isolation so its build can see the installed PyTorch.
           # Gradio is not needed by run.py; omit it to reduce unrelated dependency conflicts.
           grep -vE 'torchmcubes|^gradio' /tmp/TripoSR/requirements.txt > /tmp/triposr-requirements.txt
           python -m pip install -r /tmp/triposr-requirements.txt
+          # Some unconstrained transitive packages select NumPy 2/OpenCV 5; restore
+          # the compatible NumPy 1.x + OpenCV 4 pair after installing TripoSR deps.
+          python -m pip install "numpy==1.26.4" "opencv-python-headless==4.10.0.84" "huggingface-hub==0.25.2" pybind11
+          export CMAKE_PREFIX_PATH="$(python -m pybind11 --cmakedir):${CMAKE_PREFIX_PATH:-}"
           python -m pip install --no-build-isolation git+https://github.com/tatsy/torchmcubes.git
           python -m pip install trimesh pillow pygltflib
+          python - <<'PY'
+          import numpy, torch, cv2, transformers
+          print("NUMPY_VERSION=" + numpy.__version__)
+          print("TORCH_VERSION=" + torch.__version__)
+          print("OPENCV_VERSION=" + cv2.__version__)
+          print("TRANSFORMERS_VERSION=" + transformers.__version__)
+          PY
 
       - name: Generate a real volumetric mesh on CPU
         run: |
